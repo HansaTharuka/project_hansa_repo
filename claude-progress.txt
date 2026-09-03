@@ -1,0 +1,14 @@
+=== Session 0 ===
+date: 2026-09-03T00:00:00Z
+mode: full
+groups_completed: []
+groups_remaining: [A, B, C, D, E, F, G, H]
+current_group: none
+current_stories: []
+sprint_contract: none
+last_commit: none
+features_passing: 0 / 207
+coverage: 0%
+learned_rules: 0
+blocked_stories: none
+next_action: Begin autonomous build with /auto --mode full

@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>E6-S5 — Holdings &amp; drift (customer dashboard) — WealthWise</title>
+<!--
+  Mockup: E6-S5 Holdings and drift UI view — the customer dashboard.
+  This is the ONE screen that demonstrates a responsive breakpoint (BRD §5.3, §12):
+  desktop table >= 769px, stacked card list <= 768px. Full responsive coverage is out of scope for v1.
+
+  Aligned to specs/design/api-contracts.md §8.1 GET /api/holdings:
+    200 { as_of_date, total_value, threshold_bps, threshold_percent,
+          holdings[{ asset_class_id, asset_class_code, asset_class_name, current_value,
+                     current_percent, target_percent, drift_percent, exceeds_threshold }] }
+    A customer with no holdings gets 200 with "holdings": [] — not an error (E6-S4 AC5).
+  All money/percent values are fixed 2-decimal decimal strings (NFR-01).
+  exceeds_threshold is supplied by the API; the UI does not recompute the comparison.
+-->
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;background:#f4f4f5;color:#1b1b1f;line-height:1.45;font-size:15px}
+  header.app{background:#26262b;color:#f4f4f5;padding:12px 20px;display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+  header.app h1{font-size:16px;margin:0;font-weight:600}
+  header.app .role{font-size:12px;color:#b9b9c0}
+  nav.app{margin-left:auto;display:flex;gap:14px;flex-wrap:wrap}
+  nav.app a{color:#d6d6da;text-decoration:none;font-size:13px;border-bottom:1px solid transparent;padding-bottom:2px}
+  nav.app a:hover,nav.app a:focus{color:#fff;border-bottom-color:#fff}
+  nav.app a[aria-current="page"]{color:#fff;border-bottom-color:#fff}
+  main{max-width:1080px;margin:0 auto;padding:24px 20px 64px}
+  h2{font-size:20px;margin:0 0 4px}
+  .sub{color:#5c5c66;font-size:13px;margin:0 0 20px}
+  section.panel{background:#fff;border:1px solid #d6d6da;border-radius:4px;padding:18px;margin-bottom:20px}
+  section.panel>h3{margin:0 0 12px;font-size:15px}
+  .api{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:11px;color:#3d3d47;background:#ececee;border:1px solid #d6d6da;border-radius:3px;padding:1px 5px;display:inline-block}
+  dl.summary{display:flex;gap:26px;flex-wrap:wrap;margin:0}
+  dl.summary div{min-width:140px}
+  dl.summary dt{color:#5c5c66;font-size:12px;text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px}
+  dl.summary dd{margin:0;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:17px}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th,td{text-align:left;padding:9px 10px;border-bottom:1px solid #e4e4e7}
+  th{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:#5c5c66;background:#fafafa;white-space:nowrap}
+  td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;font-family:ui-monospace,SFMono-Regular,Consolas,monospace}
+  tr[data-breach="true"]{background:#fdf5f0}
+  tr[data-breach="true"] td.num.drift{color:#8a4a1e;font-weight:700}
+  tfoot td{font-weight:700;border-top:2px solid #26262b;border-bottom:none;background:#fafafa}
+  .flag{display:inline-block;font-size:11px;border:1px solid #d1a97f;background:#fbf0e4;color:#7d4a12;border-radius:10px;padding:1px 8px;white-space:nowrap}
+  .flag.ok{border-color:#b9b9c0;background:#f4f4f5;color:#4a4a55}
+  code.mono{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12px}
+  button{font:inherit;font-size:14px;padding:8px 14px;border:1px solid #26262b;background:#26262b;color:#fff;border-radius:3px;cursor:pointer}
+  button.secondary{background:#fff;color:#26262b;border-color:#b9b9c0}
+  button:focus{outline:2px solid #2b5d8a;outline-offset:1px}
+  .statebar{background:#e9e9ec;border-bottom:1px solid #d6d6da;padding:8px 20px;font-size:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .statebar span{color:#5c5c66;margin-right:4px}
+  .statebar button{font-size:12px;padding:4px 9px}
+  .empty{padding:34px 18px;text-align:center;color:#3d3d47;font-size:14px}
+  .errbox{background:#fbeeee;border:1px solid #d9b3b3;color:#7d2626;border-radius:3px;padding:12px 14px;font-size:13px}
+  .cards{display:none}
+  .card{border:1px solid #d6d6da;border-radius:4px;padding:12px 14px;margin-bottom:12px;background:#fff}
+  .card[data-breach="true"]{border-color:#d1a97f;background:#fdf5f0}
+  .card h4{margin:0 0 2px;font-size:15px}
+  .card .code{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:11px;color:#5c5c66}
+  .card dl{display:grid;grid-template-columns:1fr 1fr;gap:8px 12px;margin:10px 0 0}
+  .card dt{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#5c5c66}
+  .card dd{margin:0;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:14px}
+  .bp-note{font-size:12px;color:#5c5c66;margin:0 0 16px;border-left:3px solid #b9b9c0;padding-left:10px}
+
+  /* ---- Responsive breakpoint: the one required by BRD §5.3 ---- */
+  @media (max-width: 768px) {
+    header.app{padding:10px 14px}
+    nav.app{margin-left:0;width:100%;gap:12px}
+    main{padding:16px 14px 48px}
+    dl.summary{gap:14px}
+    dl.summary div{min-width:0;flex:1 1 44%}
+    dl.summary dd{font-size:15px}
+    .tablewrap{display:none}      /* table hidden on narrow viewports */
+    .cards{display:block}         /* stacked cards shown instead */
+    section.panel{padding:14px}
+  }
+</style>
+</head>
+<body>
+<header class="app">
+  <h1>WealthWise</h1>
+  <span class="role">Signed in as customer03@wealthwise.test — <code style="font-size:12px">role: customer</code></span>
+  <nav class="app" aria-label="Primary">
+    <a href="#" aria-current="page">Dashboard</a>
+    <a href="E4-S4.html">Risk profile</a>
+    <a href="E5-S4.html">Allocation</a>
+    <a href="E7-S5.html">Goals</a>
+    <a href="E8-S4.html">Rebalancing</a>
+  </nav>
+</header>
+
+<div class="statebar" role="group" aria-label="Mockup state controls">
+  <span>Mockup state:</span>
+  <button type="button" class="secondary" onclick="setState('data')">Show holdings</button>
+  <button type="button" class="secondary" onclick="setState('empty')">Show empty state (holdings: [])</button>
+  <button type="button" class="secondary" onclick="setState('error')">Show error state (500 INTERNAL_ERROR)</button>
+  <span style="margin-left:auto" id="vp">viewport: —</span>
+</div>
+
+<main>
+  <h2>Holdings &amp; drift</h2>
+  <p class="sub">Your current positions against your target allocation, valued at the latest NAV snapshot. <span class="api">GET /api/holdings</span></p>
+  <p class="bp-note">Responsive screen (BRD §5.3): the table below collapses to a stacked card list at viewport widths of 768px and under. Resize the window to see it switch.</p>
+
+  <!-- ============ POPULATED ============ -->
+  <div id="view-data">
+    <section class="panel">
+      <h3>Portfolio summary</h3>
+      <dl class="summary">
+        <div><dt>total_value</dt><dd id="s-total">—</dd></div>
+        <div><dt>as_of_date</dt><dd id="s-asof">—</dd></div>
+        <div><dt>threshold_bps</dt><dd id="s-threshold-bps">—</dd></div>
+        <div><dt>threshold_percent</dt><dd id="s-threshold-pct">—</dd></div>
+        <div><dt>exceeds_threshold</dt><dd id="s-breaches">—</dd></div>
+      </dl>
+      <p class="sub" style="margin:14px 0 0">A holding is out of tolerance when the API sets <code class="mono">exceeds_threshold: true</code> — that is, <code class="mono">|drift_percent|</code> exceeds <code class="mono">threshold_percent</code>. Out-of-tolerance rows are shaded and flagged (E6-S5 AC2).</p>
+    </section>
+
+    <section class="panel">
+      <h3>By asset class</h3>
+
+      <div class="tablewrap">
+        <table>
+          <caption class="sub" style="text-align:left;margin-bottom:8px"><code class="mono">holdings</code> — array of <code class="mono">{ asset_class_id, asset_class_code, asset_class_name, current_value, current_percent, target_percent, drift_percent, exceeds_threshold }</code></caption>
+          <thead>
+            <tr>
+              <th scope="col">asset_class_code</th>
+              <th scope="col">asset_class_name</th>
+              <th scope="col" class="num">current_value</th>
+              <th scope="col" class="num">current_percent</th>
+              <th scope="col" class="num">target_percent</th>
+              <th scope="col" class="num">drift_percent</th>
+              <th scope="col">exceeds_threshold</th>
+            </tr>
+          </thead>
+          <tbody id="rows"></tbody>
+          <tfoot>
+            <tr>
+              <td colspan="2">total_value</td>
+              <td class="num" id="t-value">—</td>
+              <td class="num" id="t-current">—</td>
+              <td class="num" id="t-target">—</td>
+              <td class="num"></td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      <div class="cards" id="cards" aria-label="Holdings, narrow-viewport layout"></div>
+    </section>
+  </div>
+
+  <!-- ============ EMPTY ============ -->
+  <div id="view-empty" hidden>
+    <section class="panel">
+      <div class="empty">
+        <p><strong>You have no holdings yet.</strong></p>
+        <p>The API returned <code class="mono">200</code> with <code class="mono">"holdings": []</code> — an empty portfolio is not an error (E6-S4 AC5, E6-S5 AC3). Once positions are recorded, each asset class will appear here with its <code class="mono">current_value</code>, <code class="mono">current_percent</code>, <code class="mono">target_percent</code> and <code class="mono">drift_percent</code>.</p>
+        <p style="margin-top:16px"><a href="E5-S4.html"><button type="button" title="GET /api/recommendation">View my recommended allocation</button></a></p>
+        <p><span class="api" aria-hidden="true">GET /api/recommendation</span></p>
+      </div>
+    </section>
+  </div>
+
+  <!-- ============ ERROR ============ -->
+  <div id="view-error" hidden>
+    <section class="panel">
+      <div class="errbox" role="alert">
+        <strong>500 <code class="mono">INTERNAL_ERROR</code></strong> — holdings could not be loaded. No partial or stale valuation is shown. A correlation id is returned for log lookup.
+        <p style="margin:10px 0 0"><button type="button" class="secondary" onclick="setState('data')" title="GET /api/holdings">Retry</button> <span class="api" aria-hidden="true">GET /api/holdings</span></p>
+      </div>
+    </section>
+  </div>
+</main>
+
+<script>
+  // GET /api/holdings response, verbatim shape.
+  var RESPONSE = {
+    as_of_date: "2026-09-04",
+    total_value: "148387.40",
+    threshold_bps: 500,
+    threshold_percent: "5.00",
+    holdings: [
+      { asset_class_id: 1, asset_class_code: "EQ_DM",   asset_class_name: "Developed-Market Equity", current_value: "68420.50", current_percent: "46.11", target_percent: "40.00", drift_percent: "6.11",  exceeds_threshold: true  },
+      { asset_class_id: 2, asset_class_code: "EQ_EM",   asset_class_name: "Emerging-Market Equity",  current_value: "16104.75", current_percent: "10.85", target_percent: "12.00", drift_percent: "-1.15", exceeds_threshold: false },
+      { asset_class_id: 3, asset_class_code: "FI_GOV",  asset_class_name: "Government Fixed Income", current_value: "30215.00", current_percent: "20.36", target_percent: "25.00", drift_percent: "-4.64", exceeds_threshold: false },
+      { asset_class_id: 4, asset_class_code: "FI_CORP", asset_class_name: "Corporate Fixed Income",  current_value: "20890.25", current_percent: "14.08", target_percent: "15.00", drift_percent: "-0.92", exceeds_threshold: false },
+      { asset_class_id: 5, asset_class_code: "REIT",    asset_class_name: "Listed Real Estate",      current_value: "7043.00",  current_percent: "4.75",  target_percent: "5.00",  drift_percent: "-0.25", exceeds_threshold: false },
+      { asset_class_id: 6, asset_class_code: "CASH",    asset_class_name: "Cash",                    current_value: "5713.90",  current_percent: "3.85",  target_percent: "3.00",  drift_percent: "0.85",  exceeds_threshold: false }
+    ]
+  };
+
+  function fixed2(hundredths) {
+    var whole = Math.floor(Math.abs(hundredths) / 100);
+    var frac = String(Math.abs(hundredths) % 100).padStart(2, "0");
+    return (hundredths < 0 ? "-" : "") + whole + "." + frac;
+  }
+
+  function group(s) {
+    var parts = String(s).split(".");
+    return parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",") + "." + (parts[1] || "00");
+  }
+
+  function render() {
+    var rows = document.getElementById("rows");
+    var cards = document.getElementById("cards");
+    rows.innerHTML = "";
+    cards.innerHTML = "";
+
+    // Percent columns are summed as integer hundredths — fixed-point, never floating-point (NFR-01)
+    var totalCurrent = 0, totalTarget = 0, breaches = 0;
+
+    RESPONSE.holdings.forEach(function (h) {
+      if (h.exceeds_threshold) { breaches += 1; }
+      totalCurrent += Math.round(Number(h.current_percent) * 100);
+      totalTarget += Math.round(Number(h.target_percent) * 100);
+
+      var flag = h.exceeds_threshold
+        ? '<span class="flag">true — out of tolerance</span>'
+        : '<span class="flag ok">false</span>';
+
+      var tr = document.createElement("tr");
+      tr.setAttribute("data-breach", String(h.exceeds_threshold));
+      tr.innerHTML =
+        '<td><code class="mono">' + h.asset_class_code + '</code></td>' +
+        '<td>' + h.asset_class_name + '</td>' +
+        '<td class="num">' + group(h.current_value) + '</td>' +
+        '<td class="num">' + h.current_percent + '</td>' +
+        '<td class="num">' + h.target_percent + '</td>' +
+        '<td class="num drift">' + h.drift_percent + '</td>' +
+        '<td>' + flag + '</td>';
+      rows.appendChild(tr);
+
+      var card = document.createElement("article");
+      card.className = "card";
+      card.setAttribute("data-breach", String(h.exceeds_threshold));
+      card.innerHTML =
+        '<h4>' + h.asset_class_name + ' ' + flag + '</h4>' +
+        '<div class="code">' + h.asset_class_code + '</div>' +
+        '<dl>' +
+          '<div><dt>current_value</dt><dd>' + group(h.current_value) + '</dd></div>' +
+          '<div><dt>current_percent</dt><dd>' + h.current_percent + '</dd></div>' +
+          '<div><dt>target_percent</dt><dd>' + h.target_percent + '</dd></div>' +
+          '<div><dt>drift_percent</dt><dd>' + h.drift_percent + '</dd></div>' +
+        '</dl>';
+      cards.appendChild(card);
+    });
+
+    document.getElementById("t-value").textContent = group(RESPONSE.total_value);
+    document.getElementById("t-current").textContent = fixed2(totalCurrent);
+    document.getElementById("t-target").textContent = fixed2(totalTarget);
+    document.getElementById("s-total").textContent = group(RESPONSE.total_value);
+    document.getElementById("s-asof").textContent = RESPONSE.as_of_date;
+    document.getElementById("s-threshold-bps").textContent = RESPONSE.threshold_bps;
+    document.getElementById("s-threshold-pct").textContent = RESPONSE.threshold_percent;
+    document.getElementById("s-breaches").textContent = breaches + " of " + RESPONSE.holdings.length;
+  }
+
+  function setState(name) {
+    document.getElementById("view-data").hidden = (name !== "data");
+    document.getElementById("view-empty").hidden = (name !== "empty");
+    document.getElementById("view-error").hidden = (name !== "error");
+  }
+
+  function showViewport() {
+    var w = window.innerWidth;
+    document.getElementById("vp").textContent =
+      "viewport: " + w + "px — " + (w <= 768 ? "card layout" : "table layout");
+  }
+  window.addEventListener("resize", showViewport);
+
+  render();
+  showViewport();
+</script>
+</body>
+</html>

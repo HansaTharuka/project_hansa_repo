@@ -1,0 +1,1718 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "WealthWise API",
+    "version": "1.0.0",
+    "description": "Robo-Advisory & Portfolio Recommendation Platform (BC-AINE-008). Machine-readable companion to specs/design/api-contracts.md. Money and percentage values are transported as fixed-scale decimal STRINGS, never JSON numbers, per NFR-01. No endpoint is rate limited (out of scope per BRD 5.2)."
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8000",
+      "description": "Local development server (project-manifest.json evaluation.api_base_url)"
+    }
+  ],
+  "tags": [
+    { "name": "system", "description": "Health and liveness" },
+    { "name": "auth", "description": "Login and session" },
+    { "name": "risk-profile", "description": "Customer risk profiling (AC-01)" },
+    { "name": "recommendation", "description": "Allocation recommendation (AC-02, AC-04)" },
+    { "name": "holdings", "description": "Holdings and drift (AC-05)" },
+    { "name": "goals", "description": "Goals and progress (AC-03, AC-08)" },
+    { "name": "rebalancing", "description": "Rebalancing recommendations (AC-06, AC-07)" },
+    { "name": "advisor", "description": "Advisor workflows (AC-09)" },
+    { "name": "admin", "description": "Admin console and versioned publishing (AC-10)" },
+    { "name": "audit", "description": "Compliance audit trail (NFR-02)" }
+  ],
+  "security": [{ "bearerAuth": [] }],
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": ["system"],
+        "operationId": "getHealth",
+        "summary": "Health check",
+        "description": "Public. Returns 200 within 1 second of successful startup (NFR-07). Story E1-S4.",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Application healthy",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/HealthResponse" },
+                "example": { "status": "ok", "database": "connected", "version": "1.0.0" }
+              }
+            }
+          },
+          "503": {
+            "description": "Database connectivity probe failed",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/HealthResponse" },
+                "example": { "status": "degraded", "database": "unavailable", "version": "1.0.0" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "tags": ["auth"],
+        "operationId": "login",
+        "summary": "Authenticate and receive a JWT access token",
+        "description": "Public. Single 60-minute access token, no refresh flow. Story E2-S2.",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/LoginRequest" },
+              "example": { "email": "customer03@wealthwise.test", "password": "Passw0rd!demo" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Authenticated",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/LoginResponse" },
+                "example": { "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.payload.sig", "token_type": "bearer", "role": "customer", "expires_in": 3600 }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid credentials - unknown email and wrong password are indistinguishable (E2-S1 AC2)",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+                "example": { "error": { "code": "INVALID_CREDENTIALS", "message": "Invalid email or password." } }
+              }
+            }
+          },
+          "422": { "$ref": "#/components/responses/ValidationError" }
+        }
+      }
+    },
+    "/api/auth/me": {
+      "get": {
+        "tags": ["auth"],
+        "operationId": "getCurrentUser",
+        "summary": "Current session identity",
+        "description": "Any authenticated role. Used by the SPA to restore a session after page refresh (E2-S3 AC5).",
+        "responses": {
+          "200": {
+            "description": "Session identity",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/MeResponse" },
+                "example": { "user_id": 3, "email": "customer03@wealthwise.test", "role": "customer", "customer_id": 3 }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/risk-profile/questionnaire": {
+      "get": {
+        "tags": ["risk-profile"],
+        "operationId": "getQuestionnaire",
+        "summary": "Active questionnaire for the customer to answer",
+        "description": "Customer role only. Option point values are deliberately omitted. Stories E4-S3, E4-S4.",
+        "responses": {
+          "200": {
+            "description": "Active questionnaire (at least 6 questions)",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/QuestionnaireResponse" },
+                "example": { "rule_version": 1, "questions": [ { "question_id": "Q1", "text": "What is your investment time horizon?", "options": [ { "value": "lt_3y", "label": "Less than 3 years" }, { "value": "3_7y", "label": "3 to 7 years" }, { "value": "gt_7y", "label": "More than 7 years" } ] } ] }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/risk-profile/submit": {
+      "post": {
+        "tags": ["risk-profile"],
+        "operationId": "submitRiskProfile",
+        "summary": "Submit questionnaire answers and receive a deterministic risk band",
+        "description": "Customer role only. Append-only: inserts RiskProfileAnswer rows plus a new RiskBandAssignment and one AuditLogEntry. Stories E4-S2, E4-S3. AC-01.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/RiskProfileSubmitRequest" },
+              "example": { "answers": [ { "question_id": "Q1", "answer_value": "gt_7y" }, { "question_id": "Q2", "answer_value": "high" } ] }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Risk band assigned",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/RiskBandAssignmentResponse" },
+                "example": { "assignment_id": 12, "risk_band": "MODERATE", "rule_version": 1, "assigned_at": "2026-09-03T10:15:00Z" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "422": {
+            "description": "Incomplete or invalid answer set - nothing is written (E4-S3 AC2)",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+                "example": { "error": { "code": "INCOMPLETE_QUESTIONNAIRE", "message": "All questions must be answered.", "details": { "missing_question_ids": ["Q5", "Q6"] } } }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/risk-profile/latest": {
+      "get": {
+        "tags": ["risk-profile"],
+        "operationId": "getLatestRiskBand",
+        "summary": "Most recent risk-band assignment for the authenticated customer",
+        "description": "Customer role only. Story E4-S3 AC4.",
+        "responses": {
+          "200": {
+            "description": "Latest assignment",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/RiskBandAssignment" },
+                "example": { "assignment_id": 12, "customer_id": 3, "risk_band": "MODERATE", "rule_version": 1, "assigned_at": "2026-09-03T10:15:00Z" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": {
+            "description": "No risk-band assignment exists for this customer",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+                "example": { "error": { "code": "NO_RISK_BAND_ASSIGNMENT", "message": "No risk band has been assigned yet." } }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/recommendation": {
+      "get": {
+        "tags": ["recommendation"],
+        "operationId": "getRecommendation",
+        "summary": "Recommended asset allocation for the authenticated customer",
+        "description": "Customer role only. Percentages always sum to exactly 100 (AC-02). Response carries template_version for AC-10 traceability. Stories E5-S2, E5-S3.",
+        "parameters": [
+          {
+            "name": "goal_id",
+            "in": "query",
+            "required": false,
+            "description": "Select the horizon from a specific goal. Omitted: the highest-priority goal supplies the horizon; with no goals, horizon defaults to MEDIUM.",
+            "schema": { "type": "integer", "minimum": 1 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Recommended allocation",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/RecommendationResponse" },
+                "example": { "risk_band": "MODERATE", "rule_version": 1, "template_version": 2, "horizon": "LONG", "allocations": [ { "asset_class_id": 1, "asset_class_code": "EQ_DM", "asset_class_name": "Developed-Market Equity", "percent": "40.00" }, { "asset_class_id": 2, "asset_class_code": "FI_GOV", "asset_class_name": "Government Fixed Income", "percent": "35.00" }, { "asset_class_id": 3, "asset_class_code": "CASH", "asset_class_name": "Cash", "percent": "25.00" } ], "total_percent": "100.00", "generated_at": "2026-09-03T10:20:00Z" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": {
+            "description": "No risk-band assignment, unknown goal, or no active template. No fallback allocation is returned (E5-S3 AC2).",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+                "example": { "error": { "code": "NO_RISK_BAND_ASSIGNMENT", "message": "Complete the risk-profile questionnaire first." } }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/holdings": {
+      "get": {
+        "tags": ["holdings"],
+        "operationId": "getHoldings",
+        "summary": "Current holdings with per-asset-class drift",
+        "description": "Customer role only. Drift is computed on read, never stored. Zero holdings returns 200 with an empty list (E6-S4 AC5). Stories E6-S3, E6-S4. AC-05.",
+        "responses": {
+          "200": {
+            "description": "Holdings and drift",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/HoldingsResponse" },
+                "example": { "as_of_date": "2026-09-04", "total_value": "100000.00", "threshold_bps": 500, "threshold_percent": "5.00", "holdings": [ { "asset_class_id": 1, "asset_class_code": "EQ_DM", "asset_class_name": "Developed-Market Equity", "current_value": "48200.00", "current_percent": "48.20", "target_percent": "40.00", "drift_percent": "8.20", "exceeds_threshold": true }, { "asset_class_id": 3, "asset_class_code": "CASH", "asset_class_name": "Cash", "current_value": "51800.00", "current_percent": "51.80", "target_percent": "60.00", "drift_percent": "-8.20", "exceeds_threshold": true } ] }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      }
+    },
+    "/api/goals": {
+      "get": {
+        "tags": ["goals"],
+        "operationId": "listGoals",
+        "summary": "List the authenticated customer's goals",
+        "description": "Customer role only. Returns only this customer's goals; no parameter can widen the scope (E7-S4 AC3). AC-03.",
+        "responses": {
+          "200": {
+            "description": "Goals ordered by priority then target_date",
+            "content": {
+              "application/json": {
+                "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Goal" } },
+                "example": [ { "id": 7, "customer_id": 3, "target_amount": "250000.00", "target_date": "2032-06-30", "priority": 1, "created_at": "2026-09-01T09:30:00Z", "updated_at": "2026-09-01T09:30:00Z", "percent_complete": "25.00" } ]
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      },
+      "post": {
+        "tags": ["goals"],
+        "operationId": "createGoal",
+        "summary": "Create a financial goal",
+        "description": "Customer role only. customer_id comes from the token. Stories E7-S2, E7-S4. AC-03.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/GoalCreateRequest" },
+              "example": { "target_amount": "250000.00", "target_date": "2032-06-30", "priority": 1 }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Goal created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Goal" },
+                "example": { "id": 7, "customer_id": 3, "target_amount": "250000.00", "target_date": "2032-06-30", "priority": 1, "created_at": "2026-09-01T09:30:00Z", "updated_at": "2026-09-01T09:30:00Z", "percent_complete": null }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "422": {
+            "description": "target_amount <= 0, target_date in the past, or priority out of range",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+                "example": { "error": { "code": "VALIDATION_ERROR", "message": "target_amount must be greater than zero.", "details": { "field": "target_amount" } } }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/goals/{goal_id}": {
+      "parameters": [
+        { "name": "goal_id", "in": "path", "required": true, "schema": { "type": "integer", "minimum": 1 } }
+      ],
+      "patch": {
+        "tags": ["goals"],
+        "operationId": "updateGoal",
+        "summary": "Update a goal's mutable fields",
+        "description": "Customer role only. created_at is never altered (E7-S2 AC4). Another customer's goal returns 404 (E7-S2 AC5).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/GoalUpdateRequest" },
+              "example": { "priority": 3 }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated goal",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Goal" },
+                "example": { "id": 7, "customer_id": 3, "target_amount": "250000.00", "target_date": "2032-06-30", "priority": 3, "created_at": "2026-09-01T09:30:00Z", "updated_at": "2026-09-03T10:20:00Z", "percent_complete": "25.00" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "422": { "$ref": "#/components/responses/ValidationError" }
+        }
+      }
+    },
+    "/api/goals/{goal_id}/progress": {
+      "parameters": [
+        { "name": "goal_id", "in": "path", "required": true, "schema": { "type": "integer", "minimum": 1 } }
+      ],
+      "get": {
+        "tags": ["goals"],
+        "operationId": "getGoalProgress",
+        "summary": "Ordered GoalProgressSnapshot history for a goal",
+        "description": "Customer role only. Append-only history, oldest first. Stories E7-S3, E7-S4. AC-08.",
+        "responses": {
+          "200": {
+            "description": "Progress history",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/GoalProgressResponse" },
+                "example": { "goal_id": 7, "target_amount": "250000.00", "snapshots": [ { "id": 80, "current_value": "50000.00", "percent_complete": "20.00", "snapshot_at": "2026-09-03T10:30:00Z", "price_date": "2026-09-03" }, { "id": 88, "current_value": "62500.00", "percent_complete": "25.00", "snapshot_at": "2026-09-04T10:30:00Z", "price_date": "2026-09-04" } ] }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/rebalancing": {
+      "get": {
+        "tags": ["rebalancing"],
+        "operationId": "listRebalancingRecommendations",
+        "summary": "List the authenticated customer's rebalancing recommendations",
+        "description": "Customer role only. Defaults to status=pending. Story E8-S3 AC1. AC-06.",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": { "$ref": "#/components/schemas/RecommendationStatus" },
+            "description": "Defaults to pending."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Recommendations (empty array when none)",
+            "content": {
+              "application/json": {
+                "schema": { "type": "array", "items": { "$ref": "#/components/schemas/RebalancingRecommendation" } },
+                "example": [ { "recommendation_id": "b6f0c2a4-1d3e-4f58-9a71-0c2e5d8b7a10", "status": "pending", "generated_at": "2026-09-04T08:00:00Z", "resolved_at": null, "threshold_bps": 500, "proposed_actions": [ { "asset_class_id": 1, "asset_class_code": "EQ_DM", "action": "SELL", "amount": "3200.00", "units": "24.1600", "drift_percent": "8.20" }, { "asset_class_id": 3, "asset_class_code": "CASH", "action": "BUY", "amount": "3200.00", "units": "32.0000", "drift_percent": "-8.20" } ] } ]
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadQueryParameter" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      }
+    },
+    "/api/rebalancing/{recommendation_id}/accept": {
+      "parameters": [
+        { "name": "recommendation_id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" }, "description": "Public UUID identifier, not the internal row id." }
+      ],
+      "post": {
+        "tags": ["rebalancing"],
+        "operationId": "acceptRebalancingRecommendation",
+        "summary": "Accept a pending rebalancing recommendation",
+        "description": "Customer role only. One-shot transition; the row is never deleted. Story E8-S3 AC2. AC-07.",
+        "responses": {
+          "200": {
+            "description": "Accepted",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/RebalancingResolutionResponse" },
+                "example": { "recommendation_id": "b6f0c2a4-1d3e-4f58-9a71-0c2e5d8b7a10", "status": "accepted", "resolved_at": "2026-09-04T09:12:00Z" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": {
+            "description": "Already accepted or dismissed; resolved_at is unchanged (E8-S3 AC4)",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+                "example": { "error": { "code": "ALREADY_RESOLVED", "message": "This recommendation has already been resolved.", "details": { "status": "dismissed" } } }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/rebalancing/{recommendation_id}/dismiss": {
+      "parameters": [
+        { "name": "recommendation_id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+      ],
+      "post": {
+        "tags": ["rebalancing"],
+        "operationId": "dismissRebalancingRecommendation",
+        "summary": "Dismiss a pending rebalancing recommendation",
+        "description": "Customer role only. One-shot transition; the row is never deleted. Story E8-S3 AC3. AC-07.",
+        "responses": {
+          "200": {
+            "description": "Dismissed",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/RebalancingResolutionResponse" },
+                "example": { "recommendation_id": "b6f0c2a4-1d3e-4f58-9a71-0c2e5d8b7a10", "status": "dismissed", "resolved_at": "2026-09-04T09:14:00Z" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": { "$ref": "#/components/responses/Conflict" }
+        }
+      }
+    },
+    "/api/advisor/customers": {
+      "get": {
+        "tags": ["advisor"],
+        "operationId": "listAdvisorCustomers",
+        "summary": "List all customers with their current risk band",
+        "description": "Advisor role only. Story E9-S3 AC1.",
+        "responses": {
+          "200": {
+            "description": "Customer summaries",
+            "content": {
+              "application/json": {
+                "schema": { "type": "array", "items": { "$ref": "#/components/schemas/AdvisorCustomerSummary" } },
+                "example": [ { "customer_id": 3, "email": "customer03@wealthwise.test", "risk_band": "MODERATE", "kyc_verified": true, "total_value": "100000.00", "goal_count": 2 } ]
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      }
+    },
+    "/api/advisor/customers/{customer_id}": {
+      "parameters": [
+        { "name": "customer_id", "in": "path", "required": true, "schema": { "type": "integer", "minimum": 1 } }
+      ],
+      "get": {
+        "tags": ["advisor"],
+        "operationId": "getAdvisorCustomerDetail",
+        "summary": "Customer drill-in: holdings, goals, allocation, override history",
+        "description": "Advisor role only. Single call so the drill-in view needs no fan-out. Story E9-S3 AC2.",
+        "responses": {
+          "200": {
+            "description": "Customer portfolio detail",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AdvisorCustomerDetail" },
+                "example": { "customer_id": 3, "email": "customer03@wealthwise.test", "kyc_verified": true, "risk_band": "MODERATE", "rule_version": 1, "holdings": { "as_of_date": "2026-09-04", "total_value": "100000.00", "threshold_bps": 500, "threshold_percent": "5.00", "holdings": [] }, "goals": [], "allocation": { "risk_band": "MODERATE", "rule_version": 1, "template_version": 2, "horizon": "LONG", "allocations": [], "total_percent": "100.00", "generated_at": "2026-09-03T10:20:00Z" }, "override_history": [ { "id": 4, "customer_id": 3, "advisor_id": 11, "previous_band": "AGGRESSIVE", "new_band": "MODERATE", "reason": "Client reported imminent liquidity need", "note": null, "created_at": "2026-09-03T14:05:00Z" } ] }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/advisor/customers/{customer_id}/override": {
+      "parameters": [
+        { "name": "customer_id", "in": "path", "required": true, "schema": { "type": "integer", "minimum": 1 } }
+      ],
+      "post": {
+        "tags": ["advisor"],
+        "operationId": "overrideRiskBand",
+        "summary": "Override a customer's risk band with a mandatory reason",
+        "description": "Advisor role only. Inserts an AdvisorOverride AND a new RiskBandAssignment in one transaction, plus one AuditLogEntry. Stories E9-S1, E9-S2, E9-S3. AC-09.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/AdvisorOverrideRequest" },
+              "example": { "new_band": "CONSERVATIVE", "reason": "Client reported imminent liquidity need", "note": "Revisit after property sale completes." }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Override recorded and new band assigned",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AdvisorOverrideResponse" },
+                "example": { "override_id": 4, "customer_id": 3, "previous_band": "MODERATE", "new_band": "CONSERVATIVE", "reason": "Client reported imminent liquidity need", "note": "Revisit after property sale completes.", "created_at": "2026-09-03T14:05:00Z", "assignment_id": 13, "risk_band": "CONSERVATIVE" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": {
+            "description": "Customer has no prior RiskBandAssignment, so previous_band cannot be established",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+                "example": { "error": { "code": "NO_PRIOR_ASSIGNMENT", "message": "Customer has no risk-band assignment to override." } }
+              }
+            }
+          },
+          "422": {
+            "description": "Missing or empty reason - nothing is written (E9-S2 AC2)",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+                "example": { "error": { "code": "REASON_REQUIRED", "message": "A reason is required for a risk-band override.", "details": { "field": "reason" } } }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/advisor/customers/{customer_id}/manual-recommendation": {
+      "parameters": [
+        { "name": "customer_id", "in": "path", "required": true, "schema": { "type": "integer", "minimum": 1 } }
+      ],
+      "post": {
+        "tags": ["advisor"],
+        "operationId": "logManualRecommendation",
+        "summary": "Log a manual recommendation against a customer",
+        "description": "Advisor role only. Persisted as an AuditLogEntry with entity_type=ManualRecommendation - no separate table (system-design.md 6.4). Fields: customer_id (path), advisor_id (JWT sub), note (required), created_at (server). Story E9-S3 AC4.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ManualRecommendationRequest" },
+              "example": { "note": "Recommended increasing cash weighting ahead of the client's Q4 liquidity need." }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Manual recommendation logged",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ManualRecommendationResponse" },
+                "example": { "audit_entry_id": 512, "customer_id": 3, "advisor_id": 11, "note": "Recommended increasing cash weighting ahead of the client's Q4 liquidity need.", "created_at": "2026-09-03T14:10:00Z" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "422": {
+            "description": "note missing, empty, whitespace-only, or longer than 2000 characters",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+                "example": { "error": { "code": "NOTE_REQUIRED", "message": "A note is required.", "details": { "field": "note" } } }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/advance-day": {
+      "post": {
+        "tags": ["admin"],
+        "operationId": "advanceDay",
+        "summary": "Advance the simulated price feed by one day",
+        "description": "Admin role only. Manual trigger; no scheduler. Single transaction: NAV insert, holding revaluation, drift, goal snapshots, rebalancing evaluation. Stories E6-S2, E6-S4, E7-S3, E8-S2.",
+        "responses": {
+          "200": {
+            "description": "Day advanced",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AdvanceDayResponse" },
+                "example": { "price_date": "2026-09-04", "nav_snapshots_created": 6, "holdings_revalued": 24, "goal_snapshots_created": 12, "rebalancing_recommendations_created": 3 }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "409": {
+            "description": "The simulated day has already been advanced; no duplicate NAV rows (E6-S4 AC4)",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+                "example": { "error": { "code": "DAY_ALREADY_ADVANCED", "message": "The simulated day has already been advanced.", "details": { "price_date": "2026-09-04" } } }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/risk-band-rules": {
+      "get": {
+        "tags": ["admin"],
+        "operationId": "listRiskBandRules",
+        "summary": "All RiskBandRule versions, active and superseded",
+        "description": "Admin role only. Includes option point values. Ordered by version ascending. Story E10-S4 AC5.",
+        "responses": {
+          "200": {
+            "description": "Version history",
+            "content": {
+              "application/json": {
+                "schema": { "type": "array", "items": { "$ref": "#/components/schemas/RiskBandRule" } },
+                "example": [ { "id": 1, "version": 1, "questionnaire_json": { "questions": [ { "question_id": "Q1", "text": "What is your investment time horizon?", "options": [ { "value": "lt_3y", "label": "Less than 3 years", "points": 1 } ] } ] }, "scoring_rules_json": { "bands": [ { "risk_band": "CONSERVATIVE", "min_points": 6, "max_points": 13 }, { "risk_band": "MODERATE", "min_points": 14, "max_points": 22 }, { "risk_band": "AGGRESSIVE", "min_points": 23, "max_points": 30 } ] }, "published_at": "2026-09-01T09:00:00Z", "is_active": true } ]
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      },
+      "post": {
+        "tags": ["admin"],
+        "operationId": "publishRiskBandRule",
+        "summary": "Publish a new immutable RiskBandRule version",
+        "description": "Admin role only. version is server-assigned as max(version)+1. Prior active row is deactivated. Stories E10-S1, E10-S2, E10-S3. AC-10.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/RiskBandRulePublishRequest" },
+              "example": { "questionnaire_json": { "questions": [ { "question_id": "Q1", "text": "What is your investment time horizon?", "options": [ { "value": "lt_3y", "label": "Less than 3 years", "points": 1 }, { "value": "gt_7y", "label": "More than 7 years", "points": 5 } ] } ] }, "scoring_rules_json": { "bands": [ { "risk_band": "CONSERVATIVE", "min_points": 6, "max_points": 13 }, { "risk_band": "MODERATE", "min_points": 14, "max_points": 22 }, { "risk_band": "AGGRESSIVE", "min_points": 23, "max_points": 30 } ] } }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "New version published",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/PublishedVersionResponse" },
+                "example": { "id": 2, "version": 2, "published_at": "2026-09-03T12:00:00Z", "is_active": true }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "409": { "$ref": "#/components/responses/VersionConflict" },
+          "422": {
+            "description": "Fewer than 6 questions, or invalid scoring bands",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+                "example": { "error": { "code": "QUESTIONNAIRE_TOO_SHORT", "message": "A questionnaire must contain at least 6 questions.", "details": { "question_count": 4 } } }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/allocation-templates": {
+      "get": {
+        "tags": ["admin"],
+        "operationId": "listAllocationTemplates",
+        "summary": "All AllocationTemplate versions, active and superseded",
+        "description": "Admin role only. Ordered by risk_band then version ascending. Superseded versions remain fully queryable, supporting in-flight pinning. Story E10-S3 AC5.",
+        "parameters": [
+          {
+            "name": "risk_band",
+            "in": "query",
+            "required": false,
+            "schema": { "$ref": "#/components/schemas/RiskBand" },
+            "description": "Omitted: all bands."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Template version history",
+            "content": {
+              "application/json": {
+                "schema": { "type": "array", "items": { "$ref": "#/components/schemas/AllocationTemplate" } },
+                "example": [ { "id": 3, "version": 1, "risk_band": "CONSERVATIVE", "allocations": [ { "asset_class_id": 2, "asset_class_code": "FI_GOV", "percent": "70.00" }, { "asset_class_id": 3, "asset_class_code": "CASH", "percent": "30.00" } ], "total_percent": "100.00", "published_at": "2026-09-01T09:00:00Z", "is_active": false } ]
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadQueryParameter" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      },
+      "post": {
+        "tags": ["admin"],
+        "operationId": "publishAllocationTemplate",
+        "summary": "Publish a new immutable AllocationTemplate version",
+        "description": "Admin role only. Percentages must sum to exactly 100 (checked as 10000 basis points, no tolerance). version is server-assigned. Stories E5-S1, E10-S2, E10-S3. AC-02, AC-10.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/AllocationTemplatePublishRequest" },
+              "example": { "risk_band": "MODERATE", "allocations": [ { "asset_class_id": 1, "percent": "40.00" }, { "asset_class_id": 2, "percent": "35.00" }, { "asset_class_id": 3, "percent": "25.00" } ] }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "New template version published",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AllocationTemplatePublishResponse" },
+                "example": { "id": 7, "version": 3, "risk_band": "MODERATE", "total_percent": "100.00", "published_at": "2026-09-03T12:30:00Z", "is_active": true }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "409": { "$ref": "#/components/responses/VersionConflict" },
+          "422": {
+            "description": "Percentages do not sum to exactly 100, or an allocation entry is invalid. Nothing is written.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+                "example": { "error": { "code": "TEMPLATE_SUM_INVALID", "message": "Allocation percentages must sum to exactly 100.", "details": { "sum_bps": 9900 } } }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/asset-classes": {
+      "get": {
+        "tags": ["admin"],
+        "operationId": "listAssetClasses",
+        "summary": "List the asset-class master",
+        "description": "Admin role only. Ordered by code ascending. Story E10-S4 AC4.",
+        "responses": {
+          "200": {
+            "description": "Asset classes",
+            "content": {
+              "application/json": {
+                "schema": { "type": "array", "items": { "$ref": "#/components/schemas/AssetClass" } },
+                "example": [ { "id": 3, "code": "CASH", "name": "Cash" }, { "id": 1, "code": "EQ_DM", "name": "Developed-Market Equity" } ]
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      },
+      "post": {
+        "tags": ["admin"],
+        "operationId": "createAssetClass",
+        "summary": "Create an asset class",
+        "description": "Admin role only. Duplicate code returns 409. Stories E10-S2 AC5, E10-S3 AC3.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/AssetClassCreateRequest" },
+              "example": { "code": "EQ_EM", "name": "Emerging-Market Equity" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Asset class created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AssetClass" },
+                "example": { "id": 6, "code": "EQ_EM", "name": "Emerging-Market Equity" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "409": {
+            "description": "Duplicate asset-class code",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+                "example": { "error": { "code": "DUPLICATE_ASSET_CLASS_CODE", "message": "An asset class with this code already exists.", "details": { "code": "EQ_EM" } } }
+              }
+            }
+          },
+          "422": { "$ref": "#/components/responses/ValidationError" }
+        }
+      }
+    },
+    "/api/admin/asset-classes/{asset_class_id}": {
+      "parameters": [
+        { "name": "asset_class_id", "in": "path", "required": true, "schema": { "type": "integer", "minimum": 1 } }
+      ],
+      "patch": {
+        "tags": ["admin"],
+        "operationId": "updateAssetClass",
+        "summary": "Update an asset class's code or name",
+        "description": "Admin role only. Historical AllocationTemplate rows reference asset_class_id, so a rename never rewrites a published template (E10-S1 AC4). There is no delete endpoint.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/AssetClassUpdateRequest" },
+              "example": { "name": "Emerging-Market Equity (ex-China)" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated asset class",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AssetClass" },
+                "example": { "id": 6, "code": "EQ_EM", "name": "Emerging-Market Equity (ex-China)" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": { "$ref": "#/components/responses/Conflict" },
+          "422": { "$ref": "#/components/responses/ValidationError" }
+        }
+      }
+    },
+    "/api/admin/rebalancing-thresholds": {
+      "get": {
+        "tags": ["admin"],
+        "operationId": "listRebalancingThresholds",
+        "summary": "All RebalancingThreshold versions",
+        "description": "Admin role only. Resolves BRD 13 open question on threshold storage (system-design.md 6.1).",
+        "responses": {
+          "200": {
+            "description": "Threshold version history",
+            "content": {
+              "application/json": {
+                "schema": { "type": "array", "items": { "$ref": "#/components/schemas/RebalancingThreshold" } },
+                "example": [ { "id": 1, "version": 1, "threshold_bps": 500, "threshold_percent": "5.00", "published_at": "2026-09-01T09:00:00Z", "is_active": true } ]
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      },
+      "post": {
+        "tags": ["admin"],
+        "operationId": "publishRebalancingThreshold",
+        "summary": "Publish a new immutable drift-threshold version",
+        "description": "Admin role only. threshold_bps is an integer in basis points (500 = 5.00%) so the published value is exact (NFR-01). Existing pending recommendations are unaffected.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/RebalancingThresholdPublishRequest" },
+              "example": { "threshold_bps": 750 }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "New threshold version published",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/RebalancingThreshold" },
+                "example": { "id": 2, "version": 2, "threshold_bps": 750, "threshold_percent": "7.50", "published_at": "2026-09-03T13:00:00Z", "is_active": true }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "409": { "$ref": "#/components/responses/VersionConflict" },
+          "422": { "$ref": "#/components/responses/ValidationError" }
+        }
+      }
+    },
+    "/api/audit": {
+      "get": {
+        "tags": ["audit"],
+        "operationId": "queryAuditLog",
+        "summary": "Query the append-only audit trail",
+        "description": "Compliance role only. Read-only by construction: no write method is registered on this path, so POST/PUT/PATCH/DELETE return 405 (E3-S3 AC3). Stories E3-S1, E3-S3, E3-S4. NFR-02.",
+        "parameters": [
+          { "name": "actor_id", "in": "query", "required": false, "schema": { "type": "integer", "minimum": 1 } },
+          { "name": "entity_type", "in": "query", "required": false, "schema": { "$ref": "#/components/schemas/AuditEntityType" } },
+          { "name": "from", "in": "query", "required": false, "schema": { "type": "string", "format": "date" }, "description": "Inclusive lower bound on timestamp." },
+          { "name": "to", "in": "query", "required": false, "schema": { "type": "string", "format": "date" }, "description": "Inclusive upper bound; the whole day is included." },
+          { "name": "limit", "in": "query", "required": false, "schema": { "type": "integer", "minimum": 1, "maximum": 200, "default": 50 } },
+          { "name": "offset", "in": "query", "required": false, "schema": { "type": "integer", "minimum": 0, "default": 0 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Matching audit entries, ordered by timestamp ascending",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AuditPage" },
+                "example": { "total": 137, "limit": 50, "offset": 0, "entries": [ { "id": 501, "entity_type": "RiskBandAssignment", "entity_id": "12", "actor_id": 3, "actor_role": "customer", "action": "ASSIGN_RISK_BAND", "timestamp": "2026-09-03T10:15:00Z", "details_json": { "customer_id": 3, "risk_band": "MODERATE", "rule_version": 1 } } ] }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadQueryParameter" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "405": {
+            "description": "A write method was attempted on /api/audit (E3-S3 AC3)",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+                "example": { "error": { "code": "METHOD_NOT_ALLOWED", "message": "The audit log is read-only." } }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "Single 60-minute HS256 access token. Claims: sub, role, exp, iat, and customer_id for the customer role. No refresh-token flow (system-design.md 6.2)."
+      }
+    },
+    "responses": {
+      "Unauthorized": {
+        "description": "Missing, malformed, or expired token",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+            "example": { "error": { "code": "TOKEN_MISSING", "message": "Authentication required." } }
+          }
+        }
+      },
+      "Forbidden": {
+        "description": "Authenticated but the role is not permitted for this endpoint (NFR-04)",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+            "example": { "error": { "code": "ROLE_NOT_PERMITTED", "message": "Your role may not perform this action." } }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "Resource absent, or not visible to this actor",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+            "example": { "error": { "code": "CUSTOMER_NOT_FOUND", "message": "Resource not found." } }
+          }
+        }
+      },
+      "Conflict": {
+        "description": "Conflict with existing state",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+            "example": { "error": { "code": "ALREADY_RESOLVED", "message": "This action conflicts with the current state." } }
+          }
+        }
+      },
+      "VersionConflict": {
+        "description": "A concurrent publish already claimed the next version number; no silent overwrite (BRD 11)",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+            "example": { "error": { "code": "VERSION_CONFLICT", "message": "Another publish already created this version.", "details": { "attempted_version": 3 } } }
+          }
+        }
+      },
+      "ValidationError": {
+        "description": "Body or parameters are well-formed but semantically invalid; nothing is written",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+            "example": { "error": { "code": "VALIDATION_ERROR", "message": "Request failed validation.", "details": { "field": "target_amount" } } }
+          }
+        }
+      },
+      "BadQueryParameter": {
+        "description": "A query parameter could not be parsed or is outside its allowed set",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+            "example": { "error": { "code": "INVALID_QUERY_PARAMETER", "message": "Invalid query parameter.", "details": { "parameter": "entity_type" } } }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "Money": {
+        "type": "string",
+        "pattern": "^-?[0-9]+\\.[0-9]{2}$",
+        "description": "Fixed-point money as a decimal STRING with exactly 2 decimals (NFR-01). Never a JSON number.",
+        "example": "25000.00"
+      },
+      "Percent": {
+        "type": "string",
+        "pattern": "^-?[0-9]+\\.[0-9]{2}$",
+        "description": "Fixed-point percentage as a decimal STRING with exactly 2 decimals. May be negative for drift (NFR-01).",
+        "example": "60.00"
+      },
+      "Units": {
+        "type": "string",
+        "pattern": "^-?[0-9]+\\.[0-9]{4}$",
+        "description": "Fixed-point unit quantity as a decimal STRING with exactly 4 decimals (NFR-01).",
+        "example": "12.3456"
+      },
+      "Timestamp": {
+        "type": "string",
+        "format": "date-time",
+        "description": "ISO-8601 UTC with Z suffix.",
+        "example": "2026-09-03T10:15:00Z"
+      },
+      "DateOnly": {
+        "type": "string",
+        "format": "date",
+        "example": "2026-09-04"
+      },
+      "Role": {
+        "type": "string",
+        "enum": ["customer", "advisor", "admin", "compliance"]
+      },
+      "RiskBand": {
+        "type": "string",
+        "enum": ["CONSERVATIVE", "MODERATE", "AGGRESSIVE"]
+      },
+      "Horizon": {
+        "type": "string",
+        "enum": ["SHORT", "MEDIUM", "LONG"],
+        "description": "Derived from target_date: SHORT < 3 years, MEDIUM 3-7 years, LONG > 7 years."
+      },
+      "RecommendationStatus": {
+        "type": "string",
+        "enum": ["pending", "accepted", "dismissed"]
+      },
+      "TradeAction": {
+        "type": "string",
+        "enum": ["BUY", "SELL"]
+      },
+      "AuditEntityType": {
+        "type": "string",
+        "enum": [
+          "RiskBandAssignment",
+          "AllocationRecommendation",
+          "RebalancingRecommendation",
+          "AdvisorOverride",
+          "ManualRecommendation",
+          "RiskBandRule",
+          "AllocationTemplate",
+          "AssetClass",
+          "RebalancingThreshold"
+        ]
+      },
+      "AuditAction": {
+        "type": "string",
+        "enum": [
+          "ASSIGN_RISK_BAND",
+          "GENERATE_ALLOCATION_RECOMMENDATION",
+          "GENERATE_REBALANCING_RECOMMENDATION",
+          "ACCEPT_REBALANCING_RECOMMENDATION",
+          "DISMISS_REBALANCING_RECOMMENDATION",
+          "OVERRIDE_RISK_BAND",
+          "LOG_MANUAL_RECOMMENDATION",
+          "PUBLISH_RISK_BAND_RULE",
+          "PUBLISH_ALLOCATION_TEMPLATE",
+          "PUBLISH_REBALANCING_THRESHOLD",
+          "CREATE_ASSET_CLASS",
+          "UPDATE_ASSET_CLASS"
+        ]
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "required": ["error"],
+        "additionalProperties": false,
+        "properties": {
+          "error": {
+            "type": "object",
+            "required": ["code", "message"],
+            "additionalProperties": false,
+            "properties": {
+              "code": { "type": "string", "description": "Stable machine-readable error code." },
+              "message": { "type": "string", "description": "Human-readable message. Never contains PII or credential material (NFR-03)." },
+              "details": { "type": "object", "additionalProperties": true }
+            }
+          }
+        }
+      },
+      "HealthResponse": {
+        "type": "object",
+        "required": ["status", "database"],
+        "additionalProperties": false,
+        "properties": {
+          "status": { "type": "string", "enum": ["ok", "degraded"] },
+          "database": { "type": "string", "enum": ["connected", "unavailable"] },
+          "version": { "type": "string" }
+        }
+      },
+      "LoginRequest": {
+        "type": "object",
+        "required": ["email", "password"],
+        "additionalProperties": false,
+        "properties": {
+          "email": { "type": "string", "format": "email", "minLength": 3, "maxLength": 320 },
+          "password": { "type": "string", "minLength": 1, "maxLength": 200, "writeOnly": true }
+        }
+      },
+      "LoginResponse": {
+        "type": "object",
+        "required": ["access_token", "token_type", "role", "expires_in"],
+        "additionalProperties": false,
+        "properties": {
+          "access_token": { "type": "string" },
+          "token_type": { "type": "string", "enum": ["bearer"] },
+          "role": { "$ref": "#/components/schemas/Role" },
+          "expires_in": { "type": "integer", "description": "Seconds until expiry (3600)." }
+        }
+      },
+      "MeResponse": {
+        "type": "object",
+        "required": ["user_id", "email", "role", "customer_id"],
+        "additionalProperties": false,
+        "properties": {
+          "user_id": { "type": "integer" },
+          "email": { "type": "string", "format": "email" },
+          "role": { "$ref": "#/components/schemas/Role" },
+          "customer_id": { "type": "integer", "nullable": true, "description": "Null for non-customer roles." }
+        }
+      },
+      "QuestionOptionPublic": {
+        "type": "object",
+        "required": ["value", "label"],
+        "additionalProperties": false,
+        "properties": {
+          "value": { "type": "string" },
+          "label": { "type": "string" }
+        },
+        "description": "Customer-facing option. points is deliberately omitted so the band cannot be reverse-engineered."
+      },
+      "QuestionOptionAdmin": {
+        "type": "object",
+        "required": ["value", "label", "points"],
+        "additionalProperties": false,
+        "properties": {
+          "value": { "type": "string" },
+          "label": { "type": "string" },
+          "points": { "type": "integer", "minimum": 0, "description": "Integer only - no floating-point scoring (NFR-01)." }
+        }
+      },
+      "QuestionPublic": {
+        "type": "object",
+        "required": ["question_id", "text", "options"],
+        "additionalProperties": false,
+        "properties": {
+          "question_id": { "type": "string" },
+          "text": { "type": "string" },
+          "options": { "type": "array", "minItems": 2, "items": { "$ref": "#/components/schemas/QuestionOptionPublic" } }
+        }
+      },
+      "QuestionAdmin": {
+        "type": "object",
+        "required": ["question_id", "text", "options"],
+        "additionalProperties": false,
+        "properties": {
+          "question_id": { "type": "string" },
+          "text": { "type": "string" },
+          "options": { "type": "array", "minItems": 2, "items": { "$ref": "#/components/schemas/QuestionOptionAdmin" } }
+        }
+      },
+      "QuestionnaireResponse": {
+        "type": "object",
+        "required": ["rule_version", "questions"],
+        "additionalProperties": false,
+        "properties": {
+          "rule_version": { "type": "integer", "minimum": 1 },
+          "questions": { "type": "array", "minItems": 6, "items": { "$ref": "#/components/schemas/QuestionPublic" } }
+        }
+      },
+      "RiskProfileAnswerInput": {
+        "type": "object",
+        "required": ["question_id", "answer_value"],
+        "additionalProperties": false,
+        "properties": {
+          "question_id": { "type": "string" },
+          "answer_value": { "type": "string" }
+        }
+      },
+      "RiskProfileSubmitRequest": {
+        "type": "object",
+        "required": ["answers"],
+        "additionalProperties": false,
+        "properties": {
+          "answers": {
+            "type": "array",
+            "minItems": 6,
+            "items": { "$ref": "#/components/schemas/RiskProfileAnswerInput" },
+            "description": "Exactly one entry per question in the active questionnaire."
+          }
+        }
+      },
+      "RiskBandAssignmentResponse": {
+        "type": "object",
+        "required": ["assignment_id", "risk_band", "rule_version", "assigned_at"],
+        "additionalProperties": false,
+        "properties": {
+          "assignment_id": { "type": "integer" },
+          "risk_band": { "$ref": "#/components/schemas/RiskBand" },
+          "rule_version": { "type": "integer" },
+          "assigned_at": { "$ref": "#/components/schemas/Timestamp" }
+        }
+      },
+      "RiskBandAssignment": {
+        "type": "object",
+        "required": ["assignment_id", "customer_id", "risk_band", "rule_version", "assigned_at"],
+        "additionalProperties": false,
+        "properties": {
+          "assignment_id": { "type": "integer" },
+          "customer_id": { "type": "integer" },
+          "risk_band": { "$ref": "#/components/schemas/RiskBand" },
+          "rule_version": { "type": "integer" },
+          "assigned_at": { "$ref": "#/components/schemas/Timestamp" }
+        }
+      },
+      "AllocationEntry": {
+        "type": "object",
+        "required": ["asset_class_id", "asset_class_code", "percent"],
+        "additionalProperties": false,
+        "properties": {
+          "asset_class_id": { "type": "integer" },
+          "asset_class_code": { "type": "string" },
+          "asset_class_name": { "type": "string" },
+          "percent": { "$ref": "#/components/schemas/Percent" }
+        }
+      },
+      "RecommendationResponse": {
+        "type": "object",
+        "required": ["risk_band", "rule_version", "template_version", "horizon", "allocations", "total_percent", "generated_at"],
+        "additionalProperties": false,
+        "properties": {
+          "risk_band": { "$ref": "#/components/schemas/RiskBand" },
+          "rule_version": { "type": "integer" },
+          "template_version": { "type": "integer", "description": "AC-10 traceability to the immutable published template." },
+          "horizon": { "$ref": "#/components/schemas/Horizon" },
+          "allocations": { "type": "array", "minItems": 1, "items": { "$ref": "#/components/schemas/AllocationEntry" } },
+          "total_percent": { "type": "string", "enum": ["100.00"], "description": "Always exactly 100.00 (AC-02)." },
+          "generated_at": { "$ref": "#/components/schemas/Timestamp" }
+        }
+      },
+      "HoldingDrift": {
+        "type": "object",
+        "required": ["asset_class_id", "asset_class_code", "current_value", "current_percent", "target_percent", "drift_percent", "exceeds_threshold"],
+        "additionalProperties": false,
+        "properties": {
+          "asset_class_id": { "type": "integer" },
+          "asset_class_code": { "type": "string" },
+          "asset_class_name": { "type": "string" },
+          "current_value": { "$ref": "#/components/schemas/Money" },
+          "current_percent": { "$ref": "#/components/schemas/Percent" },
+          "target_percent": { "$ref": "#/components/schemas/Percent" },
+          "drift_percent": { "$ref": "#/components/schemas/Percent" },
+          "exceeds_threshold": { "type": "boolean", "description": "abs(drift) > threshold, strictly greater (E6-S3 AC4)." }
+        }
+      },
+      "HoldingsResponse": {
+        "type": "object",
+        "required": ["as_of_date", "total_value", "threshold_bps", "threshold_percent", "holdings"],
+        "additionalProperties": false,
+        "properties": {
+          "as_of_date": { "type": "string", "format": "date", "nullable": true, "description": "Null when the customer holds nothing." },
+          "total_value": { "$ref": "#/components/schemas/Money" },
+          "threshold_bps": { "type": "integer", "description": "Active RebalancingThreshold.threshold_bps (500 = 5.00%)." },
+          "threshold_percent": { "$ref": "#/components/schemas/Percent" },
+          "holdings": { "type": "array", "items": { "$ref": "#/components/schemas/HoldingDrift" } }
+        }
+      },
+      "Goal": {
+        "type": "object",
+        "required": ["id", "customer_id", "target_amount", "target_date", "priority", "created_at", "updated_at", "percent_complete"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "integer" },
+          "customer_id": { "type": "integer" },
+          "target_amount": { "$ref": "#/components/schemas/Money" },
+          "target_date": { "type": "string", "format": "date" },
+          "priority": { "type": "integer", "minimum": 1, "maximum": 5 },
+          "created_at": { "$ref": "#/components/schemas/Timestamp" },
+          "updated_at": { "$ref": "#/components/schemas/Timestamp" },
+          "percent_complete": {
+            "type": "string",
+            "nullable": true,
+            "pattern": "^[0-9]+\\.[0-9]{2}$",
+            "description": "From the latest GoalProgressSnapshot; null before the first snapshot. Capped at 200.00."
+          }
+        }
+      },
+      "GoalCreateRequest": {
+        "type": "object",
+        "required": ["target_amount", "target_date", "priority"],
+        "additionalProperties": false,
+        "properties": {
+          "target_amount": { "$ref": "#/components/schemas/Money" },
+          "target_date": { "type": "string", "format": "date", "description": "Must be in the future (E7-S2 AC2)." },
+          "priority": { "type": "integer", "minimum": 1, "maximum": 5 }
+        }
+      },
+      "GoalUpdateRequest": {
+        "type": "object",
+        "minProperties": 1,
+        "additionalProperties": false,
+        "properties": {
+          "target_amount": { "$ref": "#/components/schemas/Money" },
+          "target_date": { "type": "string", "format": "date" },
+          "priority": { "type": "integer", "minimum": 1, "maximum": 5 }
+        }
+      },
+      "GoalProgressSnapshot": {
+        "type": "object",
+        "required": ["id", "current_value", "percent_complete", "snapshot_at", "price_date"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "integer" },
+          "current_value": { "$ref": "#/components/schemas/Money" },
+          "percent_complete": { "type": "string", "pattern": "^[0-9]+\\.[0-9]{2}$", "description": "Capped at 200.00 (E7-S3 AC2)." },
+          "snapshot_at": { "$ref": "#/components/schemas/Timestamp" },
+          "price_date": { "type": "string", "format": "date" }
+        }
+      },
+      "GoalProgressResponse": {
+        "type": "object",
+        "required": ["goal_id", "target_amount", "snapshots"],
+        "additionalProperties": false,
+        "properties": {
+          "goal_id": { "type": "integer" },
+          "target_amount": { "$ref": "#/components/schemas/Money" },
+          "snapshots": { "type": "array", "items": { "$ref": "#/components/schemas/GoalProgressSnapshot" } }
+        }
+      },
+      "ProposedAction": {
+        "type": "object",
+        "required": ["asset_class_id", "asset_class_code", "action", "amount", "units", "drift_percent"],
+        "additionalProperties": false,
+        "properties": {
+          "asset_class_id": { "type": "integer" },
+          "asset_class_code": { "type": "string" },
+          "action": { "$ref": "#/components/schemas/TradeAction" },
+          "amount": { "$ref": "#/components/schemas/Money" },
+          "units": { "$ref": "#/components/schemas/Units" },
+          "drift_percent": { "$ref": "#/components/schemas/Percent" }
+        }
+      },
+      "RebalancingRecommendation": {
+        "type": "object",
+        "required": ["recommendation_id", "status", "generated_at", "resolved_at", "threshold_bps", "proposed_actions"],
+        "additionalProperties": false,
+        "properties": {
+          "recommendation_id": { "type": "string", "format": "uuid", "description": "Public identifier used in paths; the internal row id is never exposed." },
+          "status": { "$ref": "#/components/schemas/RecommendationStatus" },
+          "generated_at": { "$ref": "#/components/schemas/Timestamp" },
+          "resolved_at": { "type": "string", "format": "date-time", "nullable": true },
+          "threshold_bps": { "type": "integer", "description": "The threshold version in force when this recommendation was generated." },
+          "proposed_actions": { "type": "array", "minItems": 1, "items": { "$ref": "#/components/schemas/ProposedAction" } }
+        }
+      },
+      "RebalancingResolutionResponse": {
+        "type": "object",
+        "required": ["recommendation_id", "status", "resolved_at"],
+        "additionalProperties": false,
+        "properties": {
+          "recommendation_id": { "type": "string", "format": "uuid" },
+          "status": { "type": "string", "enum": ["accepted", "dismissed"] },
+          "resolved_at": { "$ref": "#/components/schemas/Timestamp" }
+        }
+      },
+      "AdvisorCustomerSummary": {
+        "type": "object",
+        "required": ["customer_id", "email", "risk_band", "kyc_verified", "total_value", "goal_count"],
+        "additionalProperties": false,
+        "properties": {
+          "customer_id": { "type": "integer" },
+          "email": { "type": "string", "format": "email", "description": "Customers have no name field; email is the display identifier (data-models.md 1.1)." },
+          "risk_band": { "allOf": [{ "$ref": "#/components/schemas/RiskBand" }], "nullable": true },
+          "kyc_verified": { "type": "boolean" },
+          "total_value": { "$ref": "#/components/schemas/Money" },
+          "goal_count": { "type": "integer", "minimum": 0 }
+        }
+      },
+      "AdvisorOverrideRecord": {
+        "type": "object",
+        "required": ["id", "customer_id", "advisor_id", "previous_band", "new_band", "reason", "note", "created_at"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "integer" },
+          "customer_id": { "type": "integer" },
+          "advisor_id": { "type": "integer" },
+          "previous_band": { "$ref": "#/components/schemas/RiskBand" },
+          "new_band": { "$ref": "#/components/schemas/RiskBand" },
+          "reason": { "type": "string" },
+          "note": { "type": "string", "nullable": true },
+          "created_at": { "$ref": "#/components/schemas/Timestamp" }
+        }
+      },
+      "AdvisorCustomerDetail": {
+        "type": "object",
+        "required": ["customer_id", "email", "kyc_verified", "risk_band", "holdings", "goals", "allocation", "override_history"],
+        "additionalProperties": false,
+        "properties": {
+          "customer_id": { "type": "integer" },
+          "email": { "type": "string", "format": "email" },
+          "kyc_verified": { "type": "boolean" },
+          "risk_band": { "allOf": [{ "$ref": "#/components/schemas/RiskBand" }], "nullable": true },
+          "rule_version": { "type": "integer", "nullable": true },
+          "holdings": { "$ref": "#/components/schemas/HoldingsResponse" },
+          "goals": { "type": "array", "items": { "$ref": "#/components/schemas/Goal" } },
+          "allocation": { "allOf": [{ "$ref": "#/components/schemas/RecommendationResponse" }], "nullable": true, "description": "Null when the customer has no RiskBandAssignment." },
+          "override_history": { "type": "array", "items": { "$ref": "#/components/schemas/AdvisorOverrideRecord" }, "description": "Ordered created_at descending." }
+        }
+      },
+      "AdvisorOverrideRequest": {
+        "type": "object",
+        "required": ["new_band", "reason"],
+        "additionalProperties": false,
+        "properties": {
+          "new_band": { "$ref": "#/components/schemas/RiskBand" },
+          "reason": { "type": "string", "minLength": 1, "maxLength": 500, "description": "Mandatory (BRD 5.1). Empty or whitespace-only is rejected with 422." },
+          "note": { "type": "string", "maxLength": 2000, "nullable": true }
+        }
+      },
+      "AdvisorOverrideResponse": {
+        "type": "object",
+        "required": ["override_id", "customer_id", "previous_band", "new_band", "reason", "note", "created_at", "assignment_id", "risk_band"],
+        "additionalProperties": false,
+        "properties": {
+          "override_id": { "type": "integer" },
+          "customer_id": { "type": "integer" },
+          "previous_band": { "$ref": "#/components/schemas/RiskBand" },
+          "new_band": { "$ref": "#/components/schemas/RiskBand" },
+          "reason": { "type": "string" },
+          "note": { "type": "string", "nullable": true },
+          "created_at": { "$ref": "#/components/schemas/Timestamp" },
+          "assignment_id": { "type": "integer", "description": "The new RiskBandAssignment row created by this override." },
+          "risk_band": { "$ref": "#/components/schemas/RiskBand" }
+        }
+      },
+      "ManualRecommendationRequest": {
+        "type": "object",
+        "required": ["note"],
+        "additionalProperties": false,
+        "properties": {
+          "note": { "type": "string", "minLength": 1, "maxLength": 2000, "description": "The only body field. customer_id comes from the path, advisor_id from the JWT, created_at from the server (system-design.md 6.4)." }
+        }
+      },
+      "ManualRecommendationResponse": {
+        "type": "object",
+        "required": ["audit_entry_id", "customer_id", "advisor_id", "note", "created_at"],
+        "additionalProperties": false,
+        "properties": {
+          "audit_entry_id": { "type": "integer" },
+          "customer_id": { "type": "integer" },
+          "advisor_id": { "type": "integer" },
+          "note": { "type": "string" },
+          "created_at": { "$ref": "#/components/schemas/Timestamp" }
+        }
+      },
+      "AdvanceDayResponse": {
+        "type": "object",
+        "required": ["price_date", "nav_snapshots_created", "holdings_revalued", "goal_snapshots_created", "rebalancing_recommendations_created"],
+        "additionalProperties": false,
+        "properties": {
+          "price_date": { "type": "string", "format": "date" },
+          "nav_snapshots_created": { "type": "integer", "minimum": 0 },
+          "holdings_revalued": { "type": "integer", "minimum": 0 },
+          "goal_snapshots_created": { "type": "integer", "minimum": 0 },
+          "rebalancing_recommendations_created": { "type": "integer", "minimum": 0 }
+        }
+      },
+      "QuestionnaireDocument": {
+        "type": "object",
+        "required": ["questions"],
+        "additionalProperties": false,
+        "properties": {
+          "questions": { "type": "array", "minItems": 6, "items": { "$ref": "#/components/schemas/QuestionAdmin" } }
+        }
+      },
+      "ScoringRulesDocument": {
+        "type": "object",
+        "required": ["bands"],
+        "additionalProperties": false,
+        "properties": {
+          "bands": {
+            "type": "array",
+            "minItems": 3,
+            "maxItems": 3,
+            "items": {
+              "type": "object",
+              "required": ["risk_band", "min_points", "max_points"],
+              "additionalProperties": false,
+              "properties": {
+                "risk_band": { "$ref": "#/components/schemas/RiskBand" },
+                "min_points": { "type": "integer", "minimum": 0 },
+                "max_points": { "type": "integer", "minimum": 0 }
+              }
+            },
+            "description": "Contiguous, non-overlapping integer ranges covering the full achievable point span (NFR-01)."
+          }
+        }
+      },
+      "RiskBandRule": {
+        "type": "object",
+        "required": ["id", "version", "questionnaire_json", "scoring_rules_json", "published_at", "is_active"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "integer" },
+          "version": { "type": "integer", "minimum": 1 },
+          "questionnaire_json": { "$ref": "#/components/schemas/QuestionnaireDocument" },
+          "scoring_rules_json": { "$ref": "#/components/schemas/ScoringRulesDocument" },
+          "published_at": { "$ref": "#/components/schemas/Timestamp" },
+          "is_active": { "type": "boolean" }
+        }
+      },
+      "RiskBandRulePublishRequest": {
+        "type": "object",
+        "required": ["questionnaire_json", "scoring_rules_json"],
+        "additionalProperties": false,
+        "properties": {
+          "questionnaire_json": { "$ref": "#/components/schemas/QuestionnaireDocument" },
+          "scoring_rules_json": { "$ref": "#/components/schemas/ScoringRulesDocument" }
+        },
+        "description": "version is server-assigned as max(version)+1 and is rejected if supplied."
+      },
+      "PublishedVersionResponse": {
+        "type": "object",
+        "required": ["id", "version", "published_at", "is_active"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "integer" },
+          "version": { "type": "integer" },
+          "published_at": { "$ref": "#/components/schemas/Timestamp" },
+          "is_active": { "type": "boolean" }
+        }
+      },
+      "AllocationTemplate": {
+        "type": "object",
+        "required": ["id", "version", "risk_band", "allocations", "total_percent", "published_at", "is_active"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "integer" },
+          "version": { "type": "integer", "minimum": 1 },
+          "risk_band": { "$ref": "#/components/schemas/RiskBand" },
+          "allocations": { "type": "array", "minItems": 1, "items": { "$ref": "#/components/schemas/AllocationEntry" } },
+          "total_percent": { "type": "string", "enum": ["100.00"] },
+          "published_at": { "$ref": "#/components/schemas/Timestamp" },
+          "is_active": { "type": "boolean" }
+        }
+      },
+      "AllocationTemplatePublishRequest": {
+        "type": "object",
+        "required": ["risk_band", "allocations"],
+        "additionalProperties": false,
+        "properties": {
+          "risk_band": { "$ref": "#/components/schemas/RiskBand" },
+          "allocations": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": ["asset_class_id", "percent"],
+              "additionalProperties": false,
+              "properties": {
+                "asset_class_id": { "type": "integer", "minimum": 1 },
+                "percent": { "$ref": "#/components/schemas/Percent" }
+              }
+            },
+            "description": "Percentages must sum to exactly 100 (10000 basis points). No tolerance (AC-02)."
+          }
+        }
+      },
+      "AllocationTemplatePublishResponse": {
+        "type": "object",
+        "required": ["id", "version", "risk_band", "total_percent", "published_at", "is_active"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "integer" },
+          "version": { "type": "integer" },
+          "risk_band": { "$ref": "#/components/schemas/RiskBand" },
+          "total_percent": { "type": "string", "enum": ["100.00"] },
+          "published_at": { "$ref": "#/components/schemas/Timestamp" },
+          "is_active": { "type": "boolean" }
+        }
+      },
+      "AssetClass": {
+        "type": "object",
+        "required": ["id", "code", "name"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "integer" },
+          "code": { "type": "string", "pattern": "^[A-Z0-9_]{1,20}$" },
+          "name": { "type": "string", "minLength": 1, "maxLength": 100 }
+        }
+      },
+      "AssetClassCreateRequest": {
+        "type": "object",
+        "required": ["code", "name"],
+        "additionalProperties": false,
+        "properties": {
+          "code": { "type": "string", "pattern": "^[A-Z0-9_]{1,20}$" },
+          "name": { "type": "string", "minLength": 1, "maxLength": 100 }
+        }
+      },
+      "AssetClassUpdateRequest": {
+        "type": "object",
+        "minProperties": 1,
+        "additionalProperties": false,
+        "properties": {
+          "code": { "type": "string", "pattern": "^[A-Z0-9_]{1,20}$" },
+          "name": { "type": "string", "minLength": 1, "maxLength": 100 }
+        }
+      },
+      "RebalancingThreshold": {
+        "type": "object",
+        "required": ["id", "version", "threshold_bps", "threshold_percent", "published_at", "is_active"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "integer" },
+          "version": { "type": "integer", "minimum": 1 },
+          "threshold_bps": { "type": "integer", "minimum": 1, "maximum": 10000, "description": "Basis points. 500 = 5.00%. Integer keeps the value exact (NFR-01)." },
+          "threshold_percent": { "$ref": "#/components/schemas/Percent" },
+          "published_at": { "$ref": "#/components/schemas/Timestamp" },
+          "is_active": { "type": "boolean" }
+        }
+      },
+      "RebalancingThresholdPublishRequest": {
+        "type": "object",
+        "required": ["threshold_bps"],
+        "additionalProperties": false,
+        "properties": {
+          "threshold_bps": { "type": "integer", "minimum": 1, "maximum": 10000 }
+        },
+        "description": "version is server-assigned as max(version)+1."
+      },
+      "AuditLogEntry": {
+        "type": "object",
+        "required": ["id", "entity_type", "entity_id", "actor_id", "actor_role", "action", "timestamp", "details_json"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "integer" },
+          "entity_type": { "$ref": "#/components/schemas/AuditEntityType" },
+          "entity_id": { "type": "string", "description": "Soft reference - an integer id or a recommendation_id UUID, as a string." },
+          "actor_id": { "type": "integer" },
+          "actor_role": { "$ref": "#/components/schemas/Role" },
+          "action": { "$ref": "#/components/schemas/AuditAction" },
+          "timestamp": { "$ref": "#/components/schemas/Timestamp" },
+          "details_json": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Ids, enums and version numbers only - no raw PII or position values (NFR-03). Sole exception: ManualRecommendation entries carry the advisor's note."
+          }
+        }
+      },
+      "AuditPage": {
+        "type": "object",
+        "required": ["total", "limit", "offset", "entries"],
+        "additionalProperties": false,
+        "properties": {
+          "total": { "type": "integer", "minimum": 0 },
+          "limit": { "type": "integer" },
+          "offset": { "type": "integer" },
+          "entries": { "type": "array", "items": { "$ref": "#/components/schemas/AuditLogEntry" } }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,3107 @@
+[
+  {
+    "id": "F001",
+    "category": "functional",
+    "story": "E1-S1",
+    "group": "A",
+    "description": "A backend types module defines a typed class/schema for each of the 14 entities listed in BRD section 9, with field names and types matching the BRD data-model table exactly.",
+    "steps": [
+      "Arrange/execute: A backend types module defines a typed class/schema for each of the 14 entities listed in BRD section 9.",
+      "Assert: with field names and types matching the BRD data-model table exactly."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F002",
+    "category": "functional",
+    "story": "E1-S1",
+    "group": "A",
+    "description": "Monetary and percentage fields (target_amount, current_value, nav_value, allocation percentages) are typed as fixed-point/Decimal types, never float, per NFR-01.",
+    "steps": [
+      "Arrange/execute: Monetary and percentage fields (target_amount, current_value, nav_value, allocation percentages) are typed as fixed-point/Decimal types,.",
+      "Assert: never float, per NFR-01."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F003",
+    "category": "security",
+    "story": "E1-S1",
+    "group": "A",
+    "description": "Enum-constrained fields (role on User, risk_band on RiskBandAssignment/AllocationTemplate, status on RebalancingRecommendation) are defined as closed enums matching the exact literal values from the BRD (role in {customer, advisor, admin, compliance}; status in {pending, accepted, dismissed}).",
+    "steps": [
+      "Arrange/execute: Enum-constrained fields (role on User.",
+      "Assert: risk_band on RiskBandAssignment/AllocationTemplate, status on RebalancingRecommendation) are defined as closed enums matching the exact literal values from the BRD (role in {customer, advisor, admin, compliance}; status in {pending, accepted, dismissed})."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F004",
+    "category": "functional",
+    "story": "E1-S1",
+    "group": "A",
+    "description": "Running mypy against the types module exits with zero errors.",
+    "steps": [
+      "Execute the scenario described: Running mypy against the types module exits with zero errors.",
+      "Assert the described outcome is observed."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F005",
+    "category": "functional",
+    "story": "E1-S1",
+    "group": "A",
+    "description": "A corresponding TypeScript type/interface file exists on the frontend mirroring the same 14 entities' field names and types for shared client-side use.",
+    "steps": [
+      "Execute the scenario described: A corresponding TypeScript type/interface file exists on the frontend mirroring the same 14 entities' field names and types for shared client-side use.",
+      "Assert the described outcome is observed."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F006",
+    "category": "security",
+    "story": "E1-S2",
+    "group": "A",
+    "description": "A backend config module exposes typed settings including database_url, jwt_secret, jwt_access_token_expiry_minutes, default_drift_threshold_percent (default value 5), and seed_csv_path, loaded from environment variables with documented defaults.",
+    "steps": [
+      "Arrange/execute: A backend config module exposes typed settings including database_url.",
+      "Assert: jwt_secret, jwt_access_token_expiry_minutes, default_drift_threshold_percent (default value 5), and seed_csv_path, loaded from environment variables with documented defaults."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F007",
+    "category": "functional",
+    "story": "E1-S2",
+    "group": "A",
+    "description": "Missing a required environment variable at startup raises a clear startup error rather than the app silently starting with None values.",
+    "steps": [
+      "Arrange/execute: Missing a required environment variable at startup.",
+      "Assert: raises a clear startup error rather than the app silently starting with None values."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F008",
+    "category": "functional",
+    "story": "E1-S2",
+    "group": "A",
+    "description": "The drift threshold is exposed as a versionable config value, not a literal hardcoded inside the rebalancing service, matching BRD section 5.1's default-5%-versioned requirement.",
+    "steps": [
+      "Arrange/execute: The drift threshold is exposed as a versionable config value.",
+      "Assert: not a literal hardcoded inside the rebalancing service, matching BRD section 5.1's default-5%-versioned requirement."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F009",
+    "category": "security",
+    "story": "E1-S2",
+    "group": "A",
+    "description": "No secret value (JWT secret, DB credentials) appears hardcoded in source outside the config module; the repo's detect-secrets hook passes on the config module.",
+    "steps": [
+      "Arrange/execute: No secret value (JWT secret.",
+      "Assert: DB credentials) appears hardcoded in source outside the config module; the repo's detect-secrets hook passes on the config module."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F010",
+    "category": "functional",
+    "story": "E1-S2",
+    "group": "A",
+    "description": "A .env.example file documents every required environment variable with a placeholder value.",
+    "steps": [
+      "Execute the scenario described: A .env.example file documents every required environment variable with a placeholder value.",
+      "Assert the described outcome is observed."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F011",
+    "category": "functional",
+    "story": "E1-S3",
+    "group": "B",
+    "description": "Running the migration command against a fresh SQLite file creates tables for all 14 entities defined in E1-S1, with primary keys and foreign keys matching the BRD data model.",
+    "steps": [
+      "Arrange/execute: Running the migration command against a fresh SQLite file.",
+      "Assert: creates tables for all 14 entities defined in E1-S1, with primary keys and foreign keys matching the BRD data model."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F012",
+    "category": "functional",
+    "story": "E1-S3",
+    "group": "B",
+    "description": "A seed script inserts 8-10 customers spanning all three risk bands (CONSERVATIVE, MODERATE, AGGRESSIVE), 5-6 asset classes, 2 advisors, 1 admin, and 1 compliance user, matching BRD section 9 seed-data volumes.",
+    "steps": [
+      "Arrange/execute: A seed script inserts 8-10 customers spanning all three risk bands (CONSERVATIVE.",
+      "Assert: MODERATE, AGGRESSIVE), 5-6 asset classes, 2 advisors, 1 admin, and 1 compliance user, matching BRD section 9 seed-data volumes."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F013",
+    "category": "security",
+    "story": "E1-S3",
+    "group": "B",
+    "description": "Every seeded Customer row has kyc_verified = true by default, with at least one seeded customer set to kyc_verified = false to support the AC-06 gating test in E8.",
+    "steps": [
+      "Arrange/execute: Every seeded Customer row has kyc_verified = true by default.",
+      "Assert: with at least one seeded customer set to kyc_verified = false to support the AC-06 gating test in E8."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F014",
+    "category": "functional",
+    "story": "E1-S3",
+    "group": "B",
+    "description": "Repository functions for User and Customer expose only parameterized queries; a repository unit test asserts a SQL-injection-style input is treated as literal data, not executed.",
+    "steps": [
+      "Arrange/execute: Repository functions for User and Customer expose only parameterized queries; a repository unit test asserts a SQL-injection-style input is treated as literal data.",
+      "Assert: not executed."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F015",
+    "category": "functional",
+    "story": "E1-S3",
+    "group": "B",
+    "description": "Re-running the migration command on an already-migrated database is idempotent (no duplicate tables, no error).",
+    "steps": [
+      "Arrange/execute: Re-running the migration command on an already-migrated database is idempotent (no duplicate tables.",
+      "Assert: no error)."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F016",
+    "category": "performance",
+    "story": "E1-S4",
+    "group": "C",
+    "description": "GET /health returns 200 with a JSON body within 1 second of the application completing startup.",
+    "steps": [
+      "Arrange/execute: GET /health.",
+      "Assert: returns 200 with a JSON body within 1 second of the application completing startup."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F017",
+    "category": "functional",
+    "story": "E1-S4",
+    "group": "C",
+    "description": "Every request/response log line is emitted as structured JSON containing a request correlation ID (e.g., X-Request-ID) that is stable across a single request's log entries.",
+    "steps": [
+      "Arrange/execute: Every request/response log line is emitted as structured JSON containing a request correlation ID (e.g..",
+      "Assert: X-Request-ID) that is stable across a single request's log entries."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F018",
+    "category": "security",
+    "story": "E1-S4",
+    "group": "C",
+    "description": "No log line emitted anywhere in the request-logging middleware contains a customer's password, password_hash, or raw financial-position values (NFR-03), verified by a test that asserts these fields are absent or redacted in captured log output.",
+    "steps": [
+      "Arrange/execute: No log line emitted anywhere in the request-logging middleware contains a customer's password.",
+      "Assert: password_hash, or raw financial-position values (NFR-03), verified by a test that asserts these fields are absent or redacted in captured log output."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F019",
+    "category": "functional",
+    "story": "E1-S4",
+    "group": "C",
+    "description": "GET /health requires no authentication and returns 200 even when the database has zero rows beyond the seed data.",
+    "steps": [
+      "Arrange/execute: GET /health requires no authentication and.",
+      "Assert: returns 200 even when the database has zero rows beyond the seed data."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F020",
+    "category": "functional",
+    "story": "E1-S4",
+    "group": "C",
+    "description": "The health endpoint response includes a status field with value ok when the database connection succeeds.",
+    "steps": [
+      "Execute the scenario described: The health endpoint response includes a status field with value ok when the database connection succeeds.",
+      "Assert the described outcome is observed."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F021",
+    "category": "security",
+    "story": "E2-S1",
+    "group": "C",
+    "description": "Given a correct email/password pair, the service returns a signed JWT whose decoded payload contains sub (user id) and role matching one of customer|advisor|admin|compliance.",
+    "steps": [
+      "Arrange/execute: Given a correct email/password pair, the service.",
+      "Assert: returns a signed JWT whose decoded payload contains sub (user id) and role matching one of customer|advisor|admin|compliance."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F022",
+    "category": "security",
+    "story": "E2-S1",
+    "group": "C",
+    "description": "Given an incorrect password for an existing email, the service raises a generic invalid-credentials error without revealing whether the email exists.",
+    "steps": [
+      "Arrange/execute: Given an incorrect password for an existing email, the service.",
+      "Assert: raises a generic invalid-credentials error without revealing whether the email exists."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F023",
+    "category": "security",
+    "story": "E2-S1",
+    "group": "C",
+    "description": "Passwords are verified using bcrypt comparison against the stored password_hash; the service never compares or logs plaintext passwords (NFR-03).",
+    "steps": [
+      "Arrange/execute: Passwords are verified using bcrypt comparison against the stored password_hash; the service.",
+      "Assert: never compares or logs plaintext passwords (NFR-03)."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F024",
+    "category": "security",
+    "story": "E2-S1",
+    "group": "C",
+    "description": "The issued JWT expires after the configured jwt_access_token_expiry_minutes from E1-S2; a token decoded after expiry is rejected as invalid.",
+    "steps": [
+      "Arrange/execute: The issued JWT expires after the configured jwt_access_token_expiry_minutes from E1-S2; a token decoded after expiry.",
+      "Assert: is rejected as invalid."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F025",
+    "category": "functional",
+    "story": "E2-S1",
+    "group": "C",
+    "description": "No self-registration path exists in this service; only seeded accounts can authenticate, per BRD section 8.",
+    "steps": [
+      "Arrange/execute: No self-registration path exists in this service; only seeded accounts can authenticate.",
+      "Assert: per BRD section 8."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F026",
+    "category": "security",
+    "story": "E2-S2",
+    "group": "D",
+    "description": "POST /api/auth/login with a valid seeded email/password returns 200 with a JSON body containing access_token and role.",
+    "steps": [
+      "Arrange/execute: POST /api/auth/login with a valid seeded email/password.",
+      "Assert: returns 200 with a JSON body containing access_token and role."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F027",
+    "category": "security",
+    "story": "E2-S2",
+    "group": "D",
+    "description": "POST /api/auth/login with an invalid password returns 401 with no token in the response body.",
+    "steps": [
+      "Arrange/execute: POST /api/auth/login with an invalid password.",
+      "Assert: returns 401 with no token in the response body."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F028",
+    "category": "security",
+    "story": "E2-S2",
+    "group": "D",
+    "description": "POST /api/auth/login with a malformed request body (missing email or password) returns 422.",
+    "steps": [
+      "Arrange/execute: POST /api/auth/login with a malformed request body (missing email or password).",
+      "Assert: returns 422."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F029",
+    "category": "security",
+    "story": "E2-S2",
+    "group": "D",
+    "description": "The response body never includes password_hash or any other credential material.",
+    "steps": [
+      "Arrange/execute: The response body.",
+      "Assert: never includes password_hash or any other credential material."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F030",
+    "category": "security",
+    "story": "E2-S2",
+    "group": "D",
+    "description": "All subsequent protected endpoints reject requests missing a valid Authorization: Bearer header with 401.",
+    "steps": [
+      "Execute the scenario described: All subsequent protected endpoints reject requests missing a valid Authorization: Bearer header with 401.",
+      "Assert the described outcome is observed."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F031",
+    "category": "ui",
+    "story": "E2-S3",
+    "group": "E",
+    "description": "Submitting valid credentials navigates the customer role to the customer dashboard, advisor role to the advisor customer list, admin role to the admin console, and compliance role to the audit-log screen.",
+    "steps": [
+      "Arrange/execute: Submitting valid credentials navigates the customer role to the customer dashboard.",
+      "Assert: advisor role to the advisor customer list, admin role to the admin console, and compliance role to the audit-log screen."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F032",
+    "category": "ui",
+    "story": "E2-S3",
+    "group": "E",
+    "description": "Submitting invalid credentials displays an inline error message without navigating away from the login screen.",
+    "steps": [
+      "Arrange/execute: Submitting invalid credentials.",
+      "Assert: displays an inline error message without navigating away from the login screen."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F033",
+    "category": "ui",
+    "story": "E2-S3",
+    "group": "E",
+    "description": "The email and password inputs are labeled elements associated with their input via for/id, satisfying the BRD's keyboard-navigable, labeled-input accessibility baseline.",
+    "steps": [
+      "Arrange/execute: The email and password inputs are labeled elements associated with their input via for/id.",
+      "Assert: satisfying the BRD's keyboard-navigable, labeled-input accessibility baseline."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F034",
+    "category": "ui",
+    "story": "E2-S3",
+    "group": "E",
+    "description": "The JWT is stored client-side and attached as a Bearer token on all subsequent API calls.",
+    "steps": [
+      "Execute the scenario described: The JWT is stored client-side and attached as a Bearer token on all subsequent API calls.",
+      "Assert the described outcome is observed."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F035",
+    "category": "ui",
+    "story": "E2-S3",
+    "group": "E",
+    "description": "Refreshing the page while authenticated does not require re-login within the token's validity window.",
+    "steps": [
+      "Execute the scenario described: Refreshing the page while authenticated does not require re-login within the token's validity window.",
+      "Assert the described outcome is observed."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F036",
+    "category": "functional",
+    "story": "E3-S1",
+    "group": "C",
+    "description": "The repository exposes only an insert_audit_entry write function; no update or delete function exists for AuditLogEntry anywhere in the repository module.",
+    "steps": [
+      "Execute the scenario described: The repository exposes only an insert_audit_entry write function; no update or delete function exists for AuditLogEntry anywhere in the repository module.",
+      "Assert the described outcome is observed."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F037",
+    "category": "security",
+    "story": "E3-S1",
+    "group": "C",
+    "description": "Each inserted row records entity_type, entity_id, actor_id, actor_role, action, timestamp, and details_json, matching the BRD data-model table.",
+    "steps": [
+      "Arrange/execute: Each inserted row records entity_type.",
+      "Assert: entity_id, actor_id, actor_role, action, timestamp, and details_json, matching the BRD data-model table."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F038",
+    "category": "functional",
+    "story": "E3-S1",
+    "group": "C",
+    "description": "A repository-level test attempts to mutate an existing audit row directly via the repository API and confirms no such method is exposed.",
+    "steps": [
+      "Arrange/execute: A repository-level test attempts to mutate an existing audit row directly via the repository API and.",
+      "Assert: confirms no such method is exposed."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F039",
+    "category": "functional",
+    "story": "E3-S1",
+    "group": "C",
+    "description": "Querying by entity_type and a date range returns entries ordered by timestamp ascending.",
+    "steps": [
+      "Arrange/execute: Querying by entity_type and a date range.",
+      "Assert: returns entries ordered by timestamp ascending."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F040",
+    "category": "security",
+    "story": "E3-S1",
+    "group": "C",
+    "description": "details_json never contains a customer's raw PII or financial-position values beyond entity IDs, per NFR-03.",
+    "steps": [
+      "Arrange/execute: details_json.",
+      "Assert: never contains a customer's raw PII or financial-position values beyond entity IDs, per NFR-03."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F041",
+    "category": "security",
+    "story": "E3-S2",
+    "group": "D",
+    "description": "Calling the audit-writer with a valid entity_type, entity_id, actor_id, actor_role, action, and details dict produces exactly one new row in the audit repository.",
+    "steps": [
+      "Arrange/execute: Calling the audit-writer with a valid entity_type, entity_id, actor_id, actor_role, action, and details dict.",
+      "Assert: produces exactly one new row in the audit repository."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F042",
+    "category": "security",
+    "story": "E3-S2",
+    "group": "D",
+    "description": "The audit-writer rejects a call missing actor_role or with an actor_role outside {customer, advisor, admin, compliance}.",
+    "steps": [
+      "Arrange/execute: The audit-writer.",
+      "Assert: rejects a call missing actor_role or with an actor_role outside {customer, advisor, admin, compliance}."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F043",
+    "category": "integration",
+    "story": "E3-S2",
+    "group": "D",
+    "description": "A unit test verifies at least one downstream domain flow (risk-band assignment) invokes the audit-writer exactly once per assignment.",
+    "steps": [
+      "Arrange/execute: A unit test verifies at least one downstream domain flow (risk-band assignment).",
+      "Assert: invokes the audit-writer exactly once per assignment."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F044",
+    "category": "integration",
+    "story": "E3-S2",
+    "group": "D",
+    "description": "The audit-writer never silently overwrites a prior entry with the same entity_id; each call always inserts a new row.",
+    "steps": [
+      "Arrange/execute: The audit-writer.",
+      "Assert: never silently overwrites a prior entry with the same entity_id; each call always inserts a new row."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F045",
+    "category": "integration",
+    "story": "E3-S2",
+    "group": "D",
+    "description": "Failures inside the audit-writer propagate as an exception rather than being silently swallowed, so a caller cannot commit a business action while losing its audit trail.",
+    "steps": [
+      "Arrange/execute: Failures inside the audit-writer propagate as an exception rather than being silently swallowed.",
+      "Assert: so a caller cannot commit a business action while losing its audit trail."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F046",
+    "category": "security",
+    "story": "E3-S3",
+    "group": "E",
+    "description": "GET /api/audit?actor_id=...&entity_type=...&from=...&to=... with a compliance-role JWT returns 200 with a paginated list of matching audit entries.",
+    "steps": [
+      "Arrange/execute: GET /api/audit?actor_id=...&entity_type=...&from=...&to=... with a compliance-role JWT.",
+      "Assert: returns 200 with a paginated list of matching audit entries."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F047",
+    "category": "security",
+    "story": "E3-S3",
+    "group": "E",
+    "description": "The same endpoint called with a customer-, advisor-, or admin-role JWT returns 403.",
+    "steps": [
+      "Arrange/execute: The same endpoint called with a customer-, advisor-, or admin-role JWT.",
+      "Assert: returns 403."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F048",
+    "category": "functional",
+    "story": "E3-S3",
+    "group": "E",
+    "description": "No POST, PUT, PATCH, or DELETE method is registered on the /api/audit route; attempting any of them returns 405.",
+    "steps": [
+      "Arrange/execute: No POST, PUT, PATCH, or DELETE method is registered on the /api/audit route; attempting any of them.",
+      "Assert: returns 405."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F049",
+    "category": "functional",
+    "story": "E3-S3",
+    "group": "E",
+    "description": "Filtering by entity_type=RiskBandAssignment returns only rows whose entity_type matches exactly, excluding all other entity types.",
+    "steps": [
+      "Arrange/execute: Filtering by entity_type=RiskBandAssignment.",
+      "Assert: returns only rows whose entity_type matches exactly, excluding all other entity types."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F050",
+    "category": "security",
+    "story": "E3-S3",
+    "group": "E",
+    "description": "An unauthenticated request (no Bearer token) returns 401.",
+    "steps": [
+      "Arrange/execute: An unauthenticated request (no Bearer token).",
+      "Assert: returns 401."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F051",
+    "category": "ui",
+    "story": "E3-S4",
+    "group": "F",
+    "description": "Logging in as the seeded compliance user lands on the audit-log screen showing a table of audit entries with columns for actor, entity type, action, and timestamp.",
+    "steps": [
+      "Arrange/execute: Logging in as the seeded compliance user.",
+      "Assert: lands on the audit-log screen showing a table of audit entries with columns for actor, entity type, action, and timestamp."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F052",
+    "category": "ui",
+    "story": "E3-S4",
+    "group": "F",
+    "description": "Selecting an entity-type filter and applying it re-queries the API and displays only entries matching that entity type.",
+    "steps": [
+      "Arrange/execute: Selecting an entity-type filter and applying it re-queries the API and.",
+      "Assert: displays only entries matching that entity type."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F053",
+    "category": "ui",
+    "story": "E3-S4",
+    "group": "F",
+    "description": "Selecting a date range filter and applying it displays only entries with timestamp within the selected range (inclusive).",
+    "steps": [
+      "Arrange/execute: Selecting a date range filter and applying it.",
+      "Assert: displays only entries with timestamp within the selected range (inclusive)."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F054",
+    "category": "ui",
+    "story": "E3-S4",
+    "group": "F",
+    "description": "No UI control on this screen allows editing or deleting an audit entry; the screen contains zero action buttons other than filter/apply/clear.",
+    "steps": [
+      "Execute the scenario described: No UI control on this screen allows editing or deleting an audit entry; the screen contains zero action buttons other than filter/apply/clear.",
+      "Assert the described outcome is observed."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F055",
+    "category": "ui",
+    "story": "E3-S4",
+    "group": "F",
+    "description": "All filter inputs are labeled and keyboard-operable (tab-focusable, submit via Enter key).",
+    "steps": [
+      "Arrange/execute: All filter inputs are labeled and keyboard-operable (tab-focusable.",
+      "Assert: submit via Enter key)."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F056",
+    "category": "functional",
+    "story": "E4-S1",
+    "group": "C",
+    "description": "The repository stores a RiskBandRule row containing version, questionnaire_json (at least 6 questions), scoring_rules_json, published_at, and is_active, and exposes no update method, only insert of new versions.",
+    "steps": [
+      "Arrange/execute: The repository stores a RiskBandRule row containing version.",
+      "Assert: questionnaire_json (at least 6 questions), scoring_rules_json, published_at, and is_active, and exposes no update method, only insert of new versions."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F057",
+    "category": "functional",
+    "story": "E4-S1",
+    "group": "C",
+    "description": "A get_active_rule() repository function returns exactly one RiskBandRule where is_active = true at any point in time.",
+    "steps": [
+      "Arrange/execute: A get_active_rule() repository function.",
+      "Assert: returns exactly one RiskBandRule where is_active = true at any point in time."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F058",
+    "category": "functional",
+    "story": "E4-S1",
+    "group": "C",
+    "description": "RiskProfileAnswer rows are insert-only per BRD NFR-02; a repository test confirms no update/delete function exists for this table.",
+    "steps": [
+      "Arrange/execute: RiskProfileAnswer rows are insert-only per BRD NFR-02; a repository test.",
+      "Assert: confirms no update/delete function exists for this table."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F059",
+    "category": "functional",
+    "story": "E4-S1",
+    "group": "C",
+    "description": "Seeding the repository with an initial rule version produces version = 1; publishing a second version produces version = 2, and version 1's is_active flips to false while remaining queryable by version number.",
+    "steps": [
+      "Arrange/execute: Seeding the repository with an initial rule version.",
+      "Assert: produces version = 1; publishing a second version produces version = 2, and version 1's is_active flips to false while remaining queryable by version number."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F060",
+    "category": "functional",
+    "story": "E4-S1",
+    "group": "C",
+    "description": "Each RiskProfileAnswer row records customer_id, question_id, answer_value, and submitted_at.",
+    "steps": [
+      "Arrange/execute: Each RiskProfileAnswer row records customer_id.",
+      "Assert: question_id, answer_value, and submitted_at."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F061",
+    "category": "functional",
+    "story": "E4-S2",
+    "group": "E",
+    "description": "Given the same complete set of answers submitted twice, the service returns the identical risk band both times (deterministic, no randomness).",
+    "steps": [
+      "Arrange/execute: Given the same complete set of answers submitted twice, the service.",
+      "Assert: returns the identical risk band both times (deterministic, no randomness)."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F062",
+    "category": "functional",
+    "story": "E4-S2",
+    "group": "E",
+    "description": "Given an incomplete answer set (fewer than the questionnaire's required question count), the service raises a validation error rather than producing a partial risk-band assignment, per the BRD edge-case table.",
+    "steps": [
+      "Arrange/execute: Given an incomplete answer set (fewer than the questionnaire's required question count), the service.",
+      "Assert: raises a validation error rather than producing a partial risk-band assignment, per the BRD edge-case table."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F063",
+    "category": "functional",
+    "story": "E4-S2",
+    "group": "E",
+    "description": "A successful scoring call creates a RiskBandAssignment row recording customer_id, risk_band, rule_version (the RiskBandRule version used), and assigned_at.",
+    "steps": [
+      "Arrange/execute: A successful scoring call.",
+      "Assert: creates a RiskBandAssignment row recording customer_id, risk_band, rule_version (the RiskBandRule version used), and assigned_at."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F064",
+    "category": "integration",
+    "story": "E4-S2",
+    "group": "E",
+    "description": "A successful scoring call invokes the audit-writer service exactly once with entity_type=RiskBandAssignment.",
+    "steps": [
+      "Arrange/execute: A successful scoring call.",
+      "Assert: invokes the audit-writer service exactly once with entity_type=RiskBandAssignment."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F065",
+    "category": "functional",
+    "story": "E4-S2",
+    "group": "E",
+    "description": "Scoring uses only fixed-point/integer arithmetic for point totals and thresholds; no floating-point comparison, per NFR-01.",
+    "steps": [
+      "Arrange/execute: Scoring uses only fixed-point/integer arithmetic for point totals and thresholds; no floating-point comparison.",
+      "Assert: per NFR-01."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F066",
+    "category": "functional",
+    "story": "E4-S2",
+    "group": "E",
+    "description": "RiskBandAssignment rows are never updated in place; a re-submission creates a new row rather than mutating the prior assignment, preserving append-only history (NFR-02).",
+    "steps": [
+      "Arrange/execute: RiskBandAssignment rows are never updated in place; a re-submission.",
+      "Assert: creates a new row rather than mutating the prior assignment, preserving append-only history (NFR-02)."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F067",
+    "category": "security",
+    "story": "E4-S3",
+    "group": "F",
+    "description": "POST /api/risk-profile/submit with a complete, valid answer set and a customer-role JWT returns 201 with the assigned risk_band in the response body.",
+    "steps": [
+      "Arrange/execute: POST /api/risk-profile/submit with a complete, valid answer set and a customer-role JWT.",
+      "Assert: returns 201 with the assigned risk_band in the response body."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F068",
+    "category": "functional",
+    "story": "E4-S3",
+    "group": "F",
+    "description": "The same endpoint with an incomplete answer set returns 422 and creates no RiskBandAssignment row.",
+    "steps": [
+      "Arrange/execute: The same endpoint with an incomplete answer set.",
+      "Assert: returns 422 and creates no RiskBandAssignment row."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F069",
+    "category": "security",
+    "story": "E4-S3",
+    "group": "F",
+    "description": "The endpoint called with an advisor- or admin-role JWT returns 403 (customer-only action).",
+    "steps": [
+      "Arrange/execute: The endpoint called with an advisor- or admin-role JWT.",
+      "Assert: returns 403 (customer-only action)."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F070",
+    "category": "functional",
+    "story": "E4-S3",
+    "group": "F",
+    "description": "GET /api/risk-profile/latest for the authenticated customer returns their most recent RiskBandAssignment, or 404 if none exists yet.",
+    "steps": [
+      "Arrange/execute: GET /api/risk-profile/latest for the authenticated customer.",
+      "Assert: returns their most recent RiskBandAssignment, or 404 if none exists yet."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F071",
+    "category": "security",
+    "story": "E4-S3",
+    "group": "F",
+    "description": "An unauthenticated request returns 401.",
+    "steps": [
+      "Arrange/execute: An unauthenticated request.",
+      "Assert: returns 401."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F072",
+    "category": "ui",
+    "story": "E4-S4",
+    "group": "G",
+    "description": "The questionnaire renders all questions from the active RiskBandRule version and disables the submit button until every question has an answer selected.",
+    "steps": [
+      "Arrange/execute: The questionnaire.",
+      "Assert: renders all questions from the active RiskBandRule version and disables the submit button until every question has an answer selected."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F073",
+    "category": "ui",
+    "story": "E4-S4",
+    "group": "G",
+    "description": "Submitting a complete questionnaire navigates to a result screen displaying the returned risk_band value in human-readable form (e.g., Conservative).",
+    "steps": [
+      "Arrange/execute: Submitting a complete questionnaire navigates to a result screen displaying the returned risk_band value in human-readable form (e.g..",
+      "Assert: Conservative)."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F074",
+    "category": "ui",
+    "story": "E4-S4",
+    "group": "G",
+    "description": "Attempting to submit with any question unanswered shows an inline validation message per unanswered question and does not call the submit API.",
+    "steps": [
+      "Arrange/execute: Attempting to submit with any question unanswered.",
+      "Assert: shows an inline validation message per unanswered question and does not call the submit API."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F075",
+    "category": "ui",
+    "story": "E4-S4",
+    "group": "G",
+    "description": "Every question's answer options are rendered as labeled, keyboard-selectable radio/select controls.",
+    "steps": [
+      "Arrange/execute: Every question's answer options are rendered as labeled.",
+      "Assert: keyboard-selectable radio/select controls."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F076",
+    "category": "ui",
+    "story": "E4-S4",
+    "group": "G",
+    "description": "If the customer already has a prior RiskBandAssignment, revisiting the questionnaire screen shows their current band before re-submission.",
+    "steps": [
+      "Arrange/execute: If the customer already has a prior RiskBandAssignment, revisiting the questionnaire screen.",
+      "Assert: shows their current band before re-submission."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F077",
+    "category": "functional",
+    "story": "E5-S1",
+    "group": "C",
+    "description": "The repository rejects, at the data-access boundary, any insert attempt where the sum of allocations_json percentages for a template does not equal exactly 100.",
+    "steps": [
+      "Arrange/execute: The repository rejects.",
+      "Assert: at the data-access boundary, any insert attempt where the sum of allocations_json percentages for a template does not equal exactly 100."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F078",
+    "category": "functional",
+    "story": "E5-S1",
+    "group": "C",
+    "description": "AllocationTemplate rows are insert-only; no update method is exposed, publishing a correction requires inserting a new version.",
+    "steps": [
+      "Arrange/execute: AllocationTemplate rows are insert-only; no update method is exposed, publishing a correction.",
+      "Assert: requires inserting a new version."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F079",
+    "category": "functional",
+    "story": "E5-S1",
+    "group": "C",
+    "description": "get_active_template(risk_band) returns exactly one active, published template for a given risk band at any point in time.",
+    "steps": [
+      "Arrange/execute: get_active_template(risk_band).",
+      "Assert: returns exactly one active, published template for a given risk band at any point in time."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F080",
+    "category": "functional",
+    "story": "E5-S1",
+    "group": "C",
+    "description": "Two published template versions for the same risk_band retain distinct version numbers, and both remain individually queryable by version after a newer one is published, supporting in-flight customer pinning.",
+    "steps": [
+      "Arrange/execute: Two published template versions for the same risk_band retain distinct version numbers.",
+      "Assert: and both remain individually queryable by version after a newer one is published, supporting in-flight customer pinning."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F081",
+    "category": "functional",
+    "story": "E5-S1",
+    "group": "C",
+    "description": "Seeding creates 2 allocation-template versions per risk band (6 total across 3 bands), matching BRD section 9 seed volumes.",
+    "steps": [
+      "Arrange/execute: Seeding creates 2 allocation-template versions per risk band (6 total across 3 bands).",
+      "Assert: matching BRD section 9 seed volumes."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F082",
+    "category": "functional",
+    "story": "E5-S2",
+    "group": "F",
+    "description": "Given a customer with a CONSERVATIVE risk band, the service returns the active AllocationTemplate for CONSERVATIVE whose percentages sum to exactly 100.",
+    "steps": [
+      "Arrange/execute: Given a customer with a CONSERVATIVE risk band, the service.",
+      "Assert: returns the active AllocationTemplate for CONSERVATIVE whose percentages sum to exactly 100."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F083",
+    "category": "functional",
+    "story": "E5-S2",
+    "group": "F",
+    "description": "Given a customer with no RiskBandAssignment yet, the service raises an error rather than returning a default/fallback allocation.",
+    "steps": [
+      "Arrange/execute: Given a customer with no RiskBandAssignment yet, the service.",
+      "Assert: raises an error rather than returning a default/fallback allocation."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F084",
+    "category": "integration",
+    "story": "E5-S2",
+    "group": "F",
+    "description": "A successful recommendation call invokes the audit-writer service exactly once with entity_type reflecting the recommendation event.",
+    "steps": [
+      "Arrange/execute: A successful recommendation call.",
+      "Assert: invokes the audit-writer service exactly once with entity_type reflecting the recommendation event."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F085",
+    "category": "functional",
+    "story": "E5-S2",
+    "group": "F",
+    "description": "The service's goal-horizon-based selection logic is deterministic: the same risk band and horizon input always yields the same template selection.",
+    "steps": [
+      "Execute the scenario described: The service's goal-horizon-based selection logic is deterministic: the same risk band and horizon input always yields the same template selection.",
+      "Assert the described outcome is observed."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F086",
+    "category": "functional",
+    "story": "E5-S2",
+    "group": "F",
+    "description": "The returned allocation percentages are represented as fixed-point/decimal values summing to exactly 100, never floating-point (NFR-01).",
+    "steps": [
+      "Arrange/execute: The returned allocation percentages are represented as fixed-point/decimal values summing to exactly 100,.",
+      "Assert: never floating-point (NFR-01)."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F087",
+    "category": "functional",
+    "story": "E5-S3",
+    "group": "G",
+    "description": "GET /api/recommendation for an authenticated customer with an existing risk-band assignment returns 200 with an allocation breakdown whose percentages sum to 100.",
+    "steps": [
+      "Arrange/execute: GET /api/recommendation for an authenticated customer with an existing risk-band assignment.",
+      "Assert: returns 200 with an allocation breakdown whose percentages sum to 100."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F088",
+    "category": "functional",
+    "story": "E5-S3",
+    "group": "G",
+    "description": "The same endpoint for a customer with no risk-band assignment yet returns 404 rather than a default allocation.",
+    "steps": [
+      "Arrange/execute: The same endpoint for a customer with no risk-band assignment yet.",
+      "Assert: returns 404 rather than a default allocation."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F089",
+    "category": "security",
+    "story": "E5-S3",
+    "group": "G",
+    "description": "The endpoint called with an advisor- or admin-role JWT returns 403.",
+    "steps": [
+      "Arrange/execute: The endpoint called with an advisor- or admin-role JWT.",
+      "Assert: returns 403."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F090",
+    "category": "functional",
+    "story": "E5-S3",
+    "group": "G",
+    "description": "The response includes the version of the AllocationTemplate used, enabling traceability to AC-10's immutability guarantee.",
+    "steps": [
+      "Arrange/execute: The response includes the version of the AllocationTemplate used.",
+      "Assert: enabling traceability to AC-10's immutability guarantee."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F091",
+    "category": "security",
+    "story": "E5-S3",
+    "group": "G",
+    "description": "An unauthenticated request returns 401.",
+    "steps": [
+      "Arrange/execute: An unauthenticated request.",
+      "Assert: returns 401."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F092",
+    "category": "ui",
+    "story": "E5-S4",
+    "group": "H",
+    "description": "The allocation view renders each asset class with its recommended percentage, and the displayed percentages sum to 100 as shown on screen.",
+    "steps": [
+      "Arrange/execute: The allocation view.",
+      "Assert: renders each asset class with its recommended percentage, and the displayed percentages sum to 100 as shown on screen."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F093",
+    "category": "ui",
+    "story": "E5-S4",
+    "group": "H",
+    "description": "If the customer has no risk-band assignment, the view prompts them to complete the risk-profile questionnaire instead of showing an empty/broken chart.",
+    "steps": [
+      "Arrange/execute: If the customer has no risk-band assignment.",
+      "Assert: the view prompts them to complete the risk-profile questionnaire instead of showing an empty/broken chart."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F094",
+    "category": "ui",
+    "story": "E5-S4",
+    "group": "H",
+    "description": "The view is reachable via a persistent navigation link from the customer dashboard.",
+    "steps": [
+      "Execute the scenario described: The view is reachable via a persistent navigation link from the customer dashboard.",
+      "Assert the described outcome is observed."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F095",
+    "category": "ui",
+    "story": "E5-S4",
+    "group": "H",
+    "description": "Percentage values are rendered with a consistent, fixed number of decimal places, with no floating-point rounding artifacts.",
+    "steps": [
+      "Arrange/execute: Percentage values are rendered with a consistent.",
+      "Assert: fixed number of decimal places, with no floating-point rounding artifacts."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F096",
+    "category": "ui",
+    "story": "E5-S4",
+    "group": "H",
+    "description": "The view refetches and re-renders if the customer's risk band changes (e.g., after an advisor override) without requiring a full page reload.",
+    "steps": [
+      "Arrange/execute: The view refetches and re-renders if the customer's risk band changes (e.g..",
+      "Assert: after an advisor override) without requiring a full page reload."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F097",
+    "category": "functional",
+    "story": "E6-S1",
+    "group": "C",
+    "description": "On first startup against an empty database, the seed CSV loader inserts 5-6 AssetClass rows and one NavSnapshot row per asset class for the initial price_date.",
+    "steps": [
+      "Arrange/execute: On first startup against an empty database.",
+      "Assert: the seed CSV loader inserts 5-6 AssetClass rows and one NavSnapshot row per asset class for the initial price_date."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F098",
+    "category": "functional",
+    "story": "E6-S1",
+    "group": "C",
+    "description": "Re-running the loader against an already-seeded database does not create duplicate AssetClass rows (unique constraint on code).",
+    "steps": [
+      "Arrange/execute: Re-running the loader against an already-seeded database.",
+      "Assert: does not create duplicate AssetClass rows (unique constraint on code)."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F099",
+    "category": "functional",
+    "story": "E6-S1",
+    "group": "C",
+    "description": "NavSnapshot rows are append-only; the repository exposes no update method for existing snapshots.",
+    "steps": [
+      "Execute the scenario described: NavSnapshot rows are append-only; the repository exposes no update method for existing snapshots.",
+      "Assert the described outcome is observed."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F100",
+    "category": "functional",
+    "story": "E6-S1",
+    "group": "C",
+    "description": "get_latest_nav(asset_class_id) returns the NavSnapshot with the most recent price_date for that asset class.",
+    "steps": [
+      "Arrange/execute: get_latest_nav(asset_class_id).",
+      "Assert: returns the NavSnapshot with the most recent price_date for that asset class."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F101",
+    "category": "functional",
+    "story": "E6-S1",
+    "group": "C",
+    "description": "nav_value is stored as a fixed-point/decimal type, never floating-point.",
+    "steps": [
+      "Arrange/execute: nav_value is stored as a fixed-point/decimal type,.",
+      "Assert: never floating-point."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F102",
+    "category": "functional",
+    "story": "E6-S2",
+    "group": "D",
+    "description": "Invoking the advance-a-day service once inserts exactly one new NavSnapshot per AssetClass for the next sequential price_date.",
+    "steps": [
+      "Execute the scenario described: Invoking the advance-a-day service once inserts exactly one new NavSnapshot per AssetClass for the next sequential price_date.",
+      "Assert the described outcome is observed."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F103",
+    "category": "functional",
+    "story": "E6-S2",
+    "group": "D",
+    "description": "Invoking the service a second time on the same simulated day is rejected or is a documented no-op that does not insert duplicate NavSnapshot rows for the same price_date, addressing the BRD double-trigger edge case.",
+    "steps": [
+      "Arrange/execute: Invoking the service a second time on the same simulated day.",
+      "Assert: is rejected or is a documented no-op that does not insert duplicate NavSnapshot rows for the same price_date, addressing the BRD double-trigger edge case."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F104",
+    "category": "functional",
+    "story": "E6-S2",
+    "group": "D",
+    "description": "After advancing, get_latest_nav for every seeded asset class returns the newly inserted snapshot, not the prior day's.",
+    "steps": [
+      "Arrange/execute: After advancing, get_latest_nav for every seeded asset class.",
+      "Assert: returns the newly inserted snapshot, not the prior day's."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F105",
+    "category": "integration",
+    "story": "E6-S2",
+    "group": "D",
+    "description": "The service is invocable only via an explicit call; no background scheduler, cron, or timer triggers it automatically.",
+    "steps": [
+      "Arrange/execute: The service is invocable only via an explicit call; no background scheduler.",
+      "Assert: cron, or timer triggers it automatically."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F106",
+    "category": "integration",
+    "story": "E6-S2",
+    "group": "D",
+    "description": "A successful advance triggers recomputation of holdings drift for all customers with holdings, without requiring a separate manual step.",
+    "steps": [
+      "Arrange/execute: A successful advance triggers recomputation of holdings drift for all customers with holdings.",
+      "Assert: without requiring a separate manual step."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F107",
+    "category": "functional",
+    "story": "E6-S3",
+    "group": "D",
+    "description": "Given a customer's holdings and their active recommended allocation, the service returns, for each asset class, current_percent, target_percent, and drift_percent = current_percent - target_percent.",
+    "steps": [
+      "Arrange/execute: Given a customer's holdings and their active recommended allocation.",
+      "Assert: the service returns, for each asset class, current_percent, target_percent, and drift_percent = current_percent - target_percent."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F108",
+    "category": "functional",
+    "story": "E6-S3",
+    "group": "D",
+    "description": "All drift calculations use fixed-point/decimal arithmetic; a unit test confirms no float type appears in any intermediate or final drift value.",
+    "steps": [
+      "Arrange/execute: All drift calculations use fixed-point/decimal arithmetic; a unit test.",
+      "Assert: confirms no float type appears in any intermediate or final drift value."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F109",
+    "category": "functional",
+    "story": "E6-S3",
+    "group": "D",
+    "description": "A customer with zero holdings produces an empty drift result, not an error and not a divide-by-zero exception.",
+    "steps": [
+      "Arrange/execute: A customer with zero holdings.",
+      "Assert: produces an empty drift result, not an error and not a divide-by-zero exception."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F110",
+    "category": "functional",
+    "story": "E6-S3",
+    "group": "D",
+    "description": "Drift values at exact boundary conditions (drift exactly equal to the configured threshold) are handled per a documented rounding rule where the threshold is exclusive: drift must exceed, not equal, the threshold to trigger rebalancing.",
+    "steps": [
+      "Arrange/execute: Drift values at exact boundary conditions (drift exactly equal to the configured threshold) are handled per a documented rounding rule where the threshold is exclusive: drift must exceed.",
+      "Assert: not equal, the threshold to trigger rebalancing."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F111",
+    "category": "functional",
+    "story": "E6-S3",
+    "group": "D",
+    "description": "The sum of a customer's current_percent values across all held asset classes equals 100, within a documented fixed-point rounding tolerance, when the customer holds at least one asset.",
+    "steps": [
+      "Arrange/execute: The sum of a customer's current_percent values across all held asset classes equals 100.",
+      "Assert: within a documented fixed-point rounding tolerance, when the customer holds at least one asset."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F112",
+    "category": "functional",
+    "story": "E6-S4",
+    "group": "E",
+    "description": "GET /api/holdings for an authenticated customer returns 200 with their current holdings and drift per asset class.",
+    "steps": [
+      "Arrange/execute: GET /api/holdings for an authenticated customer.",
+      "Assert: returns 200 with their current holdings and drift per asset class."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F113",
+    "category": "security",
+    "story": "E6-S4",
+    "group": "E",
+    "description": "POST /api/admin/advance-day with an admin-role JWT returns 200 and the new simulated price_date.",
+    "steps": [
+      "Arrange/execute: POST /api/admin/advance-day with an admin-role JWT.",
+      "Assert: returns 200 and the new simulated price_date."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F114",
+    "category": "security",
+    "story": "E6-S4",
+    "group": "E",
+    "description": "POST /api/admin/advance-day with a customer- or advisor-role JWT returns 403.",
+    "steps": [
+      "Arrange/execute: POST /api/admin/advance-day with a customer- or advisor-role JWT.",
+      "Assert: returns 403."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F115",
+    "category": "functional",
+    "story": "E6-S4",
+    "group": "E",
+    "description": "Calling POST /api/admin/advance-day twice in immediate succession returns 200 the first time and either a 200 no-op response or a 409 the second time, never silently duplicating NAV data.",
+    "steps": [
+      "Arrange/execute: Calling POST /api/admin/advance-day twice in immediate succession.",
+      "Assert: returns 200 the first time and either a 200 no-op response or a 409 the second time, never silently duplicating NAV data."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F116",
+    "category": "functional",
+    "story": "E6-S4",
+    "group": "E",
+    "description": "GET /api/holdings for a customer with no holdings returns 200 with an empty list, not an error.",
+    "steps": [
+      "Arrange/execute: GET /api/holdings for a customer with no holdings.",
+      "Assert: returns 200 with an empty list, not an error."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F117",
+    "category": "ui",
+    "story": "E6-S5",
+    "group": "F",
+    "description": "The view lists each held asset class with its current value, current percent, target percent, and drift percent.",
+    "steps": [
+      "Arrange/execute: The view lists each held asset class with its current value.",
+      "Assert: current percent, target percent, and drift percent."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F118",
+    "category": "ui",
+    "story": "E6-S5",
+    "group": "F",
+    "description": "An asset class whose drift exceeds the configured threshold is visually distinguished from those within tolerance.",
+    "steps": [
+      "Arrange/execute: An asset class whose drift exceeds the configured threshold.",
+      "Assert: is visually distinguished from those within tolerance."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F119",
+    "category": "ui",
+    "story": "E6-S5",
+    "group": "F",
+    "description": "A customer with zero holdings sees an explicit empty-state message rather than a blank or broken table.",
+    "steps": [
+      "Execute the scenario described: A customer with zero holdings sees an explicit empty-state message rather than a blank or broken table.",
+      "Assert the described outcome is observed."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F120",
+    "category": "ui",
+    "story": "E6-S5",
+    "group": "F",
+    "description": "All numeric values are rendered with a fixed number of decimal places consistent with the backend's fixed-point representation.",
+    "steps": [
+      "Execute the scenario described: All numeric values are rendered with a fixed number of decimal places consistent with the backend's fixed-point representation.",
+      "Assert the described outcome is observed."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F121",
+    "category": "ui",
+    "story": "E6-S5",
+    "group": "F",
+    "description": "The view is reachable via a persistent navigation link from the customer dashboard.",
+    "steps": [
+      "Execute the scenario described: The view is reachable via a persistent navigation link from the customer dashboard.",
+      "Assert the described outcome is observed."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F122",
+    "category": "functional",
+    "story": "E7-S1",
+    "group": "C",
+    "description": "The repository supports creating multiple Goal rows per customer_id, each with target_amount, target_date, priority, and created_at.",
+    "steps": [
+      "Arrange/execute: The repository supports creating multiple Goal rows per customer_id.",
+      "Assert: each with target_amount, target_date, priority, and created_at."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F123",
+    "category": "functional",
+    "story": "E7-S1",
+    "group": "C",
+    "description": "GoalProgressSnapshot rows are insert-only; the repository exposes no update/delete method for existing snapshots, per NFR-02.",
+    "steps": [
+      "Arrange/execute: GoalProgressSnapshot rows are insert-only; the repository exposes no update/delete method for existing snapshots.",
+      "Assert: per NFR-02."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F124",
+    "category": "functional",
+    "story": "E7-S1",
+    "group": "C",
+    "description": "get_latest_progress(goal_id) returns the GoalProgressSnapshot with the most recent snapshot_at for that goal.",
+    "steps": [
+      "Arrange/execute: get_latest_progress(goal_id).",
+      "Assert: returns the GoalProgressSnapshot with the most recent snapshot_at for that goal."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F125",
+    "category": "functional",
+    "story": "E7-S1",
+    "group": "C",
+    "description": "target_amount is stored as a fixed-point/decimal type, never floating-point.",
+    "steps": [
+      "Arrange/execute: target_amount is stored as a fixed-point/decimal type,.",
+      "Assert: never floating-point."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F126",
+    "category": "functional",
+    "story": "E7-S1",
+    "group": "C",
+    "description": "Editing a Goal's mutable fields (e.g., target_amount, priority) is supported via a documented update path distinct from the append-only GoalProgressSnapshot history.",
+    "steps": [
+      "Arrange/execute: Editing a Goal's mutable fields (e.g..",
+      "Assert: target_amount, priority) is supported via a documented update path distinct from the append-only GoalProgressSnapshot history."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F127",
+    "category": "functional",
+    "story": "E7-S2",
+    "group": "D",
+    "description": "Creating a goal with target_amount <= 0 is rejected with a validation error.",
+    "steps": [
+      "Arrange/execute: Creating a goal with target_amount <= 0.",
+      "Assert: is rejected with a validation error."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F128",
+    "category": "functional",
+    "story": "E7-S2",
+    "group": "D",
+    "description": "Creating a goal with a target_date in the past is rejected with a validation error.",
+    "steps": [
+      "Arrange/execute: Creating a goal with a target_date in the past.",
+      "Assert: is rejected with a validation error."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F129",
+    "category": "functional",
+    "story": "E7-S2",
+    "group": "D",
+    "description": "A customer can hold more than one goal simultaneously; creating a second goal does not remove or overwrite the first.",
+    "steps": [
+      "Execute the scenario described: A customer can hold more than one goal simultaneously; creating a second goal does not remove or overwrite the first.",
+      "Assert the described outcome is observed."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F130",
+    "category": "functional",
+    "story": "E7-S2",
+    "group": "D",
+    "description": "Editing an existing goal's priority succeeds and is reflected on the next read, without altering created_at.",
+    "steps": [
+      "Arrange/execute: Editing an existing goal's priority succeeds and is reflected on the next read.",
+      "Assert: without altering created_at."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F131",
+    "category": "security",
+    "story": "E7-S2",
+    "group": "D",
+    "description": "A customer cannot create or edit a goal belonging to a different customer_id; the service enforces an ownership check.",
+    "steps": [
+      "Execute the scenario described: A customer cannot create or edit a goal belonging to a different customer_id; the service enforces an ownership check.",
+      "Assert the described outcome is observed."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F132",
+    "category": "functional",
+    "story": "E7-S3",
+    "group": "E",
+    "description": "After an advance-a-day trigger, exactly one new GoalProgressSnapshot is created per active goal, timestamped to the new snapshot_at.",
+    "steps": [
+      "Arrange/execute: After an advance-a-day trigger.",
+      "Assert: exactly one new GoalProgressSnapshot is created per active goal, timestamped to the new snapshot_at."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F133",
+    "category": "functional",
+    "story": "E7-S3",
+    "group": "E",
+    "description": "percent_complete is computed using fixed-point arithmetic as current_value divided by target_amount times 100, capped at a documented maximum, never floating-point.",
+    "steps": [
+      "Arrange/execute: percent_complete is computed using fixed-point arithmetic as current_value divided by target_amount times 100, capped at a documented maximum,.",
+      "Assert: never floating-point."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F134",
+    "category": "functional",
+    "story": "E7-S3",
+    "group": "E",
+    "description": "A goal whose current_value is 0 produces percent_complete = 0, not a division error.",
+    "steps": [
+      "Arrange/execute: A goal whose current_value is 0.",
+      "Assert: produces percent_complete = 0, not a division error."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F135",
+    "category": "functional",
+    "story": "E7-S3",
+    "group": "E",
+    "description": "Progress recompute is idempotent for a given price_date; triggering it twice for the same date does not create two snapshots with the same date pairing for the same goal.",
+    "steps": [
+      "Arrange/execute: Progress recompute is idempotent for a given price_date; triggering it twice for the same date.",
+      "Assert: does not create two snapshots with the same date pairing for the same goal."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F136",
+    "category": "integration",
+    "story": "E7-S3",
+    "group": "E",
+    "description": "The recompute service is invoked automatically as part of the advance-a-day flow, verified by a test asserting a new snapshot exists immediately after calling advance-a-day.",
+    "steps": [
+      "Arrange/execute: The recompute service is invoked automatically as part of the advance-a-day flow.",
+      "Assert: verified by a test asserting a new snapshot exists immediately after calling advance-a-day."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F137",
+    "category": "functional",
+    "story": "E7-S4",
+    "group": "F",
+    "description": "POST /api/goals with valid target_amount, target_date, and priority returns 201 with the created goal's id.",
+    "steps": [
+      "Arrange/execute: POST /api/goals with valid target_amount, target_date, and priority.",
+      "Assert: returns 201 with the created goal's id."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F138",
+    "category": "functional",
+    "story": "E7-S4",
+    "group": "F",
+    "description": "POST /api/goals with target_amount <= 0 returns 422.",
+    "steps": [
+      "Arrange/execute: POST /api/goals with target_amount <= 0.",
+      "Assert: returns 422."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F139",
+    "category": "functional",
+    "story": "E7-S4",
+    "group": "F",
+    "description": "GET /api/goals for the authenticated customer returns only that customer's goals, never another customer's.",
+    "steps": [
+      "Arrange/execute: GET /api/goals for the authenticated customer.",
+      "Assert: returns only that customer's goals, never another customer's."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F140",
+    "category": "functional",
+    "story": "E7-S4",
+    "group": "F",
+    "description": "GET /api/goals/{id}/progress returns the ordered history of GoalProgressSnapshot rows for that goal.",
+    "steps": [
+      "Arrange/execute: GET /api/goals/{id}/progress.",
+      "Assert: returns the ordered history of GoalProgressSnapshot rows for that goal."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F141",
+    "category": "functional",
+    "story": "E7-S4",
+    "group": "F",
+    "description": "PATCH /api/goals/{id} updating priority returns 200 with the updated value reflected in a subsequent GET.",
+    "steps": [
+      "Arrange/execute: PATCH /api/goals/{id} updating priority.",
+      "Assert: returns 200 with the updated value reflected in a subsequent GET."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F142",
+    "category": "ui",
+    "story": "E7-S5",
+    "group": "G",
+    "description": "The goals list screen displays every goal for the logged-in customer with target_amount, target_date, priority, and current percent_complete.",
+    "steps": [
+      "Arrange/execute: The goals list screen.",
+      "Assert: displays every goal for the logged-in customer with target_amount, target_date, priority, and current percent_complete."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F143",
+    "category": "ui",
+    "story": "E7-S5",
+    "group": "G",
+    "description": "Submitting the create-goal form with a negative or zero target_amount shows an inline validation error and does not call the create API.",
+    "steps": [
+      "Arrange/execute: Submitting the create-goal form with a negative or zero target_amount.",
+      "Assert: shows an inline validation error and does not call the create API."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F144",
+    "category": "ui",
+    "story": "E7-S5",
+    "group": "G",
+    "description": "Each goal's progress is rendered as a progress bar or percentage label reflecting the latest GoalProgressSnapshot.",
+    "steps": [
+      "Execute the scenario described: Each goal's progress is rendered as a progress bar or percentage label reflecting the latest GoalProgressSnapshot.",
+      "Assert the described outcome is observed."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F145",
+    "category": "ui",
+    "story": "E7-S5",
+    "group": "G",
+    "description": "Editing an existing goal's priority via the form updates the displayed value after save without a full page reload.",
+    "steps": [
+      "Arrange/execute: Editing an existing goal's priority via the form.",
+      "Assert: updates the displayed value after save without a full page reload."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F146",
+    "category": "ui",
+    "story": "E7-S5",
+    "group": "G",
+    "description": "All form inputs are labeled and keyboard-operable.",
+    "steps": [
+      "Execute the scenario described: All form inputs are labeled and keyboard-operable.",
+      "Assert the described outcome is observed."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F147",
+    "category": "functional",
+    "story": "E8-S1",
+    "group": "C",
+    "description": "The repository inserts a RebalancingRecommendation row with status = pending, proposed_actions_json, and generated_at.",
+    "steps": [
+      "Arrange/execute: The repository inserts a RebalancingRecommendation row with status = pending.",
+      "Assert: proposed_actions_json, and generated_at."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F148",
+    "category": "functional",
+    "story": "E8-S1",
+    "group": "C",
+    "description": "Transitioning status to accepted or dismissed sets resolved_at and never deletes the original row.",
+    "steps": [
+      "Arrange/execute: Transitioning status to accepted or dismissed sets resolved_at and.",
+      "Assert: never deletes the original row."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F149",
+    "category": "functional",
+    "story": "E8-S1",
+    "group": "C",
+    "description": "A repository test confirms no method exists to hard-delete a RebalancingRecommendation row.",
+    "steps": [
+      "Arrange/execute: A repository test.",
+      "Assert: confirms no method exists to hard-delete a RebalancingRecommendation row."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F150",
+    "category": "functional",
+    "story": "E8-S1",
+    "group": "C",
+    "description": "status only ever transitions from pending to exactly one terminal state (accepted or dismissed); a second transition attempt on an already-resolved recommendation is rejected.",
+    "steps": [
+      "Execute the scenario described: status only ever transitions from pending to exactly one terminal state (accepted or dismissed); a second transition attempt on an already-resolved recommendation is rejected.",
+      "Assert the described outcome is observed."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F151",
+    "category": "functional",
+    "story": "E8-S1",
+    "group": "C",
+    "description": "get_pending(customer_id) returns only rows with status = pending for that customer.",
+    "steps": [
+      "Arrange/execute: get_pending(customer_id).",
+      "Assert: returns only rows with status = pending for that customer."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F152",
+    "category": "functional",
+    "story": "E8-S2",
+    "group": "E",
+    "description": "For a customer whose holdings drift exceeds the configured threshold on at least one asset class, the service creates a RebalancingRecommendation with proposed_actions_json containing BUY/SELL quantities that move the customer's allocation toward target.",
+    "steps": [
+      "Arrange/execute: For a customer whose holdings drift exceeds the configured threshold on at least one asset class, the service.",
+      "Assert: creates a RebalancingRecommendation with proposed_actions_json containing BUY/SELL quantities that move the customer's allocation toward target."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F153",
+    "category": "functional",
+    "story": "E8-S2",
+    "group": "E",
+    "description": "For a customer whose drift is within threshold on every asset class, the service creates no recommendation (no-op).",
+    "steps": [
+      "Arrange/execute: For a customer whose drift is within threshold on every asset class, the service.",
+      "Assert: creates no recommendation (no-op)."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F154",
+    "category": "functional",
+    "story": "E8-S2",
+    "group": "E",
+    "description": "For a customer with zero holdings, the service is a documented no-op, not an error, per the BRD edge-case table.",
+    "steps": [
+      "Arrange/execute: For a customer with zero holdings.",
+      "Assert: the service is a documented no-op, not an error, per the BRD edge-case table."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F155",
+    "category": "security",
+    "story": "E8-S2",
+    "group": "E",
+    "description": "For a customer with kyc_verified = false, the service produces no RebalancingRecommendation even if drift exceeds threshold, enforcing the BRD's one real gating branch for the stub flag.",
+    "steps": [
+      "Arrange/execute: For a customer with kyc_verified = false, the service.",
+      "Assert: produces no RebalancingRecommendation even if drift exceeds threshold, enforcing the BRD's one real gating branch for the stub flag."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F156",
+    "category": "integration",
+    "story": "E8-S2",
+    "group": "E",
+    "description": "A successful recommendation creation invokes the audit-writer service exactly once with entity_type=RebalancingRecommendation.",
+    "steps": [
+      "Arrange/execute: A successful recommendation creation.",
+      "Assert: invokes the audit-writer service exactly once with entity_type=RebalancingRecommendation."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F157",
+    "category": "functional",
+    "story": "E8-S2",
+    "group": "E",
+    "description": "All proposed BUY/SELL quantities are computed using fixed-point arithmetic, never floating-point.",
+    "steps": [
+      "Arrange/execute: All proposed BUY/SELL quantities are computed using fixed-point arithmetic,.",
+      "Assert: never floating-point."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F158",
+    "category": "functional",
+    "story": "E8-S3",
+    "group": "F",
+    "description": "GET /api/rebalancing for the authenticated customer returns their pending recommendations.",
+    "steps": [
+      "Arrange/execute: GET /api/rebalancing for the authenticated customer.",
+      "Assert: returns their pending recommendations."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F159",
+    "category": "functional",
+    "story": "E8-S3",
+    "group": "F",
+    "description": "POST /api/rebalancing/{id}/accept transitions the recommendation's status to accepted, returns 200, and creates an audit entry.",
+    "steps": [
+      "Arrange/execute: POST /api/rebalancing/{id}/accept transitions the recommendation's status to accepted,.",
+      "Assert: returns 200, and creates an audit entry."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F160",
+    "category": "functional",
+    "story": "E8-S3",
+    "group": "F",
+    "description": "POST /api/rebalancing/{id}/dismiss transitions the recommendation's status to dismissed, returns 200, and creates an audit entry.",
+    "steps": [
+      "Arrange/execute: POST /api/rebalancing/{id}/dismiss transitions the recommendation's status to dismissed,.",
+      "Assert: returns 200, and creates an audit entry."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F161",
+    "category": "functional",
+    "story": "E8-S3",
+    "group": "F",
+    "description": "Calling accept or dismiss on an already-resolved recommendation returns 409 and does not change its resolved_at.",
+    "steps": [
+      "Arrange/execute: Calling accept or dismiss on an already-resolved recommendation.",
+      "Assert: returns 409 and does not change its resolved_at."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F162",
+    "category": "security",
+    "story": "E8-S3",
+    "group": "F",
+    "description": "A customer cannot accept/dismiss another customer's recommendation; the endpoint returns 403 or 404 for a mismatched customer_id.",
+    "steps": [
+      "Arrange/execute: A customer cannot accept/dismiss another customer's recommendation; the endpoint.",
+      "Assert: returns 403 or 404 for a mismatched customer_id."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F163",
+    "category": "ui",
+    "story": "E8-S4",
+    "group": "G",
+    "description": "The screen lists every pending recommendation with its proposed BUY/SELL actions per asset class.",
+    "steps": [
+      "Execute the scenario described: The screen lists every pending recommendation with its proposed BUY/SELL actions per asset class.",
+      "Assert the described outcome is observed."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F164",
+    "category": "ui",
+    "story": "E8-S4",
+    "group": "G",
+    "description": "Clicking Accept calls the accept API and removes the recommendation from the pending list on success.",
+    "steps": [
+      "Execute the scenario described: Clicking Accept calls the accept API and removes the recommendation from the pending list on success.",
+      "Assert the described outcome is observed."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F165",
+    "category": "ui",
+    "story": "E8-S4",
+    "group": "G",
+    "description": "Clicking Dismiss calls the dismiss API and removes the recommendation from the pending list on success.",
+    "steps": [
+      "Execute the scenario described: Clicking Dismiss calls the dismiss API and removes the recommendation from the pending list on success.",
+      "Assert the described outcome is observed."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F166",
+    "category": "ui",
+    "story": "E8-S4",
+    "group": "G",
+    "description": "A customer with no pending recommendations sees an explicit empty-state message.",
+    "steps": [
+      "Execute the scenario described: A customer with no pending recommendations sees an explicit empty-state message.",
+      "Assert the described outcome is observed."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F167",
+    "category": "ui",
+    "story": "E8-S4",
+    "group": "G",
+    "description": "Both action buttons are keyboard-operable and disabled while their respective API call is in flight, preventing double-submit.",
+    "steps": [
+      "Arrange/execute: Both action buttons are keyboard-operable and disabled while their respective API call is in flight.",
+      "Assert: preventing double-submit."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F168",
+    "category": "functional",
+    "story": "E9-S1",
+    "group": "C",
+    "description": "The repository inserts an AdvisorOverride row with customer_id, advisor_id, previous_band, new_band, reason, note, and created_at.",
+    "steps": [
+      "Arrange/execute: The repository inserts an AdvisorOverride row with customer_id.",
+      "Assert: advisor_id, previous_band, new_band, reason, note, and created_at."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F169",
+    "category": "functional",
+    "story": "E9-S1",
+    "group": "C",
+    "description": "No update or delete method exists for AdvisorOverride rows.",
+    "steps": [
+      "Execute the scenario described: No update or delete method exists for AdvisorOverride rows.",
+      "Assert the described outcome is observed."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F170",
+    "category": "functional",
+    "story": "E9-S1",
+    "group": "C",
+    "description": "get_overrides(customer_id) returns the full override history for a customer ordered by created_at descending.",
+    "steps": [
+      "Arrange/execute: get_overrides(customer_id).",
+      "Assert: returns the full override history for a customer ordered by created_at descending."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F171",
+    "category": "functional",
+    "story": "E9-S1",
+    "group": "C",
+    "description": "Inserting an override with an empty/missing reason is rejected at the repository/service boundary, since reason is mandatory per BRD section 5.1.",
+    "steps": [
+      "Arrange/execute: Inserting an override with an empty/missing reason.",
+      "Assert: is rejected at the repository/service boundary, since reason is mandatory per BRD section 5.1."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F172",
+    "category": "functional",
+    "story": "E9-S1",
+    "group": "C",
+    "description": "previous_band in a new override matches the customer's most recent RiskBandAssignment.risk_band at the time of the override.",
+    "steps": [
+      "Execute the scenario described: previous_band in a new override matches the customer's most recent RiskBandAssignment.risk_band at the time of the override.",
+      "Assert the described outcome is observed."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F173",
+    "category": "functional",
+    "story": "E9-S2",
+    "group": "F",
+    "description": "A valid override request creates an AdvisorOverride row and also creates a new RiskBandAssignment row reflecting new_band, so subsequent recommendation lookups use the overridden band.",
+    "steps": [
+      "Arrange/execute: A valid override request.",
+      "Assert: creates an AdvisorOverride row and also creates a new RiskBandAssignment row reflecting new_band, so subsequent recommendation lookups use the overridden band."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F174",
+    "category": "functional",
+    "story": "E9-S2",
+    "group": "F",
+    "description": "An override request missing reason is rejected with a validation error and creates no AdvisorOverride or RiskBandAssignment row.",
+    "steps": [
+      "Arrange/execute: An override request missing reason is rejected with a validation error and.",
+      "Assert: creates no AdvisorOverride or RiskBandAssignment row."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F175",
+    "category": "integration",
+    "story": "E9-S2",
+    "group": "F",
+    "description": "A successful override invokes the audit-writer service exactly once with entity_type=AdvisorOverride.",
+    "steps": [
+      "Arrange/execute: A successful override.",
+      "Assert: invokes the audit-writer service exactly once with entity_type=AdvisorOverride."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F176",
+    "category": "integration",
+    "story": "E9-S2",
+    "group": "F",
+    "description": "Logging a manual recommendation records it against the correct customer_id and advisor_id and invokes the audit-writer.",
+    "steps": [
+      "Arrange/execute: Logging a manual recommendation records it against the correct customer_id and advisor_id and.",
+      "Assert: invokes the audit-writer."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F177",
+    "category": "functional",
+    "story": "E9-S2",
+    "group": "F",
+    "description": "An advisor cannot override a customer who does not exist; the service raises a not-found error.",
+    "steps": [
+      "Arrange/execute: An advisor cannot override a customer who does not exist; the service.",
+      "Assert: raises a not-found error."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F178",
+    "category": "security",
+    "story": "E9-S3",
+    "group": "G",
+    "description": "GET /api/advisor/customers with an advisor-role JWT returns 200 with a list of customers including their current risk band.",
+    "steps": [
+      "Arrange/execute: GET /api/advisor/customers with an advisor-role JWT.",
+      "Assert: returns 200 with a list of customers including their current risk band."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F179",
+    "category": "functional",
+    "story": "E9-S3",
+    "group": "G",
+    "description": "GET /api/advisor/customers/{id} returns that customer's portfolio detail (holdings, goals, current allocation) for drill-in.",
+    "steps": [
+      "Arrange/execute: GET /api/advisor/customers/{id}.",
+      "Assert: returns that customer's portfolio detail (holdings, goals, current allocation) for drill-in."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F180",
+    "category": "functional",
+    "story": "E9-S3",
+    "group": "G",
+    "description": "POST /api/advisor/customers/{id}/override with a valid reason returns 201 and the new risk_band; the same call without reason returns 422.",
+    "steps": [
+      "Arrange/execute: POST /api/advisor/customers/{id}/override with a valid reason.",
+      "Assert: returns 201 and the new risk_band; the same call without reason returns 422."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F181",
+    "category": "functional",
+    "story": "E9-S3",
+    "group": "G",
+    "description": "POST /api/advisor/customers/{id}/manual-recommendation logs the recommendation and returns 201.",
+    "steps": [
+      "Arrange/execute: POST /api/advisor/customers/{id}/manual-recommendation logs the recommendation and.",
+      "Assert: returns 201."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F182",
+    "category": "security",
+    "story": "E9-S3",
+    "group": "G",
+    "description": "Any of the above endpoints called with a customer- or compliance-role JWT returns 403.",
+    "steps": [
+      "Arrange/execute: Any of the above endpoints called with a customer- or compliance-role JWT.",
+      "Assert: returns 403."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F183",
+    "category": "ui",
+    "story": "E9-S4",
+    "group": "H",
+    "description": "The advisor customer list screen displays every customer with their current risk band and links to a drill-in view.",
+    "steps": [
+      "Arrange/execute: The advisor customer list screen.",
+      "Assert: displays every customer with their current risk band and links to a drill-in view."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F184",
+    "category": "ui",
+    "story": "E9-S4",
+    "group": "H",
+    "description": "The drill-in view shows the customer's holdings, goals, and current allocation on a single screen.",
+    "steps": [
+      "Arrange/execute: The drill-in view.",
+      "Assert: shows the customer's holdings, goals, and current allocation on a single screen."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F185",
+    "category": "ui",
+    "story": "E9-S4",
+    "group": "H",
+    "description": "Submitting the override form without entering a reason shows an inline validation error and does not call the override API.",
+    "steps": [
+      "Arrange/execute: Submitting the override form without entering a reason.",
+      "Assert: shows an inline validation error and does not call the override API."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F186",
+    "category": "ui",
+    "story": "E9-S4",
+    "group": "H",
+    "description": "Submitting a valid override updates the displayed risk band on the drill-in view without a full page reload.",
+    "steps": [
+      "Arrange/execute: Submitting a valid override.",
+      "Assert: updates the displayed risk band on the drill-in view without a full page reload."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F187",
+    "category": "ui",
+    "story": "E9-S4",
+    "group": "H",
+    "description": "The manual-recommendation log control is a modal/panel launched from the drill-in view, not a separate route/screen, matching BRD section 5.1's explicit constraint.",
+    "steps": [
+      "Arrange/execute: The manual-recommendation log control is a modal/panel launched from the drill-in view.",
+      "Assert: not a separate route/screen, matching BRD section 5.1's explicit constraint."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F188",
+    "category": "functional",
+    "story": "E10-S1",
+    "group": "D",
+    "description": "Publishing a new RiskBandRule or AllocationTemplate version inserts a row with version = previous_max_version + 1 and sets the prior active version's is_active = false.",
+    "steps": [
+      "Arrange/execute: Publishing a new RiskBandRule or AllocationTemplate version inserts a row with version = previous_max_version + 1 and.",
+      "Assert: sets the prior active version's is_active = false."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F189",
+    "category": "functional",
+    "story": "E10-S1",
+    "group": "D",
+    "description": "A DB-level uniqueness/monotonic constraint on (risk_band, version) for templates and version for rules causes a second concurrent publish attempt for the same next version number to fail rather than silently overwrite.",
+    "steps": [
+      "Arrange/execute: A DB-level uniqueness/monotonic constraint on (risk_band.",
+      "Assert: version) for templates and version for rules causes a second concurrent publish attempt for the same next version number to fail rather than silently overwrite."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F190",
+    "category": "functional",
+    "story": "E10-S1",
+    "group": "D",
+    "description": "No repository method allows mutating allocations_json, questionnaire_json, or scoring_rules_json on an already-published row.",
+    "steps": [
+      "Arrange/execute: No repository method allows mutating allocations_json.",
+      "Assert: questionnaire_json, or scoring_rules_json on an already-published row."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F191",
+    "category": "functional",
+    "story": "E10-S1",
+    "group": "D",
+    "description": "Asset-class master CRUD (create/update AssetClass code/name) is supported without affecting historical AllocationTemplate rows that reference the asset class by id.",
+    "steps": [
+      "Execute the scenario described: Asset-class master CRUD (create/update AssetClass code/name) is supported without affecting historical AllocationTemplate rows that reference the asset class by id.",
+      "Assert the described outcome is observed."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F192",
+    "category": "functional",
+    "story": "E10-S1",
+    "group": "D",
+    "description": "Published rows remain individually queryable by version number after superseding versions are published, supporting in-flight customer pinning.",
+    "steps": [
+      "Arrange/execute: Published rows remain individually queryable by version number after superseding versions are published.",
+      "Assert: supporting in-flight customer pinning."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F193",
+    "category": "functional",
+    "story": "E10-S2",
+    "group": "E",
+    "description": "Publishing an AllocationTemplate whose allocations_json percentages do not sum to exactly 100 is rejected with a validation error and no row is written, per the BRD edge-case table.",
+    "steps": [
+      "Arrange/execute: Publishing an AllocationTemplate whose allocations_json percentages do not sum to exactly 100.",
+      "Assert: is rejected with a validation error and no row is written, per the BRD edge-case table."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F194",
+    "category": "functional",
+    "story": "E10-S2",
+    "group": "E",
+    "description": "Publishing a RiskBandRule with fewer than 6 questions in questionnaire_json is rejected with a validation error.",
+    "steps": [
+      "Arrange/execute: Publishing a RiskBandRule with fewer than 6 questions in questionnaire_json.",
+      "Assert: is rejected with a validation error."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F195",
+    "category": "functional",
+    "story": "E10-S2",
+    "group": "E",
+    "description": "Two concurrent publish calls for the same risk_band's next version are serialized such that exactly one succeeds and the other raises a conflict error mapped to 409 at the API layer.",
+    "steps": [
+      "Arrange/execute: Two concurrent publish calls for the same risk_band's next version are serialized such that exactly one succeeds and the other.",
+      "Assert: raises a conflict error mapped to 409 at the API layer."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F196",
+    "category": "integration",
+    "story": "E10-S2",
+    "group": "E",
+    "description": "A successful publish invokes the audit-writer service exactly once with entity_type reflecting the rule or template published.",
+    "steps": [
+      "Arrange/execute: A successful publish.",
+      "Assert: invokes the audit-writer service exactly once with entity_type reflecting the rule or template published."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F197",
+    "category": "functional",
+    "story": "E10-S2",
+    "group": "E",
+    "description": "Asset-class create/update validates that code is unique before insert.",
+    "steps": [
+      "Execute the scenario described: Asset-class create/update validates that code is unique before insert.",
+      "Assert the described outcome is observed."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F198",
+    "category": "functional",
+    "story": "E10-S3",
+    "group": "F",
+    "description": "POST /api/admin/risk-band-rules with a valid questionnaire (>=6 questions) and scoring rules returns 201 with the new version number.",
+    "steps": [
+      "Arrange/execute: POST /api/admin/risk-band-rules with a valid questionnaire (>=6 questions) and scoring rules.",
+      "Assert: returns 201 with the new version number."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F199",
+    "category": "functional",
+    "story": "E10-S3",
+    "group": "F",
+    "description": "POST /api/admin/allocation-templates with percentages summing to 100 returns 201; the same call with percentages summing to 99 or 101 returns 422.",
+    "steps": [
+      "Arrange/execute: POST /api/admin/allocation-templates with percentages summing to 100.",
+      "Assert: returns 201; the same call with percentages summing to 99 or 101 returns 422."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F200",
+    "category": "functional",
+    "story": "E10-S3",
+    "group": "F",
+    "description": "POST /api/admin/asset-classes with a duplicate code returns 409.",
+    "steps": [
+      "Arrange/execute: POST /api/admin/asset-classes with a duplicate code.",
+      "Assert: returns 409."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F201",
+    "category": "security",
+    "story": "E10-S3",
+    "group": "F",
+    "description": "All three endpoints called with a customer-, advisor-, or compliance-role JWT return 403.",
+    "steps": [
+      "Arrange/execute: All three endpoints called with a customer-.",
+      "Assert: advisor-, or compliance-role JWT return 403."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F202",
+    "category": "functional",
+    "story": "E10-S3",
+    "group": "F",
+    "description": "GET /api/admin/allocation-templates?risk_band=CONSERVATIVE returns all versions (active and superseded) for that risk band, ordered by version.",
+    "steps": [
+      "Arrange/execute: GET /api/admin/allocation-templates?risk_band=CONSERVATIVE.",
+      "Assert: returns all versions (active and superseded) for that risk band, ordered by version."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F203",
+    "category": "ui",
+    "story": "E10-S4",
+    "group": "G",
+    "description": "The allocation template editor shows a running total of entered percentages and visually flags, before submit, when the total is not exactly 100.",
+    "steps": [
+      "Arrange/execute: The allocation template editor.",
+      "Assert: shows a running total of entered percentages and visually flags, before submit, when the total is not exactly 100."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F204",
+    "category": "ui",
+    "story": "E10-S4",
+    "group": "G",
+    "description": "The Publish button on the template editor is disabled while the running total is not exactly 100.",
+    "steps": [
+      "Arrange/execute: The Publish button on the template editor.",
+      "Assert: is disabled while the running total is not exactly 100."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F205",
+    "category": "ui",
+    "story": "E10-S4",
+    "group": "G",
+    "description": "The risk-band rule editor allows adding/removing questions and requires at least 6 before enabling publish.",
+    "steps": [
+      "Arrange/execute: The risk-band rule editor allows adding/removing questions and.",
+      "Assert: requires at least 6 before enabling publish."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F206",
+    "category": "ui",
+    "story": "E10-S4",
+    "group": "G",
+    "description": "The asset-class master screen lists all asset classes and supports adding a new one; submitting a duplicate code shows an inline error sourced from the API's 409 response.",
+    "steps": [
+      "Arrange/execute: The asset-class master screen lists all asset classes and supports adding a new one; submitting a duplicate code.",
+      "Assert: shows an inline error sourced from the API's 409 response."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  },
+  {
+    "id": "F207",
+    "category": "ui",
+    "story": "E10-S4",
+    "group": "G",
+    "description": "Publishing a new template/rule version from the UI refreshes the displayed version history without a full page reload.",
+    "steps": [
+      "Execute the scenario described: Publishing a new template/rule version from the UI refreshes the displayed version history without a full page reload.",
+      "Assert the described outcome is observed."
+    ],
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
+  }
+]

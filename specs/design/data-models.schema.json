@@ -1,0 +1,619 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://wealthwise.local/schemas/data-models.schema.json",
+  "title": "WealthWise Data Models",
+  "description": "JSON Schema (draft-07) for the 14 entities named in BRD section 9 plus RebalancingThreshold (system-design.md 6.1). These schemas describe the PERSISTED row shape: money is an INTEGER in minor units (cents), percentages and drift are INTEGERs in basis points (1 bp = 0.01%), booleans are true/false, timestamps are ISO-8601 UTC strings and dates are YYYY-MM-DD strings. The API transport shape (money and percent as fixed-scale decimal STRINGS) is defined separately in api-contracts.schema.json; the conversion lives in backend/src/types/fixedpoint.py. Floating-point types are prohibited throughout (NFR-01).",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "User": { "$ref": "#/definitions/User" },
+    "Customer": { "$ref": "#/definitions/Customer" },
+    "RiskProfileAnswer": { "$ref": "#/definitions/RiskProfileAnswer" },
+    "RiskBandAssignment": { "$ref": "#/definitions/RiskBandAssignment" },
+    "RiskBandRule": { "$ref": "#/definitions/RiskBandRule" },
+    "AllocationTemplate": { "$ref": "#/definitions/AllocationTemplate" },
+    "Goal": { "$ref": "#/definitions/Goal" },
+    "GoalProgressSnapshot": { "$ref": "#/definitions/GoalProgressSnapshot" },
+    "AssetClass": { "$ref": "#/definitions/AssetClass" },
+    "NavSnapshot": { "$ref": "#/definitions/NavSnapshot" },
+    "Holding": { "$ref": "#/definitions/Holding" },
+    "RebalancingRecommendation": { "$ref": "#/definitions/RebalancingRecommendation" },
+    "AdvisorOverride": { "$ref": "#/definitions/AdvisorOverride" },
+    "AuditLogEntry": { "$ref": "#/definitions/AuditLogEntry" },
+    "RebalancingThreshold": { "$ref": "#/definitions/RebalancingThreshold" }
+  },
+  "definitions": {
+    "Id": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "INTEGER PRIMARY KEY AUTOINCREMENT."
+    },
+    "MoneyMinor": {
+      "type": "integer",
+      "description": "Money in minor units, scale 2 (cents). 2500000 = 25000.00. INTEGER only - never a float or a REAL column (NFR-01)."
+    },
+    "PercentBps": {
+      "type": "integer",
+      "description": "Percentage in basis points, 1 bp = 0.01%. 6000 = 60.00%, 10000 = 100.00%. INTEGER only (NFR-01)."
+    },
+    "TimestampUtc": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?Z$",
+      "description": "ISO-8601 UTC with Z suffix, stored as TEXT."
+    },
+    "DateOnly": {
+      "type": "string",
+      "format": "date",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+      "description": "YYYY-MM-DD, stored as TEXT."
+    },
+    "Role": {
+      "type": "string",
+      "enum": ["customer", "advisor", "admin", "compliance"],
+      "description": "CHECK constraint on User.role and AuditLogEntry.actor_role."
+    },
+    "RiskBand": {
+      "type": "string",
+      "enum": ["CONSERVATIVE", "MODERATE", "AGGRESSIVE"]
+    },
+    "RecommendationStatus": {
+      "type": "string",
+      "enum": ["pending", "accepted", "dismissed"]
+    },
+    "TradeAction": {
+      "type": "string",
+      "enum": ["BUY", "SELL"]
+    },
+    "AuditEntityType": {
+      "type": "string",
+      "enum": [
+        "RiskBandAssignment",
+        "AllocationRecommendation",
+        "RebalancingRecommendation",
+        "AdvisorOverride",
+        "ManualRecommendation",
+        "RiskBandRule",
+        "AllocationTemplate",
+        "AssetClass",
+        "RebalancingThreshold"
+      ]
+    },
+    "AuditAction": {
+      "type": "string",
+      "enum": [
+        "ASSIGN_RISK_BAND",
+        "GENERATE_ALLOCATION_RECOMMENDATION",
+        "GENERATE_REBALANCING_RECOMMENDATION",
+        "ACCEPT_REBALANCING_RECOMMENDATION",
+        "DISMISS_REBALANCING_RECOMMENDATION",
+        "OVERRIDE_RISK_BAND",
+        "LOG_MANUAL_RECOMMENDATION",
+        "PUBLISH_RISK_BAND_RULE",
+        "PUBLISH_ALLOCATION_TEMPLATE",
+        "PUBLISH_REBALANCING_THRESHOLD",
+        "CREATE_ASSET_CLASS",
+        "UPDATE_ASSET_CLASS"
+      ]
+    },
+
+    "User": {
+      "type": "object",
+      "title": "User",
+      "description": "Seeded accounts only - there is no self-registration path (BRD section 8, E2-S1 AC5). Mutability: mutable, but no endpoint updates it in v1.",
+      "additionalProperties": false,
+      "required": ["id", "email", "password_hash", "role", "created_at"],
+      "properties": {
+        "id": { "$ref": "#/definitions/Id" },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "minLength": 3,
+          "maxLength": 320,
+          "description": "UNIQUE, stored lowercased. Login identifier and the advisor list's display identifier."
+        },
+        "password_hash": {
+          "type": "string",
+          "minLength": 20,
+          "description": "bcrypt hash, cost factor 12. Never serialised in any API response (E2-S2 AC4) and never logged (NFR-03)."
+        },
+        "role": { "$ref": "#/definitions/Role" },
+        "created_at": { "$ref": "#/definitions/TimestampUtc" }
+      },
+      "examples": [
+        { "id": 3, "email": "customer03@wealthwise.test", "password_hash": "$2b$12$K3xQm2s9Yy7Zt1Wq5rN8vOe0aBcDeFgHiJkLmNoPqRsTuVwXyZ012", "role": "customer", "created_at": "2026-09-01T09:00:00Z" }
+      ]
+    },
+
+    "Customer": {
+      "type": "object",
+      "title": "Customer",
+      "description": "One row per user whose role is customer. Mutability: mutable (kyc_verified only).",
+      "additionalProperties": false,
+      "required": ["id", "user_id", "kyc_verified", "created_at"],
+      "properties": {
+        "id": { "$ref": "#/definitions/Id" },
+        "user_id": { "$ref": "#/definitions/Id" },
+        "kyc_verified": {
+          "type": "boolean",
+          "default": true,
+          "description": "Stub flag stored as INTEGER 0/1. Its one real gating branch: false blocks rebalancing-recommendation generation (BRD 5.1, E8-S2 AC4). No verification flow, no UI."
+        },
+        "created_at": { "$ref": "#/definitions/TimestampUtc" }
+      },
+      "examples": [
+        { "id": 3, "user_id": 3, "kyc_verified": true, "created_at": "2026-09-01T09:00:00Z" }
+      ]
+    },
+
+    "RiskProfileAnswer": {
+      "type": "object",
+      "title": "RiskProfileAnswer",
+      "description": "APPEND-ONLY (NFR-02). No update or delete function exists in the repository (E4-S1 AC3). A resubmission writes a whole new set of rows.",
+      "additionalProperties": false,
+      "required": ["id", "customer_id", "question_id", "answer_value", "submitted_at"],
+      "properties": {
+        "id": { "$ref": "#/definitions/Id" },
+        "customer_id": { "$ref": "#/definitions/Id" },
+        "question_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 50,
+          "description": "Matches a question_id in the active RiskBandRule.questionnaire_json."
+        },
+        "answer_value": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "description": "The selected option's value, not its display label."
+        },
+        "submitted_at": {
+          "$ref": "#/definitions/TimestampUtc",
+          "description": "All answers of one submission share the same timestamp."
+        }
+      },
+      "examples": [
+        { "id": 41, "customer_id": 3, "question_id": "Q4", "answer_value": "hold_and_wait", "submitted_at": "2026-09-03T10:15:00Z" }
+      ]
+    },
+
+    "RiskBandAssignment": {
+      "type": "object",
+      "title": "RiskBandAssignment",
+      "description": "APPEND-ONLY (NFR-02, E4-S2 AC6). Never updated in place - both a questionnaire submission and an advisor override insert a new row. Current band = ORDER BY assigned_at DESC, id DESC LIMIT 1.",
+      "additionalProperties": false,
+      "required": ["id", "customer_id", "risk_band", "rule_version", "assigned_at"],
+      "properties": {
+        "id": { "$ref": "#/definitions/Id" },
+        "customer_id": { "$ref": "#/definitions/Id" },
+        "risk_band": { "$ref": "#/definitions/RiskBand" },
+        "rule_version": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "The RiskBandRule.version used - pins the customer to an immutable rule (AC-10)."
+        },
+        "assigned_at": { "$ref": "#/definitions/TimestampUtc" }
+      },
+      "examples": [
+        { "id": 12, "customer_id": 3, "risk_band": "MODERATE", "rule_version": 1, "assigned_at": "2026-09-03T10:15:00Z" }
+      ]
+    },
+
+    "QuestionnaireDocument": {
+      "type": "object",
+      "description": "Value of RiskBandRule.questionnaire_json. At least 6 questions (AC-01).",
+      "additionalProperties": false,
+      "required": ["questions"],
+      "properties": {
+        "questions": {
+          "type": "array",
+          "minItems": 6,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["question_id", "text", "options"],
+            "properties": {
+              "question_id": { "type": "string", "minLength": 1, "maxLength": 50 },
+              "text": { "type": "string", "minLength": 1, "maxLength": 500 },
+              "options": {
+                "type": "array",
+                "minItems": 2,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["value", "label", "points"],
+                  "properties": {
+                    "value": { "type": "string", "minLength": 1, "maxLength": 100 },
+                    "label": { "type": "string", "minLength": 1, "maxLength": 200 },
+                    "points": { "type": "integer", "minimum": 0, "description": "INTEGER only - scoring uses no floating-point arithmetic (NFR-01, E4-S2 AC5)." }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+
+    "ScoringRulesDocument": {
+      "type": "object",
+      "description": "Value of RiskBandRule.scoring_rules_json. Contiguous, non-overlapping integer point ranges covering the full achievable span.",
+      "additionalProperties": false,
+      "required": ["bands"],
+      "properties": {
+        "bands": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["risk_band", "min_points", "max_points"],
+            "properties": {
+              "risk_band": { "$ref": "#/definitions/RiskBand" },
+              "min_points": { "type": "integer", "minimum": 0 },
+              "max_points": { "type": "integer", "minimum": 0 }
+            }
+          }
+        }
+      }
+    },
+
+    "RiskBandRule": {
+      "type": "object",
+      "title": "RiskBandRule",
+      "description": "INSERT-ONLY, immutable once published (AC-10, NFR-05). questionnaire_json and scoring_rules_json are never updated; only is_active flips true -> false when superseded. UNIQUE(version) turns a concurrent publish race into a 409 (BRD 11).",
+      "additionalProperties": false,
+      "required": ["id", "version", "questionnaire_json", "scoring_rules_json", "published_at", "is_active"],
+      "properties": {
+        "id": { "$ref": "#/definitions/Id" },
+        "version": { "type": "integer", "minimum": 1, "description": "UNIQUE, monotonic: max(version) + 1 on publish." },
+        "questionnaire_json": { "$ref": "#/definitions/QuestionnaireDocument" },
+        "scoring_rules_json": { "$ref": "#/definitions/ScoringRulesDocument" },
+        "published_at": { "$ref": "#/definitions/TimestampUtc" },
+        "is_active": { "type": "boolean", "description": "Exactly one row is active at any time (E4-S1 AC2)." }
+      },
+      "examples": [
+        {
+          "id": 1,
+          "version": 1,
+          "questionnaire_json": {
+            "questions": [
+              { "question_id": "Q1", "text": "What is your investment time horizon?", "options": [ { "value": "lt_3y", "label": "Less than 3 years", "points": 1 }, { "value": "3_7y", "label": "3 to 7 years", "points": 3 }, { "value": "gt_7y", "label": "More than 7 years", "points": 5 } ] },
+              { "question_id": "Q2", "text": "How would you react to a 20% portfolio decline?", "options": [ { "value": "sell_all", "label": "Sell everything", "points": 1 }, { "value": "hold_and_wait", "label": "Hold and wait", "points": 3 }, { "value": "buy_more", "label": "Buy more", "points": 5 } ] },
+              { "question_id": "Q3", "text": "What share of your savings is this portfolio?", "options": [ { "value": "most", "label": "Most of it", "points": 1 }, { "value": "about_half", "label": "About half", "points": 3 }, { "value": "small_share", "label": "A small share", "points": 5 } ] },
+              { "question_id": "Q4", "text": "How stable is your income?", "options": [ { "value": "unstable", "label": "Unstable", "points": 1 }, { "value": "moderate", "label": "Moderately stable", "points": 3 }, { "value": "very_stable", "label": "Very stable", "points": 5 } ] },
+              { "question_id": "Q5", "text": "How much investment experience do you have?", "options": [ { "value": "none", "label": "None", "points": 1 }, { "value": "some", "label": "Some", "points": 3 }, { "value": "extensive", "label": "Extensive", "points": 5 } ] },
+              { "question_id": "Q6", "text": "What is your primary objective?", "options": [ { "value": "preserve", "label": "Preserve capital", "points": 1 }, { "value": "balance", "label": "Balance growth and safety", "points": 3 }, { "value": "maximise", "label": "Maximise growth", "points": 5 } ] }
+            ]
+          },
+          "scoring_rules_json": {
+            "bands": [
+              { "risk_band": "CONSERVATIVE", "min_points": 6, "max_points": 13 },
+              { "risk_band": "MODERATE", "min_points": 14, "max_points": 22 },
+              { "risk_band": "AGGRESSIVE", "min_points": 23, "max_points": 30 }
+            ]
+          },
+          "published_at": "2026-09-01T09:00:00Z",
+          "is_active": true
+        }
+      ]
+    },
+
+    "AllocationsDocument": {
+      "type": "object",
+      "description": "Value of AllocationTemplate.allocations_json, STORED form. sum(percent_bps) must equal exactly 10000 (= 100.00%), checked with no tolerance (AC-02, NFR-08, E5-S1 AC1).",
+      "additionalProperties": false,
+      "required": ["allocations"],
+      "properties": {
+        "allocations": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["asset_class_id", "percent_bps"],
+            "properties": {
+              "asset_class_id": { "$ref": "#/definitions/Id" },
+              "percent_bps": { "type": "integer", "minimum": 0, "maximum": 10000 }
+            }
+          },
+          "description": "Each asset_class_id appears at most once. Referenced by id, not by FK, so renaming an asset class never rewrites a published template (E10-S1 AC4)."
+        }
+      }
+    },
+
+    "AllocationTemplate": {
+      "type": "object",
+      "title": "AllocationTemplate",
+      "description": "INSERT-ONLY, immutable once published (AC-02, AC-10). allocations_json is never updated; only is_active flips. UNIQUE(risk_band, version) rejects a concurrent second publish for the same band with 409 (BRD 11, E10-S1 AC2). Superseded versions stay individually queryable, supporting in-flight customer pinning (E5-S1 AC4).",
+      "additionalProperties": false,
+      "required": ["id", "version", "risk_band", "allocations_json", "published_at", "is_active"],
+      "properties": {
+        "id": { "$ref": "#/definitions/Id" },
+        "version": { "type": "integer", "minimum": 1, "description": "Monotonic per risk_band." },
+        "risk_band": { "$ref": "#/definitions/RiskBand" },
+        "allocations_json": { "$ref": "#/definitions/AllocationsDocument" },
+        "published_at": { "$ref": "#/definitions/TimestampUtc" },
+        "is_active": { "type": "boolean", "description": "Exactly one active row per risk_band (E5-S1 AC3)." }
+      },
+      "examples": [
+        {
+          "id": 4,
+          "version": 2,
+          "risk_band": "MODERATE",
+          "allocations_json": { "allocations": [ { "asset_class_id": 1, "percent_bps": 4000 }, { "asset_class_id": 2, "percent_bps": 3500 }, { "asset_class_id": 3, "percent_bps": 2500 } ] },
+          "published_at": "2026-09-02T11:00:00Z",
+          "is_active": true
+        }
+      ]
+    },
+
+    "Goal": {
+      "type": "object",
+      "title": "Goal",
+      "description": "MUTABLE (AC-03, E7-S1 AC5). target_amount, target_date and priority are editable via PATCH; created_at is never altered (E7-S2 AC4). Change history is carried by AuditLogEntry, value history by the append-only GoalProgressSnapshot series.",
+      "additionalProperties": false,
+      "required": ["id", "customer_id", "target_amount", "target_date", "priority", "created_at", "updated_at"],
+      "properties": {
+        "id": { "$ref": "#/definitions/Id" },
+        "customer_id": { "$ref": "#/definitions/Id" },
+        "target_amount": {
+          "allOf": [{ "$ref": "#/definitions/MoneyMinor" }],
+          "exclusiveMinimum": 0,
+          "description": "Money in minor units. CHECK (target_amount > 0) - E7-S2 AC1. Guarantees the percent_complete divisor is never zero."
+        },
+        "target_date": { "$ref": "#/definitions/DateOnly" },
+        "priority": { "type": "integer", "minimum": 1, "maximum": 5, "description": "1 = highest." },
+        "created_at": { "$ref": "#/definitions/TimestampUtc" },
+        "updated_at": { "$ref": "#/definitions/TimestampUtc", "description": "Additive beyond BRD section 9; moves on every edit." }
+      },
+      "examples": [
+        { "id": 7, "customer_id": 3, "target_amount": 25000000, "target_date": "2032-06-30", "priority": 1, "created_at": "2026-09-01T09:30:00Z", "updated_at": "2026-09-03T10:20:00Z" }
+      ]
+    },
+
+    "GoalProgressSnapshot": {
+      "type": "object",
+      "title": "GoalProgressSnapshot",
+      "description": "APPEND-ONLY (AC-08, NFR-02, E7-S1 AC2). One row per goal per NAV refresh. UNIQUE(goal_id, price_date) makes recompute idempotent per simulated day at the DB level (E7-S3 AC4).",
+      "additionalProperties": false,
+      "required": ["id", "goal_id", "current_value", "percent_complete", "snapshot_at", "price_date"],
+      "properties": {
+        "id": { "$ref": "#/definitions/Id" },
+        "goal_id": { "$ref": "#/definitions/Id" },
+        "current_value": {
+          "allOf": [{ "$ref": "#/definitions/MoneyMinor" }],
+          "minimum": 0,
+          "description": "Money in minor units. 0 yields percent_complete 0, never a division error (E7-S3 AC3)."
+        },
+        "percent_complete": {
+          "allOf": [{ "$ref": "#/definitions/PercentBps" }],
+          "minimum": 0,
+          "maximum": 20000,
+          "description": "Basis points. current_value * 10000 / target_amount, ROUND_HALF_UP, capped at 20000 (= 200.00%) - the documented maximum required by E7-S3 AC2."
+        },
+        "snapshot_at": { "$ref": "#/definitions/TimestampUtc" },
+        "price_date": { "$ref": "#/definitions/DateOnly", "description": "Additive beyond BRD section 9; the simulated NAV date this snapshot was computed from." }
+      },
+      "examples": [
+        { "id": 88, "goal_id": 7, "current_value": 6250000, "percent_complete": 2500, "snapshot_at": "2026-09-03T10:30:00Z", "price_date": "2026-09-04" }
+      ]
+    },
+
+    "AssetClass": {
+      "type": "object",
+      "title": "AssetClass",
+      "description": "Master data. MUTABLE - code and name are editable (E10-S1 AC4). No delete: an asset class referenced by history cannot be removed. Seed volume 5-6 rows.",
+      "additionalProperties": false,
+      "required": ["id", "code", "name"],
+      "properties": {
+        "id": { "$ref": "#/definitions/Id", "description": "Stable - referenced by allocations_json, NavSnapshot and Holding." },
+        "code": { "type": "string", "pattern": "^[A-Z0-9_]{1,20}$", "description": "UNIQUE. Duplicate insert returns 409 (E10-S3 AC3)." },
+        "name": { "type": "string", "minLength": 1, "maxLength": 100 }
+      },
+      "examples": [
+        { "id": 1, "code": "EQ_DM", "name": "Developed-Market Equity" }
+      ]
+    },
+
+    "NavSnapshot": {
+      "type": "object",
+      "title": "NavSnapshot",
+      "description": "APPEND-ONLY - no update method exists (E6-S1 AC3). Seeded from CSV at startup; subsequent rows created only by the manual advance-a-day trigger. UNIQUE(asset_class_id, price_date) is the DB-level guarantee behind the double-advance edge case (BRD 11, E6-S2 AC2).",
+      "additionalProperties": false,
+      "required": ["id", "asset_class_id", "price_date", "nav_value"],
+      "properties": {
+        "id": { "$ref": "#/definitions/Id" },
+        "asset_class_id": { "$ref": "#/definitions/Id" },
+        "price_date": { "$ref": "#/definitions/DateOnly", "description": "Simulated date, advanced only by the manual trigger - no scheduler (E6-S2 AC4)." },
+        "nav_value": {
+          "allOf": [{ "$ref": "#/definitions/MoneyMinor" }],
+          "exclusiveMinimum": 0,
+          "description": "Money in minor units - fixed-point, never floating-point (E6-S1 AC5, NFR-01)."
+        }
+      },
+      "examples": [
+        { "id": 25, "asset_class_id": 1, "price_date": "2026-09-04", "nav_value": 13245 }
+      ]
+    },
+
+    "Holding": {
+      "type": "object",
+      "title": "Holding",
+      "description": "MUTABLE current-position table, revalued by each advance-a-day. Not subject to NFR-02 - history lives in NavSnapshot and GoalProgressSnapshot. UNIQUE(customer_id, asset_class_id). current_percent, target_percent and drift_percent are derived on read and never stored.",
+      "additionalProperties": false,
+      "required": ["id", "customer_id", "asset_class_id", "current_value", "as_of_date"],
+      "properties": {
+        "id": { "$ref": "#/definitions/Id" },
+        "customer_id": { "$ref": "#/definitions/Id" },
+        "asset_class_id": { "$ref": "#/definitions/Id" },
+        "current_value": {
+          "allOf": [{ "$ref": "#/definitions/MoneyMinor" }],
+          "minimum": 0,
+          "description": "Money in minor units."
+        },
+        "as_of_date": { "$ref": "#/definitions/DateOnly", "description": "The price_date this value reflects." }
+      },
+      "examples": [
+        { "id": 15, "customer_id": 3, "asset_class_id": 1, "current_value": 4820000, "as_of_date": "2026-09-04" }
+      ]
+    },
+
+    "ProposedActionsDocument": {
+      "type": "object",
+      "description": "Value of RebalancingRecommendation.proposed_actions_json. Amounts and units are decimal STRINGS so no float ever enters the document (NFR-01, E8-S2 AC6). threshold_bps and threshold_version are embedded so the recommendation stays explainable after a new threshold version is published.",
+      "additionalProperties": false,
+      "required": ["actions", "threshold_bps", "threshold_version"],
+      "properties": {
+        "actions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["asset_class_id", "asset_class_code", "action", "amount", "units", "drift_percent"],
+            "properties": {
+              "asset_class_id": { "$ref": "#/definitions/Id" },
+              "asset_class_code": { "type": "string", "pattern": "^[A-Z0-9_]{1,20}$" },
+              "action": { "$ref": "#/definitions/TradeAction" },
+              "amount": { "type": "string", "pattern": "^[0-9]+\\.[0-9]{2}$", "description": "Money as a 2-decimal string." },
+              "units": { "type": "string", "pattern": "^[0-9]+\\.[0-9]{4}$", "description": "Quantity as a 4-decimal string: amount_minor * 10000 / nav_value_minor." },
+              "drift_percent": { "type": "string", "pattern": "^-?[0-9]+\\.[0-9]{2}$", "description": "Signed percentage as a 2-decimal string." }
+            }
+          }
+        },
+        "threshold_bps": { "type": "integer", "minimum": 1, "maximum": 10000 },
+        "threshold_version": { "type": "integer", "minimum": 1 }
+      }
+    },
+
+    "RebalancingRecommendation": {
+      "type": "object",
+      "title": "RebalancingRecommendation",
+      "description": "APPEND-ONLY with a one-shot status transition (AC-06, AC-07, NFR-02). proposed_actions_json and generated_at are never rewritten and no hard-delete method exists (E8-S1 AC3). status transitions pending -> accepted|dismissed exactly once; a second attempt is rejected with 409 and leaves resolved_at unchanged (E8-S1 AC4, E8-S3 AC4). No row is created for a customer with zero holdings, with all drift within threshold, or with kyc_verified = false (E8-S2 AC2-AC4).",
+      "additionalProperties": false,
+      "required": ["id", "customer_id", "recommendation_id", "proposed_actions_json", "status", "generated_at", "resolved_at"],
+      "properties": {
+        "id": { "$ref": "#/definitions/Id", "description": "Internal surrogate key - never exposed by the API." },
+        "customer_id": { "$ref": "#/definitions/Id" },
+        "recommendation_id": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "description": "UNIQUE public identifier (UUID4) used in API paths, so internal row ids are neither exposed nor guessable across customers."
+        },
+        "proposed_actions_json": { "$ref": "#/definitions/ProposedActionsDocument" },
+        "status": { "$ref": "#/definitions/RecommendationStatus", "default": "pending" },
+        "generated_at": { "$ref": "#/definitions/TimestampUtc" },
+        "resolved_at": {
+          "oneOf": [{ "$ref": "#/definitions/TimestampUtc" }, { "type": "null" }],
+          "description": "NULL while pending; set exactly once when status leaves pending."
+        }
+      },
+      "examples": [
+        {
+          "id": 9,
+          "customer_id": 3,
+          "recommendation_id": "b6f0c2a4-1d3e-4f58-9a71-0c2e5d8b7a10",
+          "proposed_actions_json": {
+            "actions": [
+              { "asset_class_id": 1, "asset_class_code": "EQ_DM", "action": "SELL", "amount": "3200.00", "units": "24.1600", "drift_percent": "8.20" },
+              { "asset_class_id": 3, "asset_class_code": "CASH", "action": "BUY", "amount": "3200.00", "units": "32.0000", "drift_percent": "-8.20" }
+            ],
+            "threshold_bps": 500,
+            "threshold_version": 1
+          },
+          "status": "pending",
+          "generated_at": "2026-09-04T08:00:00Z",
+          "resolved_at": null
+        }
+      ]
+    },
+
+    "AdvisorOverride": {
+      "type": "object",
+      "title": "AdvisorOverride",
+      "description": "APPEND-ONLY, audited (AC-09, NFR-02). No update or delete method (E9-S1 AC2). Each override also inserts a new RiskBandAssignment in the same transaction (E9-S2 AC1). previous_band must equal the customer's latest RiskBandAssignment.risk_band at override time (E9-S1 AC5).",
+      "additionalProperties": false,
+      "required": ["id", "customer_id", "advisor_id", "previous_band", "new_band", "reason", "note", "created_at"],
+      "properties": {
+        "id": { "$ref": "#/definitions/Id" },
+        "customer_id": { "$ref": "#/definitions/Id" },
+        "advisor_id": { "$ref": "#/definitions/Id", "description": "The advisor's User.id, taken from the JWT sub - never from the request body." },
+        "previous_band": { "$ref": "#/definitions/RiskBand" },
+        "new_band": { "$ref": "#/definitions/RiskBand" },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500,
+          "description": "MANDATORY (BRD 5.1, E9-S1 AC4). Empty or whitespace-only is rejected with 422 and nothing is written."
+        },
+        "note": {
+          "type": ["string", "null"],
+          "maxLength": 2000,
+          "description": "Optional supporting detail."
+        },
+        "created_at": { "$ref": "#/definitions/TimestampUtc" }
+      },
+      "examples": [
+        { "id": 4, "customer_id": 3, "advisor_id": 11, "previous_band": "MODERATE", "new_band": "CONSERVATIVE", "reason": "Client reported imminent liquidity need", "note": "Discussed on call 2026-09-03; revisit after property sale completes.", "created_at": "2026-09-03T14:05:00Z" }
+      ]
+    },
+
+    "AuditLogEntry": {
+      "type": "object",
+      "title": "AuditLogEntry",
+      "description": "INSERT-ONLY (NFR-02). The repository exposes only insert_audit_entry - no update, no delete, anywhere in the module (E3-S1 AC1, AC3). Queries by entity_type and date range return ORDER BY timestamp ASC (E3-S1 AC4). Also the storage for manual recommendations (entity_type = ManualRecommendation), per system-design.md 6.4.",
+      "additionalProperties": false,
+      "required": ["id", "entity_type", "entity_id", "actor_id", "actor_role", "action", "timestamp", "details_json"],
+      "properties": {
+        "id": { "$ref": "#/definitions/Id" },
+        "entity_type": { "$ref": "#/definitions/AuditEntityType" },
+        "entity_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "description": "Soft reference (no FK) - an integer id or a recommendation_id UUID, stored as a string because it spans nine tables."
+        },
+        "actor_id": { "$ref": "#/definitions/Id" },
+        "actor_role": { "$ref": "#/definitions/Role", "description": "Rejected outside the closed set (E3-S2 AC2)." },
+        "action": { "$ref": "#/definitions/AuditAction" },
+        "timestamp": { "$ref": "#/definitions/TimestampUtc" },
+        "details_json": {
+          "type": "object",
+          "additionalProperties": true,
+          "description": "Ids, enums and version numbers only - no raw PII and no financial-position values (NFR-03, E3-S1 AC5). Sole exception: ManualRecommendation entries carry the advisor's note, which is the record itself and is never written to application logs."
+        }
+      },
+      "examples": [
+        { "id": 501, "entity_type": "RiskBandAssignment", "entity_id": "12", "actor_id": 3, "actor_role": "customer", "action": "ASSIGN_RISK_BAND", "timestamp": "2026-09-03T10:15:00Z", "details_json": { "customer_id": 3, "risk_band": "MODERATE", "rule_version": 1 } },
+        { "id": 512, "entity_type": "ManualRecommendation", "entity_id": "3", "actor_id": 11, "actor_role": "advisor", "action": "LOG_MANUAL_RECOMMENDATION", "timestamp": "2026-09-03T14:10:00Z", "details_json": { "note": "Recommended increasing cash weighting ahead of the client's Q4 liquidity need." } }
+      ]
+    },
+
+    "RebalancingThreshold": {
+      "type": "object",
+      "title": "RebalancingThreshold",
+      "description": "INSERT-ONLY, versioned. Introduced by system-design.md 6.1 to resolve the BRD section 13 open question on where the drift threshold is stored and versioned. threshold_bps is never updated; only is_active flips - the same pattern as RiskBandRule and AllocationTemplate. Seeded at version 1, threshold_bps 500 (= 5.00%, the BRD 5.1 default). Comparison is EXCLUSIVE: a recommendation is generated only when abs(drift_bps) > threshold_bps (E6-S3 AC4). core/config.py's default_drift_threshold_percent seeds version 1 only and is not read at runtime.",
+      "additionalProperties": false,
+      "required": ["id", "version", "threshold_bps", "published_at", "is_active"],
+      "properties": {
+        "id": { "$ref": "#/definitions/Id" },
+        "version": { "type": "integer", "minimum": 1, "description": "UNIQUE, monotonic: max(version) + 1 on publish; uniqueness turns a concurrent publish into a 409." },
+        "threshold_bps": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10000,
+          "default": 500,
+          "description": "Basis points. 500 = 5.00%. Stored as an INTEGER, not a percent float, so the published value is exact (NFR-01)."
+        },
+        "published_at": { "$ref": "#/definitions/TimestampUtc" },
+        "is_active": { "type": "boolean", "description": "Exactly one active row at any time." }
+      },
+      "examples": [
+        { "id": 1, "version": 1, "threshold_bps": 500, "published_at": "2026-09-01T09:00:00Z", "is_active": true }
+      ]
+    }
+  }
+}

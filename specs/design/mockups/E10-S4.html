@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>E10-S4 — Admin console — WealthWise</title>
+<!--
+  Mockup: E10-S4 Admin UI — risk-band rule editor, allocation template editor (live sum-to-100),
+          asset-class master, rebalancing-threshold publishing.
+  Aligned to specs/design/api-contracts.md:
+    §12.2/12.3 GET/POST /api/admin/risk-band-rules -> scoring_rules_json.bands[{ risk_band,
+               min_points, max_points }]; per-option points live on questionnaire_json.questions[]
+               .options[{ value, label, points }].
+    §12.4/12.5 GET/POST /api/admin/allocation-templates -> allocations[{ asset_class_id, percent }].
+    §12.6-12.8 GET/POST/PATCH /api/admin/asset-classes.
+    §12.9/12.10 GET/POST /api/admin/rebalancing-thresholds -> a separate versioned resource
+               (id, version, threshold_bps, threshold_percent, published_at, is_active),
+               NOT part of the allocation-template publish payload.
+-->
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;background:#f4f4f5;color:#1b1b1f;line-height:1.45;font-size:15px}
+  header.app{background:#26262b;color:#f4f4f5;padding:12px 20px;display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+  header.app h1{font-size:16px;margin:0;font-weight:600}
+  header.app .role{font-size:12px;color:#b9b9c0}
+  main{max-width:1080px;margin:0 auto;padding:24px 20px 64px}
+  h2{font-size:20px;margin:0 0 4px}
+  .sub{color:#5c5c66;font-size:13px;margin:0 0 20px}
+  section.panel{background:#fff;border:1px solid #d6d6da;border-radius:4px;padding:18px;margin-bottom:20px}
+  section.panel>h3{margin:0 0 12px;font-size:15px}
+  .api{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:11px;color:#3d3d47;background:#ececee;border:1px solid #d6d6da;border-radius:3px;padding:1px 5px;display:inline-block}
+  .tabs{display:flex;gap:2px;border-bottom:1px solid #d6d6da;margin-bottom:20px;flex-wrap:wrap}
+  .tabs button{background:#e9e9ec;color:#3d3d47;border:1px solid #d6d6da;border-bottom:none;border-radius:3px 3px 0 0;padding:9px 16px;font-size:14px;margin-bottom:-1px}
+  .tabs button[aria-selected="true"]{background:#fff;color:#1b1b1f;font-weight:600;border-bottom:1px solid #fff}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid #e4e4e7;vertical-align:middle}
+  th{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:#5c5c66;background:#fafafa;white-space:nowrap}
+  td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;font-family:ui-monospace,SFMono-Regular,Consolas,monospace}
+  code.mono{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12px}
+  label{display:block;font-size:13px;font-weight:600;margin-bottom:4px}
+  input,select,textarea{font:inherit;font-size:14px;padding:7px 9px;border:1px solid #b9b9c0;border-radius:3px;background:#fff;width:100%}
+  input[readonly]{background:#f4f4f5}
+  [aria-invalid="true"]{border-color:#c98d8d;background:#fdf7f7}
+  input:focus,select:focus,textarea:focus,button:focus{outline:2px solid #2b5d8a;outline-offset:1px}
+  button{font:inherit;font-size:14px;padding:8px 14px;border:1px solid #26262b;background:#26262b;color:#fff;border-radius:3px;cursor:pointer}
+  button.secondary{background:#fff;color:#26262b;border-color:#b9b9c0}
+  button.small{font-size:13px;padding:5px 10px}
+  button[disabled]{opacity:.45;cursor:not-allowed}
+  .err{color:#8a2b2b;font-size:13px;margin:4px 0 0;font-weight:600}
+  .okbox{background:#eef5ef;border:1px solid #b3ccb8;color:#26562f;border-radius:3px;padding:10px 12px;font-size:13px;margin-bottom:14px}
+  .errbox{background:#fbeeee;border:1px solid #d9b3b3;color:#7d2626;border-radius:3px;padding:12px 14px;font-size:13px;margin-bottom:14px}
+  .statebar{background:#e9e9ec;border-bottom:1px solid #d6d6da;padding:8px 20px;font-size:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .statebar span{color:#5c5c66;margin-right:4px}
+  .statebar button{font-size:12px;padding:4px 9px}
+  .field{margin-bottom:14px;max-width:420px}
+  .row{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end}
+  .row .field{margin-bottom:12px}
+  .total{display:flex;align-items:baseline;gap:12px;padding:12px 14px;border-radius:3px;margin:14px 0;font-size:15px;border:1px solid #b9b9c0;background:#f4f4f5;flex-wrap:wrap}
+  .total.valid{border-color:#a9c4ae;background:#eef5ef;color:#26562f}
+  .total.invalid{border-color:#d9b3b3;background:#fbeeee;color:#7d2626}
+  .total b{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:19px}
+  .question{border:1px solid #e4e4e7;border-radius:4px;padding:12px 14px;margin-bottom:12px}
+  .question .qhead{display:flex;gap:10px;align-items:center;margin-bottom:8px;flex-wrap:wrap}
+  .question .qid{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:11px;color:#5c5c66}
+  .count-note{font-size:13px;margin:0 0 14px}
+  .count-note.bad{color:#8a2b2b;font-weight:600}
+  .empty{padding:28px 18px;text-align:center;color:#3d3d47;font-size:14px}
+  .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+  .badge{display:inline-block;font-size:11px;border:1px solid #b9b9c0;border-radius:10px;padding:1px 8px;background:#f4f4f5;color:#3d3d47}
+  .badge.active{border-color:#a9c4ae;background:#eef5ef;color:#245c30}
+</style>
+</head>
+<body>
+<header class="app">
+  <h1>WealthWise</h1>
+  <span class="role">Signed in as admin01@wealthwise.test — role <code style="font-size:12px">admin</code></span>
+</header>
+
+<div class="statebar" role="group" aria-label="Mockup state controls">
+  <span>Mockup state:</span>
+  <button type="button" class="secondary" onclick="resetAll()">Reset to happy path</button>
+  <button type="button" class="secondary" onclick="breakTotal()">Template: break sum-to-100 (Publish disabled)</button>
+  <button type="button" class="secondary" onclick="dropQuestions()">Rules: drop below 6 questions</button>
+  <button type="button" class="secondary" onclick="showDuplicate()">Asset class: duplicate code (409)</button>
+  <button type="button" class="secondary" onclick="showEmptyHistory()">Version history: empty state</button>
+</div>
+
+<main>
+  <h2>Admin console</h2>
+  <p class="sub">Rules and templates are insert-only and immutable once published (AC-10). Publishing creates a new <code class="mono">version</code>; in-flight customers stay pinned to the version active at assignment time.</p>
+
+  <div class="tabs" role="tablist" aria-label="Admin sections">
+    <button type="button" role="tab" id="tab-template" aria-selected="true" aria-controls="p-template" onclick="showTab('template')">Allocation template editor</button>
+    <button type="button" role="tab" id="tab-rules" aria-selected="false" aria-controls="p-rules" onclick="showTab('rules')">Risk-band rule editor</button>
+    <button type="button" role="tab" id="tab-assets" aria-selected="false" aria-controls="p-assets" onclick="showTab('assets')">Asset-class master</button>
+    <button type="button" role="tab" id="tab-threshold" aria-selected="false" aria-controls="p-threshold" onclick="showTab('threshold')">Rebalancing threshold</button>
+  </div>
+
+  <!-- ================= ALLOCATION TEMPLATE EDITOR ================= -->
+  <div id="p-template" role="tabpanel" aria-labelledby="tab-template">
+    <section class="panel">
+      <h3>New allocation template</h3>
+      <div class="okbox" id="tpl-ok" role="status" hidden>
+        <strong>201 Created</strong> — published <code class="mono">version <span id="tpl-new-version">—</span></code> for <code class="mono" id="tpl-new-band">—</code>. Version history below refreshed in place, no page reload.
+      </div>
+      <div class="errbox" id="tpl-422" role="alert" hidden>
+        <strong>422 Unprocessable Entity</strong> — percentages must sum to exactly 100.00. Nothing was written (BRD s11, NFR-08). The Publish button below is disabled until the running total is correct, so this response should never be reachable from this UI.
+      </div>
+
+      <div class="row">
+        <div class="field" style="max-width:240px">
+          <label for="tpl-risk_band">risk_band</label>
+          <select id="tpl-risk_band" onchange="renderHistory()">
+            <option value="CONSERVATIVE">CONSERVATIVE</option>
+            <option value="MODERATE" selected>MODERATE</option>
+            <option value="AGGRESSIVE">AGGRESSIVE</option>
+          </select>
+        </div>
+      </div>
+
+      <table>
+        <caption class="sub" style="text-align:left;margin-bottom:8px"><code class="mono">allocations</code> — array of <code class="mono">{ asset_class_id, percent }</code>. Percentages carry 2 decimal places (NFR-01). <code class="mono">asset_class_code</code>/<code class="mono">name</code> below are display-only lookups, not part of the request body (api-contracts.md §12.5).</caption>
+        <thead>
+          <tr><th scope="col">asset_class_id</th><th scope="col">name</th><th scope="col" class="num" style="width:170px">percent</th><th scope="col" style="width:110px"></th></tr>
+        </thead>
+        <tbody id="tpl-rows"></tbody>
+      </table>
+
+      <p style="margin:12px 0 0">
+        <button type="button" class="secondary small" onclick="addAllocationRow()">Add asset class row</button>
+      </p>
+
+      <div class="total" id="tpl-total-box" role="status" aria-live="polite">
+        <span>Running total</span>
+        <b id="tpl-total">100.00</b>
+        <span id="tpl-total-msg">Sums to exactly 100.00 — ready to publish.</span>
+      </div>
+
+      <p style="margin:0">
+        <button type="button" id="tpl-publish" onclick="publishTemplate()" title="POST /api/admin/allocation-templates">Publish new version</button>
+        <span class="api">POST /api/admin/allocation-templates</span>
+      </p>
+    </section>
+
+    <section class="panel">
+      <h3>Version history <span class="sub" style="display:inline;font-weight:400">— <span class="api" id="hist-api">GET /api/admin/allocation-templates?risk_band=MODERATE</span></span></h3>
+      <div id="hist-table">
+        <table>
+          <thead>
+            <tr><th scope="col">id</th><th scope="col" class="num">version</th><th scope="col">risk_band</th><th scope="col">published_at</th><th scope="col">is_active</th><th scope="col">allocations</th></tr>
+          </thead>
+          <tbody id="hist-rows"></tbody>
+        </table>
+      </div>
+      <div id="hist-empty" class="empty" hidden>
+        <p><strong>No templates published for this risk band yet.</strong></p>
+        <p>Publish the first version above; customers assigned to this band cannot receive a recommendation until one exists.</p>
+      </div>
+    </section>
+  </div>
+
+  <!-- ================= RISK-BAND RULE EDITOR ================= -->
+  <div id="p-rules" role="tabpanel" aria-labelledby="tab-rules" hidden>
+    <section class="panel">
+      <h3>Questionnaire &amp; scoring rules</h3>
+      <div class="okbox" id="rule-ok" role="status" hidden>
+        <strong>201 Created</strong> — published <code class="mono">RiskBandRule version <span id="rule-new-version">—</span></code>. The previous version is retained and remains immutable.
+      </div>
+      <p class="count-note" id="rule-count">7 questions defined — at least 6 are required to publish.</p>
+
+      <div id="rule-questions"></div>
+
+      <p style="margin:0 0 16px">
+        <button type="button" class="secondary small" onclick="addQuestion()">Add question</button>
+      </p>
+
+      <div class="field" style="max-width:100%">
+        <label for="scoring_rules_json">scoring_rules_json</label>
+        <textarea id="scoring_rules_json" rows="4" spellcheck="false">{"bands":[{"risk_band":"CONSERVATIVE","min_points":6,"max_points":13},{"risk_band":"MODERATE","min_points":14,"max_points":22},{"risk_band":"AGGRESSIVE","min_points":23,"max_points":30}]}</textarea>
+        <p class="sub" style="margin:6px 0 0">Per-option <code class="mono">points</code> are set on each question's options below, not in <code class="mono">scoring_rules_json</code> (api-contracts.md §12.3). Unlike the customer-facing questionnaire (§6.1), the admin view includes each option's <code class="mono">points</code>.</p>
+      </div>
+
+      <p style="margin:0">
+        <button type="button" id="rule-publish" onclick="publishRule()" title="POST /api/admin/risk-band-rules">Publish new version</button>
+        <span class="api">POST /api/admin/risk-band-rules</span>
+      </p>
+    </section>
+
+    <section class="panel">
+      <h3>Version history</h3>
+      <table>
+        <thead><tr><th scope="col">id</th><th scope="col" class="num">version</th><th scope="col" class="num">question count</th><th scope="col">published_at</th><th scope="col">is_active</th></tr></thead>
+        <tbody id="rule-hist-rows"></tbody>
+      </table>
+    </section>
+  </div>
+
+  <!-- ================= ASSET-CLASS MASTER ================= -->
+  <div id="p-assets" role="tabpanel" aria-labelledby="tab-assets" hidden>
+    <section class="panel">
+      <h3>Add an asset class</h3>
+      <div class="okbox" id="asset-ok" role="status" hidden>
+        <strong>201 Created</strong> — asset class <code class="mono" id="asset-new-code">—</code> added to the master.
+      </div>
+      <div class="errbox" id="asset-409" role="alert" hidden>
+        <strong>409 Conflict</strong> — <code class="mono" id="asset-dup-code">—</code> already exists in the asset-class master. Nothing was written (E10-S3 AC-3).
+      </div>
+      <form id="asset-form" novalidate>
+        <div class="row">
+          <div class="field" style="max-width:220px">
+            <label for="asset-code">code</label>
+            <input type="text" id="asset-code" value="COMMODITY" aria-describedby="err-asset-code">
+            <p class="err" id="err-asset-code" hidden>code is required.</p>
+          </div>
+          <div class="field" style="max-width:300px">
+            <label for="asset-name">name</label>
+            <input type="text" id="asset-name" value="Broad commodities" aria-describedby="err-asset-name">
+            <p class="err" id="err-asset-name" hidden>name is required.</p>
+          </div>
+          <div class="field" style="max-width:none;flex:0 0 auto">
+            <button type="submit" title="POST /api/admin/asset-classes">Add asset class</button>
+            <span class="api">POST /api/admin/asset-classes</span>
+          </div>
+        </div>
+      </form>
+    </section>
+
+    <section class="panel">
+      <h3>Asset-class master <span class="sub" style="display:inline;font-weight:400">— <span class="api">GET /api/admin/asset-classes</span></span></h3>
+      <table>
+        <thead><tr><th scope="col">id</th><th scope="col">code</th><th scope="col">name</th></tr></thead>
+        <tbody id="asset-rows"></tbody>
+      </table>
+    </section>
+  </div>
+
+  <!-- ================= REBALANCING THRESHOLD ================= -->
+  <div id="p-threshold" role="tabpanel" aria-labelledby="tab-threshold" hidden>
+    <section class="panel">
+      <h3>Publish rebalancing threshold</h3>
+      <p class="sub">A separate versioned resource from the allocation template (BRD §13 open question 2) — not bundled into the template publish form. Existing pending <code class="mono">RebalancingRecommendation</code> rows are unaffected; each embeds the <code class="mono">threshold_bps</code>/<code class="mono">threshold_version</code> it was generated under.</p>
+      <div class="okbox" id="thr-ok" role="status" hidden>
+        <strong>201 Created</strong> — published <code class="mono">RebalancingThreshold version <span id="thr-new-version">—</span></code> (<code class="mono" id="thr-new-bps">—</code> bps).
+      </div>
+      <div class="errbox" id="thr-422" role="alert" hidden>
+        <strong>422 Unprocessable Entity</strong> — <code class="mono">VALIDATION_ERROR</code>: <code class="mono">threshold_bps</code> must be an integer between 1 and 10000.
+      </div>
+      <div class="row">
+        <div class="field" style="max-width:200px">
+          <label for="thr-threshold_bps">threshold_bps</label>
+          <input type="number" id="thr-threshold_bps" value="500" min="1" max="10000" step="1">
+        </div>
+        <div class="field" style="max-width:none;flex:0 0 auto">
+          <button type="button" id="thr-publish" onclick="publishThreshold()" title="POST /api/admin/rebalancing-thresholds">Publish new version</button>
+          <span class="api">POST /api/admin/rebalancing-thresholds</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h3>Version history <span class="sub" style="display:inline;font-weight:400">— <span class="api">GET /api/admin/rebalancing-thresholds</span></span></h3>
+      <table>
+        <thead><tr><th scope="col">id</th><th scope="col" class="num">version</th><th scope="col" class="num">threshold_bps</th><th scope="col" class="num">threshold_percent</th><th scope="col">published_at</th><th scope="col">is_active</th></tr></thead>
+        <tbody id="thr-hist-rows"></tbody>
+      </table>
+    </section>
+  </div>
+</main>
+
+<script>
+  /* ---------------- Asset-class master ---------------- */
+  var ASSET_CLASSES = [
+    { id: 1, code: "EQ_DM",   name: "Developed-Market Equity" },
+    { id: 2, code: "EQ_EM",   name: "Emerging-Market Equity" },
+    { id: 3, code: "FI_GOV",  name: "Government Fixed Income" },
+    { id: 4, code: "FI_CORP", name: "Corporate Fixed Income" },
+    { id: 5, code: "REIT",    name: "Listed Real Estate" },
+    { id: 6, code: "CASH",    name: "Cash" }
+  ];
+
+  function renderAssets() {
+    document.getElementById("asset-rows").innerHTML = ASSET_CLASSES.map(function (a) {
+      return '<tr><td>' + a.id + '</td><td><code class="mono">' + a.code + '</code></td><td>' + a.name + '</td></tr>';
+    }).join("");
+  }
+
+  document.getElementById("asset-form").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var codeEl = document.getElementById("asset-code");
+    var nameEl = document.getElementById("asset-name");
+    var code = codeEl.value.trim().toUpperCase();
+    var name = nameEl.value.trim();
+    var ok = true;
+
+    document.getElementById("asset-ok").hidden = true;
+    document.getElementById("asset-409").hidden = true;
+
+    document.getElementById("err-asset-code").hidden = !!code;
+    document.getElementById("err-asset-name").hidden = !!name;
+    if (!code || !name) { ok = false; }
+    if (!ok) { return; }
+
+    // Simulated POST /api/admin/asset-classes
+    var dup = ASSET_CLASSES.some(function (a) { return a.code === code; });
+    if (dup) {
+      // 409 surfaced inline from the API response (E10-S4 AC-4)
+      document.getElementById("asset-dup-code").textContent = code;
+      document.getElementById("asset-409").hidden = false;
+      codeEl.setAttribute("aria-invalid", "true");
+      return;
+    }
+    codeEl.removeAttribute("aria-invalid");
+    ASSET_CLASSES.push({ id: ASSET_CLASSES.length + 1, code: code, name: name });
+    document.getElementById("asset-new-code").textContent = code;
+    document.getElementById("asset-ok").hidden = false;
+    renderAssets();
+  });
+
+  function showDuplicate() {
+    showTab("assets");
+    document.getElementById("asset-code").value = "FI_GOV";
+    document.getElementById("asset-name").value = "Government Fixed Income";
+    document.getElementById("asset-dup-code").textContent = "FI_GOV";
+    document.getElementById("asset-409").hidden = false;
+    document.getElementById("asset-ok").hidden = true;
+    document.getElementById("asset-code").setAttribute("aria-invalid", "true");
+  }
+
+  /* ---------------- Allocation template editor ---------------- */
+  var TEMPLATE_HISTORY = [
+    { id: 5, version: 1, risk_band: "MODERATE", published_at: "2026-06-01T09:00:00Z", is_active: false, summary: "EQ_DM 45.00 / EQ_EM 10.00 / FI_GOV 25.00 / FI_CORP 12.00 / REIT 5.00 / CASH 3.00" },
+    { id: 7, version: 2, risk_band: "MODERATE", published_at: "2026-07-18T09:00:00Z", is_active: false, summary: "EQ_DM 42.00 / EQ_EM 11.00 / FI_GOV 25.00 / FI_CORP 14.00 / REIT 5.00 / CASH 3.00" },
+    { id: 8, version: 3, risk_band: "MODERATE", published_at: "2026-08-14T09:00:00Z", is_active: true,  summary: "EQ_DM 40.00 / EQ_EM 12.00 / FI_GOV 25.00 / FI_CORP 15.00 / REIT 5.00 / CASH 3.00" },
+    { id: 4, version: 1, risk_band: "CONSERVATIVE", published_at: "2026-06-01T09:00:00Z", is_active: false, summary: "EQ_DM 25.00 / EQ_EM 5.00 / FI_GOV 40.00 / FI_CORP 20.00 / REIT 3.00 / CASH 7.00" },
+    { id: 10, version: 4, risk_band: "CONSERVATIVE", published_at: "2026-08-28T09:00:00Z", is_active: true, summary: "EQ_DM 22.00 / EQ_EM 4.00 / FI_GOV 42.00 / FI_CORP 20.00 / REIT 3.00 / CASH 9.00" },
+    { id: 9, version: 3, risk_band: "AGGRESSIVE", published_at: "2026-09-03T08:30:00Z", is_active: true, summary: "EQ_DM 55.00 / EQ_EM 20.00 / FI_GOV 10.00 / FI_CORP 10.00 / CASH 5.00" }
+  ];
+
+  var DEFAULT_ALLOCATIONS = [
+    { asset_class_id: 1, percent: "40.00" },
+    { asset_class_id: 2, percent: "12.00" },
+    { asset_class_id: 3, percent: "25.00" },
+    { asset_class_id: 4, percent: "15.00" },
+    { asset_class_id: 5, percent: "5.00"  },
+    { asset_class_id: 6, percent: "3.00"  }
+  ];
+
+  var allocations = DEFAULT_ALLOCATIONS.map(function (a) { return { asset_class_id: a.asset_class_id, percent: a.percent }; });
+  var forceEmptyHistory = false;
+
+  function assetName(id) {
+    var a = ASSET_CLASSES.filter(function (x) { return x.id === id; })[0];
+    return a ? a.name : "—";
+  }
+  function assetCode(id) {
+    var a = ASSET_CLASSES.filter(function (x) { return x.id === id; })[0];
+    return a ? a.code : "—";
+  }
+
+  function renderAllocationRows() {
+    var tb = document.getElementById("tpl-rows");
+    tb.innerHTML = "";
+    allocations.forEach(function (a, i) {
+      var tr = document.createElement("tr");
+      tr.innerHTML =
+        '<td>' +
+          '<label class="sr-only" for="alloc-id-' + i + '">asset_class_id row ' + (i + 1) + '</label>' +
+          '<select id="alloc-id-' + i + '">' +
+            ASSET_CLASSES.map(function (ac) {
+              return '<option value="' + ac.id + '"' + (ac.id === a.asset_class_id ? ' selected' : '') + '>' + ac.id + ' (' + ac.code + ')</option>';
+            }).join("") +
+          '</select>' +
+        '</td>' +
+        '<td id="alloc-name-' + i + '">' + assetName(a.asset_class_id) + '</td>' +
+        '<td class="num">' +
+          '<label class="sr-only" for="alloc-pct-' + i + '">percent row ' + (i + 1) + '</label>' +
+          '<input type="number" id="alloc-pct-' + i + '" step="0.01" min="0" value="' + a.percent + '" style="text-align:right">' +
+        '</td>' +
+        '<td><button type="button" class="secondary small" id="alloc-del-' + i + '" aria-label="Remove row ' + (i + 1) + '">Remove</button></td>';
+      tb.appendChild(tr);
+
+      tr.querySelector("#alloc-id-" + i).addEventListener("change", function (e) {
+        allocations[i].asset_class_id = Number(e.target.value);
+        document.getElementById("alloc-name-" + i).textContent = assetName(allocations[i].asset_class_id);
+      });
+      tr.querySelector("#alloc-pct-" + i).addEventListener("input", function (e) {
+        allocations[i].percent = e.target.value;
+        updateTotal();
+      });
+      tr.querySelector("#alloc-del-" + i).addEventListener("click", function () {
+        allocations.splice(i, 1);
+        renderAllocationRows();
+        updateTotal();
+      });
+    });
+  }
+
+  function totalHundredths() {
+    // Integer hundredths — exact comparison against 100.00, no floating-point tolerance (NFR-01)
+    return allocations.reduce(function (sum, a) {
+      var n = Number(a.percent);
+      return sum + (isNaN(n) ? 0 : Math.round(n * 100));
+    }, 0);
+  }
+
+  function updateTotal() {
+    var t = totalHundredths();
+    var text = Math.floor(Math.abs(t) / 100) + "." + String(Math.abs(t) % 100).padStart(2, "0");
+    var box = document.getElementById("tpl-total-box");
+    var msg = document.getElementById("tpl-total-msg");
+    document.getElementById("tpl-total").textContent = (t < 0 ? "-" : "") + text;
+
+    var valid = (t === 10000);
+    box.className = "total " + (valid ? "valid" : "invalid");
+    msg.textContent = valid
+      ? "Sums to exactly 100.00 — ready to publish."
+      : "Must sum to exactly 100.00 — currently off by " + (Math.floor(Math.abs(t - 10000) / 100) + "." + String(Math.abs(t - 10000) % 100).padStart(2, "0")) + ". Publish is disabled.";
+    // Publish disabled while the running total is not exactly 100.00 (E10-S4 AC-2)
+    document.getElementById("tpl-publish").disabled = !valid;
+  }
+
+  function addAllocationRow() {
+    allocations.push({ asset_class_id: ASSET_CLASSES[0].id, percent: "0.00" });
+    renderAllocationRows();
+    updateTotal();
+  }
+
+  function publishTemplate() {
+    if (totalHundredths() !== 10000) { return; }
+    var band = document.getElementById("tpl-risk_band").value;
+    var maxVersion = TEMPLATE_HISTORY
+      .filter(function (t) { return t.risk_band === band; })
+      .reduce(function (m, t) { return Math.max(m, t.version); }, 0);
+    var nextVersion = maxVersion + 1;
+
+    // Simulated POST /api/admin/allocation-templates -> 201
+    TEMPLATE_HISTORY.forEach(function (t) { if (t.risk_band === band) { t.is_active = false; } });
+    TEMPLATE_HISTORY.push({
+      id: TEMPLATE_HISTORY.reduce(function (m, t) { return Math.max(m, t.id); }, 0) + 1,
+      version: nextVersion,
+      risk_band: band,
+      published_at: "2026-09-03T13:02:00Z",
+      is_active: true,
+      summary: allocations.map(function (a) { return assetCode(a.asset_class_id) + " " + Number(a.percent).toFixed(2); }).join(" / ")
+    });
+    document.getElementById("tpl-new-version").textContent = nextVersion;
+    document.getElementById("tpl-new-band").textContent = band;
+    document.getElementById("tpl-ok").hidden = false;
+    document.getElementById("tpl-422").hidden = true;
+    forceEmptyHistory = false;
+    renderHistory();   // refreshed in place, no page reload (E10-S4 AC-5)
+  }
+
+  function renderHistory() {
+    var band = document.getElementById("tpl-risk_band").value;
+    document.getElementById("hist-api").textContent = "GET /api/admin/allocation-templates?risk_band=" + band;
+    var list = forceEmptyHistory ? [] : TEMPLATE_HISTORY
+      .filter(function (t) { return t.risk_band === band; })
+      .sort(function (a, b) { return a.version - b.version; });
+
+    document.getElementById("hist-table").hidden = (list.length === 0);
+    document.getElementById("hist-empty").hidden = (list.length !== 0);
+    document.getElementById("hist-rows").innerHTML = list.map(function (t) {
+      return '<tr>' +
+        '<td>' + t.id + '</td>' +
+        '<td class="num">' + t.version + '</td>' +
+        '<td><code class="mono">' + t.risk_band + '</code></td>' +
+        '<td><code class="mono">' + t.published_at + '</code></td>' +
+        '<td><span class="badge' + (t.is_active ? ' active' : '') + '">' + t.is_active + '</span></td>' +
+        '<td><code class="mono">' + t.summary + '</code></td>' +
+      '</tr>';
+    }).join("");
+  }
+
+  function breakTotal() {
+    showTab("template");
+    allocations = DEFAULT_ALLOCATIONS.map(function (a) { return { asset_class_id: a.asset_class_id, percent: a.percent }; });
+    allocations[0].percent = "37.50";   // total now 97.50
+    renderAllocationRows();
+    updateTotal();
+    document.getElementById("tpl-422").hidden = false;
+    document.getElementById("tpl-ok").hidden = true;
+  }
+
+  function showEmptyHistory() {
+    showTab("template");
+    forceEmptyHistory = true;
+    renderHistory();
+  }
+
+  /* ---------------- Risk-band rule editor ---------------- */
+  var RULE_HISTORY = [
+    { id: 1, version: 1, question_count: 6, published_at: "2026-06-01T09:00:00Z", is_active: false },
+    { id: 2, version: 2, question_count: 7, published_at: "2026-09-02T11:48:55Z", is_active: true }
+  ];
+
+  var DEFAULT_QUESTIONS = [
+    { question_id: "Q1", text: "What is your investment time horizon?",
+      options: [ { value: "lt_3y", label: "Less than 3 years", points: 1 }, { value: "3_7y", label: "3 to 7 years", points: 2 }, { value: "8_15y", label: "8 to 15 years", points: 3 }, { value: "gt_15y", label: "More than 15 years", points: 4 } ] },
+    { question_id: "Q2", text: "If your portfolio fell 20% in a single quarter, what would you do?",
+      options: [ { value: "sell_all", label: "Sell everything and move to cash", points: 1 }, { value: "sell_some", label: "Sell some holdings to limit further loss", points: 2 }, { value: "hold", label: "Hold and wait for recovery", points: 3 }, { value: "buy_more", label: "Buy more at lower prices", points: 4 } ] },
+    { question_id: "Q3", text: "Which statement best describes your investing experience?",
+      options: [ { value: "none", label: "First-time investor", points: 1 }, { value: "basic", label: "Some funds or pensions only", points: 2 }, { value: "broad", label: "Several years across multiple asset classes", points: 3 }, { value: "extensive", label: "Extensive, including higher-volatility assets", points: 4 } ] },
+    { question_id: "Q4", text: "What share of your total savings does this portfolio represent?",
+      options: [ { value: "nearly_all", label: "Nearly all of it", points: 1 }, { value: "over_half", label: "More than half", points: 2 }, { value: "quarter_half", label: "Roughly a quarter to a half", points: 3 }, { value: "under_quarter", label: "Less than a quarter", points: 4 } ] },
+    { question_id: "Q5", text: "How stable is your current income?",
+      options: [ { value: "irregular", label: "Irregular or uncertain", points: 1 }, { value: "stable_no_surplus", label: "Stable but with no surplus", points: 2 }, { value: "stable_modest", label: "Stable with a modest surplus", points: 3 }, { value: "stable_large", label: "Stable with a substantial surplus", points: 4 } ] },
+    { question_id: "Q6", text: "Which outcome would you rather have after five years?",
+      options: [ { value: "preserve", label: "Value preserved, minimal growth", points: 1 }, { value: "modest", label: "Modest growth, small dips along the way", points: 2 }, { value: "solid", label: "Solid growth, occasional double-digit dips", points: 3 }, { value: "max", label: "Maximum growth, accepting large swings", points: 4 } ] },
+    { question_id: "Q7", text: "Do you expect any major withdrawal in the next three years?",
+      options: [ { value: "yes_soon", label: "Yes, within a year", points: 1 }, { value: "yes_later", label: "Yes, in 1-3 years", points: 2 }, { value: "maybe", label: "Possibly, not planned", points: 3 }, { value: "no", label: "No withdrawal expected", points: 4 } ] }
+  ];
+
+  var questions = DEFAULT_QUESTIONS.map(function (q) { return { question_id: q.question_id, text: q.text, options: q.options.map(function (o) { return { value: o.value, label: o.label, points: o.points }; }) }; });
+
+  function renderQuestions() {
+    var wrap = document.getElementById("rule-questions");
+    wrap.innerHTML = "";
+    questions.forEach(function (q, i) {
+      var div = document.createElement("div");
+      div.className = "question";
+      div.innerHTML =
+        '<div class="qhead"><span class="qid">' + q.question_id + '</span>' +
+        '<button type="button" class="secondary small" style="margin-left:auto" id="q-del-' + i + '" aria-label="Remove question ' + q.question_id + '">Remove</button></div>' +
+        '<label for="q-text-' + i + '">Question text</label>' +
+        '<input type="text" id="q-text-' + i + '" value="' + q.text.replace(/"/g, "&quot;") + '">' +
+        '<table style="margin-top:8px">' +
+          '<caption class="sub" style="text-align:left;margin-bottom:4px"><code class="mono">options</code> — array of <code class="mono">{ value, label, points }</code></caption>' +
+          '<thead><tr><th scope="col">value</th><th scope="col">label</th><th scope="col" class="num" style="width:90px">points</th></tr></thead>' +
+          '<tbody>' +
+            q.options.map(function (o, j) {
+              return '<tr><td><code class="mono">' + o.value + '</code></td>' +
+                     '<td>' +
+                       '<label class="sr-only" for="q-' + i + '-opt-' + j + '-label">label for ' + o.value + '</label>' +
+                       '<input type="text" id="q-' + i + '-opt-' + j + '-label" value="' + o.label.replace(/"/g, "&quot;") + '">' +
+                     '</td>' +
+                     '<td class="num">' +
+                       '<label class="sr-only" for="q-' + i + '-opt-' + j + '-points">points for ' + o.value + '</label>' +
+                       '<input type="number" id="q-' + i + '-opt-' + j + '-points" min="1" step="1" value="' + o.points + '" style="text-align:right">' +
+                     '</td></tr>';
+            }).join("") +
+          '</tbody>' +
+        '</table>';
+      wrap.appendChild(div);
+      div.querySelector("#q-del-" + i).addEventListener("click", function () {
+        questions.splice(i, 1);
+        renderQuestions();
+      });
+      div.querySelector("#q-text-" + i).addEventListener("input", function (e) { questions[i].text = e.target.value; });
+      q.options.forEach(function (o, j) {
+        div.querySelector("#q-" + i + "-opt-" + j + "-label").addEventListener("input", function (e) { questions[i].options[j].label = e.target.value; });
+        div.querySelector("#q-" + i + "-opt-" + j + "-points").addEventListener("input", function (e) { questions[i].options[j].points = Number(e.target.value); });
+      });
+    });
+    updateQuestionCount();
+  }
+
+  function updateQuestionCount() {
+    var n = questions.length;
+    var note = document.getElementById("rule-count");
+    note.textContent = n + (n === 1 ? " question" : " questions") + " defined — at least 6 are required to publish.";
+    note.className = "count-note" + (n < 6 ? " bad" : "");
+    // Publish requires >= 6 questions (E10-S4 AC-3)
+    document.getElementById("rule-publish").disabled = (n < 6);
+  }
+
+  function addQuestion() {
+    questions.push({
+      question_id: "Q" + (questions.length + 1),
+      text: "",
+      options: [ { value: "opt_1", label: "", points: 1 }, { value: "opt_2", label: "", points: 2 }, { value: "opt_3", label: "", points: 3 }, { value: "opt_4", label: "", points: 4 } ]
+    });
+    renderQuestions();
+  }
+
+  function dropQuestions() {
+    showTab("rules");
+    questions = DEFAULT_QUESTIONS.slice(0, 4).map(function (q) { return { question_id: q.question_id, text: q.text, options: q.options.map(function (o) { return { value: o.value, label: o.label, points: o.points }; }) }; });
+    renderQuestions();
+  }
+
+  function publishRule() {
+    if (questions.length < 6) { return; }
+    var nextVersion = RULE_HISTORY.reduce(function (m, r) { return Math.max(m, r.version); }, 0) + 1;
+    RULE_HISTORY.forEach(function (r) { r.is_active = false; });
+    RULE_HISTORY.push({
+      id: RULE_HISTORY.reduce(function (m, r) { return Math.max(m, r.id); }, 0) + 1,
+      version: nextVersion,
+      question_count: questions.length,
+      published_at: "2026-09-03T13:07:00Z",
+      is_active: true
+    });
+    document.getElementById("rule-new-version").textContent = nextVersion;
+    document.getElementById("rule-ok").hidden = false;
+    renderRuleHistory();   // refreshed in place, no page reload
+  }
+
+  function renderRuleHistory() {
+    document.getElementById("rule-hist-rows").innerHTML = RULE_HISTORY
+      .sort(function (a, b) { return a.version - b.version; })
+      .map(function (r) {
+        return '<tr><td>' + r.id + '</td><td class="num">' + r.version + '</td><td class="num">' + r.question_count + '</td>' +
+               '<td><code class="mono">' + r.published_at + '</code></td>' +
+               '<td><span class="badge' + (r.is_active ? ' active' : '') + '">' + r.is_active + '</span></td></tr>';
+      }).join("");
+  }
+
+  /* ---------------- Rebalancing threshold (separate versioned resource, api-contracts.md §12.9/12.10) ---------------- */
+  var REBAL_THRESHOLD_HISTORY = [
+    { id: 1, version: 1, threshold_bps: 500, published_at: "2026-09-01T09:00:00Z", is_active: true }
+  ];
+
+  function thresholdPercent(bps) {
+    return (bps / 100).toFixed(2);
+  }
+
+  function renderThresholdHistory() {
+    document.getElementById("thr-hist-rows").innerHTML = REBAL_THRESHOLD_HISTORY
+      .slice()
+      .sort(function (a, b) { return a.version - b.version; })
+      .map(function (t) {
+        return '<tr><td>' + t.id + '</td><td class="num">' + t.version + '</td><td class="num">' + t.threshold_bps + '</td>' +
+               '<td class="num">' + thresholdPercent(t.threshold_bps) + '</td>' +
+               '<td><code class="mono">' + t.published_at + '</code></td>' +
+               '<td><span class="badge' + (t.is_active ? ' active' : '') + '">' + t.is_active + '</span></td></tr>';
+      }).join("");
+  }
+
+  function publishThreshold() {
+    var input = document.getElementById("thr-threshold_bps");
+    var bps = Number(input.value);
+    document.getElementById("thr-ok").hidden = true;
+    document.getElementById("thr-422").hidden = true;
+    // Simulated POST /api/admin/rebalancing-thresholds -> 422 VALIDATION_ERROR
+    if (!Number.isInteger(bps) || bps < 1 || bps > 10000) {
+      document.getElementById("thr-422").hidden = false;
+      return;
+    }
+    var nextVersion = REBAL_THRESHOLD_HISTORY.reduce(function (m, t) { return Math.max(m, t.version); }, 0) + 1;
+    REBAL_THRESHOLD_HISTORY.forEach(function (t) { t.is_active = false; });
+    REBAL_THRESHOLD_HISTORY.push({
+      id: REBAL_THRESHOLD_HISTORY.reduce(function (m, t) { return Math.max(m, t.id); }, 0) + 1,
+      version: nextVersion,
+      threshold_bps: bps,
+      published_at: "2026-09-03T13:10:00Z",
+      is_active: true
+    });
+    document.getElementById("thr-new-version").textContent = nextVersion;
+    document.getElementById("thr-new-bps").textContent = bps;
+    document.getElementById("thr-ok").hidden = false;
+    renderThresholdHistory();   // refreshed in place, no page reload
+  }
+
+  /* ---------------- Tabs / reset ---------------- */
+  function showTab(name) {
+    ["template", "rules", "assets", "threshold"].forEach(function (t) {
+      document.getElementById("p-" + t).hidden = (t !== name);
+      document.getElementById("tab-" + t).setAttribute("aria-selected", String(t === name));
+    });
+  }
+
+  function resetAll() {
+    allocations = DEFAULT_ALLOCATIONS.map(function (a) { return { asset_class_id: a.asset_class_id, percent: a.percent }; });
+    questions = DEFAULT_QUESTIONS.map(function (q) { return { question_id: q.question_id, text: q.text, options: q.options.map(function (o) { return { value: o.value, label: o.label, points: o.points }; }) }; });
+    forceEmptyHistory = false;
+    document.getElementById("tpl-ok").hidden = true;
+    document.getElementById("tpl-422").hidden = true;
+    document.getElementById("rule-ok").hidden = true;
+    document.getElementById("asset-ok").hidden = true;
+    document.getElementById("asset-409").hidden = true;
+    document.getElementById("asset-code").removeAttribute("aria-invalid");
+    document.getElementById("asset-code").value = "COMMODITY";
+    document.getElementById("asset-name").value = "Broad commodities";
+    document.getElementById("thr-ok").hidden = true;
+    document.getElementById("thr-422").hidden = true;
+    document.getElementById("thr-threshold_bps").value = "500";
+    renderAllocationRows();
+    updateTotal();
+    renderHistory();
+    renderQuestions();
+    renderRuleHistory();
+    renderAssets();
+    renderThresholdHistory();
+    showTab("template");
+  }
+
+  resetAll();
+</script>
+</body>
+</html>

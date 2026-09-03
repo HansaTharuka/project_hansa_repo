@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>E9-S4 — Advisor (customer list, drill-in, override) — WealthWise</title>
+<!--
+  Mockup: E9-S4 Advisor UI — customer list, drill-in, override form, manual-recommendation modal.
+  Aligned to specs/design/api-contracts.md §11:
+    11.1 GET /api/advisor/customers
+         -> [ { customer_id, email, risk_band (null if never profiled), kyc_verified,
+                total_value, goal_count } ]
+    11.2 GET /api/advisor/customers/{customer_id}
+         -> { customer_id, email, kyc_verified, risk_band, rule_version,
+              holdings { as_of_date, total_value, threshold_bps, holdings[] },
+              goals[], allocation { template_version, allocations[], total_percent },
+              override_history[{ id, advisor_id, previous_band, new_band, reason, note, created_at }] }
+    11.3 POST /api/advisor/customers/{customer_id}/override
+         body { new_band, reason, note }
+         -> 201 { override_id, customer_id, previous_band, new_band, reason, note, created_at,
+                  assignment_id, risk_band }
+         -> 422 REASON_REQUIRED (no AdvisorOverride and no RiskBandAssignment written)
+    11.4 POST /api/advisor/customers/{customer_id}/manual-recommendation
+         body { note }  <- note is the ONLY body field; customer_id from the path,
+                           advisor_id from the JWT sub, created_at from the server
+         -> 201 { audit_entry_id, customer_id, advisor_id, note, created_at }
+         -> 422 NOTE_REQUIRED
+  Customers are identified by email — there is no name field on Customer.
+  The manual-recommendation log is a modal on the drill-in view, never a standalone route (BRD §5.1).
+-->
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;background:#f4f4f5;color:#1b1b1f;line-height:1.45;font-size:15px}
+  header.app{background:#26262b;color:#f4f4f5;padding:12px 20px;display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+  header.app h1{font-size:16px;margin:0;font-weight:600}
+  header.app .role{font-size:12px;color:#b9b9c0}
+  nav.app{margin-left:auto;display:flex;gap:14px;flex-wrap:wrap}
+  nav.app a{color:#d6d6da;text-decoration:none;font-size:13px;border-bottom:1px solid transparent;padding-bottom:2px}
+  nav.app a:hover,nav.app a:focus{color:#fff;border-bottom-color:#fff}
+  nav.app a[aria-current="page"]{color:#fff;border-bottom-color:#fff}
+  main{max-width:1120px;margin:0 auto;padding:24px 20px 64px}
+  h2{font-size:20px;margin:0 0 4px;word-break:break-all}
+  .sub{color:#5c5c66;font-size:13px;margin:0 0 20px}
+  section.panel{background:#fff;border:1px solid #d6d6da;border-radius:4px;padding:18px;margin-bottom:20px}
+  section.panel>h3{margin:0 0 12px;font-size:15px}
+  .api{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:11px;color:#3d3d47;background:#ececee;border:1px solid #d6d6da;border-radius:3px;padding:1px 5px;display:inline-block}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid #e4e4e7;vertical-align:top}
+  th{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:#5c5c66;background:#fafafa;white-space:nowrap}
+  td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;font-family:ui-monospace,SFMono-Regular,Consolas,monospace}
+  code.mono{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12px}
+  .band{display:inline-block;font-size:11px;border:1px solid #b9b9c0;border-radius:10px;padding:1px 8px;background:#f4f4f5;color:#3d3d47;font-family:ui-monospace,SFMono-Regular,Consolas,monospace}
+  label{display:block;font-size:13px;font-weight:600;margin-bottom:4px}
+  input,select,textarea{font:inherit;font-size:14px;padding:7px 9px;border:1px solid #b9b9c0;border-radius:3px;background:#fff;width:100%}
+  input[readonly]{background:#f4f4f5}
+  textarea{min-height:74px;resize:vertical}
+  [aria-invalid="true"]{border-color:#c98d8d;background:#fdf7f7}
+  input:focus,select:focus,textarea:focus,button:focus{outline:2px solid #2b5d8a;outline-offset:1px}
+  button{font:inherit;font-size:14px;padding:8px 14px;border:1px solid #26262b;background:#26262b;color:#fff;border-radius:3px;cursor:pointer}
+  button.secondary{background:#fff;color:#26262b;border-color:#b9b9c0}
+  button.small{font-size:13px;padding:5px 10px}
+  button[disabled]{opacity:.45;cursor:not-allowed}
+  .err{color:#8a2b2b;font-size:13px;margin:4px 0 0;font-weight:600}
+  .okbox{background:#eef5ef;border:1px solid #b3ccb8;color:#26562f;border-radius:3px;padding:10px 12px;font-size:13px;margin-bottom:14px}
+  .errbox{background:#fbeeee;border:1px solid #d9b3b3;color:#7d2626;border-radius:3px;padding:12px 14px;font-size:13px}
+  .statebar{background:#e9e9ec;border-bottom:1px solid #d6d6da;padding:8px 20px;font-size:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .statebar span{color:#5c5c66;margin-right:4px}
+  .statebar button{font-size:12px;padding:4px 9px}
+  .empty{padding:34px 18px;text-align:center;color:#3d3d47;font-size:14px}
+  .field{margin-bottom:14px}
+  .cols{display:flex;gap:20px;flex-wrap:wrap}
+  .cols>section{flex:1 1 320px}
+  .crumb{font-size:13px;margin:0 0 12px}
+  .crumb a{color:#2b5d8a}
+  dl.meta{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px 16px;margin:0}
+  dl.meta dt{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#5c5c66}
+  dl.meta dd{margin:0;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:14px}
+  /* modal */
+  .backdrop{position:fixed;inset:0;background:rgba(27,27,31,.55);display:flex;align-items:center;justify-content:center;padding:20px;z-index:20}
+  .modal{background:#fff;border:1px solid #b9b9c0;border-radius:4px;max-width:580px;width:100%;padding:20px;max-height:90vh;overflow:auto}
+  .modal h3{margin:0 0 4px;font-size:17px}
+</style>
+</head>
+<body>
+<header class="app">
+  <h1>WealthWise</h1>
+  <span class="role">Signed in as advisor01@wealthwise.test — <code style="font-size:12px">role: advisor</code> · <code style="font-size:12px">advisor_id: 11</code></span>
+  <nav class="app" aria-label="Primary">
+    <a href="#" aria-current="page" onclick="showList();return false">Customers</a>
+  </nav>
+</header>
+
+<div class="statebar" role="group" aria-label="Mockup state controls">
+  <span>Mockup state:</span>
+  <button type="button" class="secondary" onclick="showList()">Customer list</button>
+  <button type="button" class="secondary" onclick="showDetail(5)">Drill-in (customer_id 5)</button>
+  <button type="button" class="secondary" onclick="setListState('empty')">Empty state (no customers)</button>
+  <button type="button" class="secondary" onclick="showOverrideError()">Error state (422 REASON_REQUIRED)</button>
+</div>
+
+<main>
+  <!-- ============ CUSTOMER LIST ============ -->
+  <div id="view-list">
+    <h2>Customers</h2>
+    <p class="sub">Every customer on this advisor's book, with their current risk band. <span class="api">GET /api/advisor/customers</span></p>
+
+    <section class="panel" id="list-panel">
+      <table>
+        <caption class="sub" style="text-align:left;margin-bottom:8px">Fields: <code class="mono">customer_id, email, risk_band, kyc_verified, total_value, goal_count</code>. <code class="mono">risk_band</code> is <code class="mono">null</code> for a customer who has never completed the questionnaire.</caption>
+        <thead>
+          <tr>
+            <th scope="col" class="num">customer_id</th>
+            <th scope="col">email</th>
+            <th scope="col">risk_band</th>
+            <th scope="col">kyc_verified</th>
+            <th scope="col" class="num">total_value</th>
+            <th scope="col" class="num">goal_count</th>
+            <th scope="col"></th>
+          </tr>
+        </thead>
+        <tbody id="cust-rows"></tbody>
+      </table>
+    </section>
+
+    <section class="panel" id="list-empty" hidden>
+      <div class="empty">
+        <p><strong>No customers are assigned to you.</strong></p>
+        <p><code class="mono">GET /api/advisor/customers</code> returned <code class="mono">[]</code>. Customers appear here with their current <code class="mono">risk_band</code> once allocated to your book.</p>
+      </div>
+    </section>
+  </div>
+
+  <!-- ============ DRILL-IN ============ -->
+  <div id="view-detail" hidden>
+    <p class="crumb"><a href="#" onclick="showList();return false">&larr; Back to customers</a></p>
+    <h2 id="d-email">—</h2>
+    <p class="sub">Portfolio drill-in — holdings, goals and current allocation on a single screen (E9-S4 AC2). <span class="api" id="detail-api">GET /api/advisor/customers/{customer_id}</span></p>
+
+    <div class="okbox" id="override-ok" role="status" hidden>
+      <strong>201 Created</strong> — <code class="mono">{ "override_id": <span id="ok-override-id">—</span>, "previous_band": "<span id="ok-prev-band">—</span>", "new_band": "<span id="ok-new-band">—</span>", "assignment_id": <span id="ok-assignment-id">—</span>, "risk_band": "<span id="ok-risk-band">—</span>" }</code>.
+      An <code class="mono">AdvisorOverride</code>, a new <code class="mono">RiskBandAssignment</code> and one <code class="mono">AuditLogEntry</code> were written in a single transaction (AC-09). Displayed band updated in place, no page reload (E9-S4 AC4).
+    </div>
+    <div class="okbox" id="manual-ok" role="status" hidden>
+      <strong>201 Created</strong> — <code class="mono">{ "audit_entry_id": <span id="ok-mr-audit">—</span>, "customer_id": <span id="ok-mr-cust">—</span>, "advisor_id": <span id="ok-mr-adv">—</span>, "created_at": "<span id="ok-mr-created">—</span>" }</code>. Logged as an <code class="mono">AuditLogEntry</code> with <code class="mono">entity_type: "ManualRecommendation"</code> — no new table.
+    </div>
+
+    <section class="panel">
+      <h3>Profile</h3>
+      <dl class="meta">
+        <div><dt>customer_id</dt><dd id="d-id">—</dd></div>
+        <div><dt>kyc_verified</dt><dd id="d-kyc">—</dd></div>
+        <div><dt>risk_band</dt><dd id="d-band">—</dd></div>
+        <div><dt>rule_version</dt><dd id="d-rule">—</dd></div>
+        <div><dt>template_version</dt><dd id="d-template">—</dd></div>
+      </dl>
+      <p style="margin:14px 0 0">
+        <button type="button" class="small" onclick="openModal()" id="mr-open" title="POST /api/advisor/customers/{customer_id}/manual-recommendation">Log a manual recommendation</button>
+        <span class="api" id="mr-api-hint">POST /api/advisor/customers/{customer_id}/manual-recommendation</span>
+      </p>
+    </section>
+
+    <div class="cols">
+      <section class="panel">
+        <h3>Holdings</h3>
+        <p class="sub" style="margin:0 0 10px"><code class="mono">as_of_date</code> <span id="d-asof">—</span> · <code class="mono">total_value</code> <span id="d-total">—</span> · <code class="mono">threshold_bps</code> <span id="d-threshold">—</span></p>
+        <table>
+          <thead><tr><th scope="col">asset_class_code</th><th scope="col" class="num">current_value</th><th scope="col" class="num">drift_percent</th><th scope="col">exceeds_threshold</th></tr></thead>
+          <tbody id="d-holdings"></tbody>
+        </table>
+      </section>
+
+      <section class="panel">
+        <h3>Current allocation</h3>
+        <table>
+          <thead><tr><th scope="col">asset_class_code</th><th scope="col">asset_class_name</th><th scope="col" class="num">percent</th></tr></thead>
+          <tbody id="d-allocations"></tbody>
+          <tfoot><tr><td colspan="2" style="font-weight:700;border-top:2px solid #26262b">total_percent</td><td class="num" style="font-weight:700;border-top:2px solid #26262b" id="d-alloc-total">—</td></tr></tfoot>
+        </table>
+      </section>
+    </div>
+
+    <section class="panel">
+      <h3>Goals</h3>
+      <table>
+        <thead><tr><th scope="col" class="num">id</th><th scope="col" class="num">target_amount</th><th scope="col">target_date</th><th scope="col" class="num">priority</th><th scope="col" class="num">percent_complete</th></tr></thead>
+        <tbody id="d-goals"></tbody>
+      </table>
+    </section>
+
+    <section class="panel">
+      <h3>Override risk band</h3>
+      <p class="sub">Append-only and fully audited. <code class="mono">previous_band</code> is captured server-side; the body carries only <code class="mono">new_band</code>, <code class="mono">reason</code> and <code class="mono">note</code>.</p>
+      <div class="errbox" id="override-422" role="alert" hidden style="margin-bottom:14px">
+        <strong>422 <code class="mono">REASON_REQUIRED</code></strong> — <code class="mono">reason</code> is missing, empty or whitespace-only. No <code class="mono">AdvisorOverride</code> and no <code class="mono">RiskBandAssignment</code> row was written (E9-S3 AC3).
+      </div>
+      <form id="override-form" novalidate style="max-width:560px">
+        <div class="field">
+          <label for="previous_band">previous_band <span style="font-weight:400;color:#5c5c66">(read-only — captured server-side)</span></label>
+          <input type="text" id="previous_band" name="previous_band" value="—" readonly>
+        </div>
+        <div class="field">
+          <label for="new_band">new_band</label>
+          <select id="new_band" name="new_band">
+            <option value="CONSERVATIVE">CONSERVATIVE</option>
+            <option value="MODERATE">MODERATE</option>
+            <option value="AGGRESSIVE">AGGRESSIVE</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="reason">reason <span style="font-weight:400;color:#5c5c66">(required)</span></label>
+          <input type="text" id="reason" name="reason" placeholder="e.g. Client reported imminent liquidity need" aria-describedby="err-reason">
+          <p class="err" id="err-reason" hidden>reason is required — the override API is not called without it.</p>
+        </div>
+        <div class="field">
+          <label for="note">note <span style="font-weight:400;color:#5c5c66">(optional)</span></label>
+          <textarea id="note" name="note" placeholder="Supporting detail — conversation date, circumstances, suitability rationale"></textarea>
+        </div>
+        <button type="submit" title="POST /api/advisor/customers/{customer_id}/override">Submit override</button>
+        <span class="api" id="override-api">POST /api/advisor/customers/{customer_id}/override</span>
+      </form>
+    </section>
+
+    <section class="panel">
+      <h3>override_history</h3>
+      <table>
+        <thead><tr><th scope="col" class="num">id</th><th scope="col" class="num">advisor_id</th><th scope="col">previous_band</th><th scope="col">new_band</th><th scope="col">reason</th><th scope="col">note</th><th scope="col">created_at</th></tr></thead>
+        <tbody id="d-overrides"></tbody>
+      </table>
+    </section>
+  </div>
+</main>
+
+<!-- ============ MANUAL-RECOMMENDATION MODAL ============ -->
+<div class="backdrop" id="modal-backdrop" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <h3 id="modal-title">Log a manual recommendation</h3>
+    <p class="sub">Modal on the drill-in view — never a standalone route (BRD §5.1, E9-S4 AC5).</p>
+    <form id="manual-form" novalidate>
+      <div class="field">
+        <label for="mr-customer_id">customer_id <span style="font-weight:400;color:#5c5c66">(from the path, not the body)</span></label>
+        <input type="text" id="mr-customer_id" name="customer_id" readonly>
+      </div>
+      <div class="field">
+        <label for="mr-advisor_id">advisor_id <span style="font-weight:400;color:#5c5c66">(from the JWT sub, not the body)</span></label>
+        <input type="text" id="mr-advisor_id" name="advisor_id" value="11" readonly>
+      </div>
+      <div class="field">
+        <label for="mr-created_at">created_at <span style="font-weight:400;color:#5c5c66">(server-assigned)</span></label>
+        <input type="text" id="mr-created_at" name="created_at" value="2026-09-04T14:10:00Z" readonly>
+      </div>
+      <div class="field">
+        <label for="mr-note">note <span style="font-weight:400;color:#5c5c66">(the only body field — required, 1–2000 characters)</span></label>
+        <textarea id="mr-note" name="note" placeholder="Recommendation given to the client and the rationale for it" aria-describedby="err-mr-note"></textarea>
+        <p class="err" id="err-mr-note" hidden>422 NOTE_REQUIRED — note is required and must be 1–2000 characters after trimming.</p>
+      </div>
+      <p style="margin:0">
+        <button type="submit" title="POST /api/advisor/customers/{customer_id}/manual-recommendation">Log recommendation</button>
+        <button type="button" class="secondary" onclick="closeModal()">Cancel</button>
+      </p>
+      <p style="margin:10px 0 0"><span class="api" id="mr-api">POST /api/advisor/customers/{customer_id}/manual-recommendation</span></p>
+    </form>
+  </div>
+</div>
+
+<script>
+  var ADVISOR_ID = 11;
+
+  // GET /api/advisor/customers
+  var CUSTOMERS = [
+    { customer_id: 3,  email: "customer03@wealthwise.test", risk_band: "MODERATE",     kyc_verified: true,  total_value: "148387.40", goal_count: 3 },
+    { customer_id: 5,  email: "customer05@wealthwise.test", risk_band: "MODERATE",     kyc_verified: true,  total_value: "92640.15",  goal_count: 2 },
+    { customer_id: 6,  email: "customer06@wealthwise.test", risk_band: "CONSERVATIVE", kyc_verified: true,  total_value: "310905.00", goal_count: 1 },
+    { customer_id: 7,  email: "customer07@wealthwise.test", risk_band: "AGGRESSIVE",   kyc_verified: true,  total_value: "56218.75",  goal_count: 2 },
+    { customer_id: 8,  email: "customer08@wealthwise.test", risk_band: "CONSERVATIVE", kyc_verified: false, total_value: "27430.60",  goal_count: 1 },
+    { customer_id: 10, email: "customer10@wealthwise.test", risk_band: null,           kyc_verified: true,  total_value: "0.00",      goal_count: 0 }
+  ];
+
+  // GET /api/advisor/customers/{customer_id}
+  var DETAIL = {
+    5: {
+      customer_id: 5,
+      email: "customer05@wealthwise.test",
+      kyc_verified: true,
+      risk_band: "MODERATE",
+      rule_version: 1,
+      holdings: {
+        as_of_date: "2026-09-04",
+        total_value: "92640.15",
+        threshold_bps: 500,
+        holdings: [
+          { asset_class_id: 1, asset_class_code: "EQ_DM",   asset_class_name: "Developed-Market Equity", current_value: "43107.25", current_percent: "46.53", target_percent: "40.00", drift_percent: "6.53",  exceeds_threshold: true  },
+          { asset_class_id: 2, asset_class_code: "EQ_EM",   asset_class_name: "Emerging-Market Equity",  current_value: "9820.40",  current_percent: "10.60", target_percent: "12.00", drift_percent: "-1.40", exceeds_threshold: false },
+          { asset_class_id: 3, asset_class_code: "FI_GOV",  asset_class_name: "Government Fixed Income", current_value: "20481.90", current_percent: "22.11", target_percent: "25.00", drift_percent: "-2.89", exceeds_threshold: false },
+          { asset_class_id: 4, asset_class_code: "FI_CORP", asset_class_name: "Corporate Fixed Income",  current_value: "13290.00", current_percent: "14.34", target_percent: "15.00", drift_percent: "-0.66", exceeds_threshold: false },
+          { asset_class_id: 6, asset_class_code: "CASH",    asset_class_name: "Cash",                    current_value: "5940.60",  current_percent: "6.42",  target_percent: "8.00",  drift_percent: "-1.58", exceeds_threshold: false }
+        ]
+      },
+      goals: [
+        { id: 21, customer_id: 5, target_amount: "120000.00", target_date: "2035-11-30", priority: 1, created_at: "2026-03-11T09:12:00Z", updated_at: "2026-03-11T09:12:00Z", percent_complete: "41.86" },
+        { id: 24, customer_id: 5, target_amount: "38000.00",  target_date: "2030-02-28", priority: 3, created_at: "2026-05-19T16:40:00Z", updated_at: "2026-07-02T10:15:00Z", percent_complete: "22.14" }
+      ],
+      allocation: {
+        template_version: 2,
+        allocations: [
+          { asset_class_id: 1, asset_class_code: "EQ_DM",   asset_class_name: "Developed-Market Equity", percent: "40.00" },
+          { asset_class_id: 2, asset_class_code: "EQ_EM",   asset_class_name: "Emerging-Market Equity",  percent: "12.00" },
+          { asset_class_id: 3, asset_class_code: "FI_GOV",  asset_class_name: "Government Fixed Income", percent: "25.00" },
+          { asset_class_id: 4, asset_class_code: "FI_CORP", asset_class_name: "Corporate Fixed Income",  percent: "15.00" },
+          { asset_class_id: 6, asset_class_code: "CASH",    asset_class_name: "Cash",                    percent: "8.00"  }
+        ],
+        total_percent: "100.00"
+      },
+      override_history: [
+        { id: 4, advisor_id: 11, previous_band: "AGGRESSIVE", new_band: "MODERATE", reason: "Client reported imminent liquidity need", note: null, created_at: "2026-09-03T14:05:00Z" }
+      ]
+    }
+  };
+
+  var currentCustomer = null;
+  var currentDetail = null;
+
+  function group(v) {
+    var parts = String(v).split(".");
+    return parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",") + "." + (parts[1] || "00");
+  }
+
+  function renderList() {
+    var tb = document.getElementById("cust-rows");
+    tb.innerHTML = "";
+    CUSTOMERS.forEach(function (c) {
+      var tr = document.createElement("tr");
+      tr.innerHTML =
+        '<td class="num">' + c.customer_id + '</td>' +
+        '<td><code class="mono">' + c.email + '</code></td>' +
+        '<td><span class="band" id="list-band-' + c.customer_id + '">' + (c.risk_band === null ? "null" : c.risk_band) + '</span></td>' +
+        '<td><code class="mono">' + c.kyc_verified + '</code></td>' +
+        '<td class="num">' + group(c.total_value) + '</td>' +
+        '<td class="num">' + c.goal_count + '</td>' +
+        '<td></td>';
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "secondary small";
+      btn.textContent = "Open";
+      btn.title = "GET /api/advisor/customers/" + c.customer_id;
+      btn.setAttribute("aria-label", "Open drill-in for customer_id " + c.customer_id);
+      btn.onclick = function () { showDetail(c.customer_id); };
+      tr.lastElementChild.appendChild(btn);
+      tb.appendChild(tr);
+    });
+  }
+
+  function showList() {
+    setListState("data");
+  }
+
+  function setListState(name) {
+    document.getElementById("view-list").hidden = false;
+    document.getElementById("view-detail").hidden = true;
+    document.getElementById("list-panel").hidden = (name === "empty");
+    document.getElementById("list-empty").hidden = (name !== "empty");
+  }
+
+  function showDetail(id) {
+    var c = CUSTOMERS.filter(function (x) { return x.customer_id === id; })[0];
+    var d = DETAIL[id] || DETAIL[5];
+    currentCustomer = c;
+    currentDetail = d;
+
+    document.getElementById("view-list").hidden = true;
+    document.getElementById("view-detail").hidden = false;
+    document.getElementById("override-ok").hidden = true;
+    document.getElementById("manual-ok").hidden = true;
+    document.getElementById("override-422").hidden = true;
+    document.getElementById("err-reason").hidden = true;
+    document.getElementById("reason").removeAttribute("aria-invalid");
+    document.getElementById("reason").value = "";
+    document.getElementById("note").value = "";
+
+    document.getElementById("d-email").textContent = c.email;
+    document.getElementById("d-id").textContent = c.customer_id;
+    document.getElementById("d-kyc").textContent = d.kyc_verified;
+    document.getElementById("d-band").textContent = d.risk_band;
+    document.getElementById("d-rule").textContent = d.rule_version;
+    document.getElementById("d-template").textContent = d.allocation.template_version;
+    document.getElementById("previous_band").value = d.risk_band;
+
+    document.getElementById("detail-api").textContent = "GET /api/advisor/customers/" + c.customer_id;
+    document.getElementById("override-api").textContent = "POST /api/advisor/customers/" + c.customer_id + "/override";
+    document.getElementById("mr-api").textContent = "POST /api/advisor/customers/" + c.customer_id + "/manual-recommendation";
+    document.getElementById("mr-api-hint").textContent = "POST /api/advisor/customers/" + c.customer_id + "/manual-recommendation";
+    document.getElementById("mr-open").title = "POST /api/advisor/customers/" + c.customer_id + "/manual-recommendation";
+
+    document.getElementById("d-asof").textContent = d.holdings.as_of_date;
+    document.getElementById("d-total").textContent = group(d.holdings.total_value);
+    document.getElementById("d-threshold").textContent = d.holdings.threshold_bps;
+
+    document.getElementById("d-holdings").innerHTML = d.holdings.holdings.map(function (h) {
+      return '<tr><td><code class="mono">' + h.asset_class_code + '</code></td>' +
+             '<td class="num">' + group(h.current_value) + '</td>' +
+             '<td class="num">' + h.drift_percent + '</td>' +
+             '<td><code class="mono">' + h.exceeds_threshold + '</code></td></tr>';
+    }).join("");
+
+    document.getElementById("d-allocations").innerHTML = d.allocation.allocations.map(function (a) {
+      return '<tr><td><code class="mono">' + a.asset_class_code + '</code></td>' +
+             '<td>' + a.asset_class_name + '</td>' +
+             '<td class="num">' + a.percent + '</td></tr>';
+    }).join("");
+    document.getElementById("d-alloc-total").textContent = d.allocation.total_percent;
+
+    document.getElementById("d-goals").innerHTML = d.goals.map(function (g) {
+      return '<tr><td class="num">' + g.id + '</td>' +
+             '<td class="num">' + group(g.target_amount) + '</td>' +
+             '<td><code class="mono">' + g.target_date + '</code></td>' +
+             '<td class="num">' + g.priority + '</td>' +
+             '<td class="num">' + (g.percent_complete === null ? "null" : g.percent_complete) + '</td></tr>';
+    }).join("");
+
+    renderOverrideHistory();
+  }
+
+  function renderOverrideHistory() {
+    document.getElementById("d-overrides").innerHTML = currentDetail.override_history.map(function (o) {
+      return '<tr><td class="num">' + o.id + '</td><td class="num">' + o.advisor_id + '</td>' +
+             '<td><code class="mono">' + o.previous_band + '</code></td>' +
+             '<td><code class="mono">' + o.new_band + '</code></td>' +
+             '<td>' + o.reason + '</td>' +
+             '<td>' + (o.note === null ? '<code class="mono">null</code>' : o.note) + '</td>' +
+             '<td><code class="mono">' + o.created_at + '</code></td></tr>';
+    }).join("");
+  }
+
+  function showOverrideError() {
+    showDetail(5);
+    document.getElementById("reason").value = "";
+    document.getElementById("reason").setAttribute("aria-invalid", "true");
+    document.getElementById("err-reason").hidden = false;
+    document.getElementById("override-422").hidden = false;
+  }
+
+  document.getElementById("override-form").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var reasonEl = document.getElementById("reason");
+    if (!reasonEl.value.trim()) {
+      // Inline validation — the override API is not called (E9-S4 AC3)
+      reasonEl.setAttribute("aria-invalid", "true");
+      document.getElementById("err-reason").hidden = false;
+      reasonEl.focus();
+      return;
+    }
+    reasonEl.removeAttribute("aria-invalid");
+    document.getElementById("err-reason").hidden = true;
+    document.getElementById("override-422").hidden = true;
+
+    // Simulated POST /api/advisor/customers/{customer_id}/override -> 201
+    var previous_band = currentDetail.risk_band;
+    var new_band = document.getElementById("new_band").value;
+    var noteVal = document.getElementById("note").value.trim();
+    var override_id = currentDetail.override_history.reduce(function (m, o) { return Math.max(m, o.id); }, 0) + 1;
+
+    currentDetail.risk_band = new_band;
+    currentCustomer.risk_band = new_band;
+    currentDetail.override_history.push({
+      id: override_id, advisor_id: ADVISOR_ID, previous_band: previous_band, new_band: new_band,
+      reason: reasonEl.value.trim(), note: noteVal || null, created_at: "2026-09-04T14:05:00Z"
+    });
+
+    // Displayed band updated in place, no full page reload (E9-S4 AC4)
+    document.getElementById("d-band").textContent = new_band;
+    document.getElementById("previous_band").value = new_band;
+    document.getElementById("ok-override-id").textContent = override_id;
+    document.getElementById("ok-prev-band").textContent = previous_band;
+    document.getElementById("ok-new-band").textContent = new_band;
+    document.getElementById("ok-assignment-id").textContent = 14 + override_id;
+    document.getElementById("ok-risk-band").textContent = new_band;
+    document.getElementById("override-ok").hidden = false;
+    renderOverrideHistory();
+
+    var listBand = document.getElementById("list-band-" + currentCustomer.customer_id);
+    if (listBand) { listBand.textContent = new_band; }
+  });
+
+  function openModal() {
+    document.getElementById("mr-customer_id").value = currentCustomer.customer_id;
+    document.getElementById("mr-advisor_id").value = ADVISOR_ID;
+    document.getElementById("mr-note").value = "";
+    document.getElementById("mr-note").removeAttribute("aria-invalid");
+    document.getElementById("err-mr-note").hidden = true;
+    document.getElementById("modal-backdrop").hidden = false;
+    document.getElementById("mr-note").focus();
+  }
+
+  function closeModal() {
+    document.getElementById("modal-backdrop").hidden = true;
+  }
+
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && !document.getElementById("modal-backdrop").hidden) { closeModal(); }
+  });
+
+  document.getElementById("manual-form").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var noteEl = document.getElementById("mr-note");
+    if (!noteEl.value.trim()) {
+      noteEl.setAttribute("aria-invalid", "true");
+      document.getElementById("err-mr-note").hidden = false;
+      return;
+    }
+    // Simulated POST /api/advisor/customers/{customer_id}/manual-recommendation -> 201
+    document.getElementById("ok-mr-audit").textContent = "512";
+    document.getElementById("ok-mr-cust").textContent = document.getElementById("mr-customer_id").value;
+    document.getElementById("ok-mr-adv").textContent = document.getElementById("mr-advisor_id").value;
+    document.getElementById("ok-mr-created").textContent = document.getElementById("mr-created_at").value;
+    document.getElementById("manual-ok").hidden = false;
+    closeModal();
+  });
+
+  renderList();
+  showList();
+</script>
+</body>
+</html>

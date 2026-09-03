@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>E5-S4 — Recommended allocation — WealthWise</title>
+<!--
+  Mockup: E5-S4 Recommended allocation UI view
+  Aligned to specs/design/api-contracts.md §7.1 GET /api/recommendation:
+    200 { risk_band, rule_version, template_version, horizon,
+          allocations[{ asset_class_id, asset_class_code, asset_class_name, percent }],
+          total_percent, generated_at }
+    404 NO_RISK_BAND_ASSIGNMENT — no default/fallback allocation is returned.
+  total_percent is always exactly "100.00" (AC-02). percent values are fixed 2-decimal
+  decimal strings — no floating-point (NFR-01).
+-->
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;background:#f4f4f5;color:#1b1b1f;line-height:1.45;font-size:15px}
+  header.app{background:#26262b;color:#f4f4f5;padding:12px 20px;display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+  header.app h1{font-size:16px;margin:0;font-weight:600}
+  header.app .role{font-size:12px;color:#b9b9c0}
+  nav.app{margin-left:auto;display:flex;gap:14px;flex-wrap:wrap}
+  nav.app a{color:#d6d6da;text-decoration:none;font-size:13px;border-bottom:1px solid transparent;padding-bottom:2px}
+  nav.app a:hover,nav.app a:focus{color:#fff;border-bottom-color:#fff}
+  nav.app a[aria-current="page"]{color:#fff;border-bottom-color:#fff}
+  main{max-width:940px;margin:0 auto;padding:24px 20px 64px}
+  h2{font-size:20px;margin:0 0 4px}
+  .sub{color:#5c5c66;font-size:13px;margin:0 0 20px}
+  section.panel{background:#fff;border:1px solid #d6d6da;border-radius:4px;padding:18px;margin-bottom:20px}
+  section.panel>h3{margin:0 0 12px;font-size:15px}
+  .api{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:11px;color:#3d3d47;background:#ececee;border:1px solid #d6d6da;border-radius:3px;padding:1px 5px;display:inline-block}
+  dl.meta{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px 24px;margin:0}
+  dl.meta dt{color:#5c5c66;font-size:12px;text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px}
+  dl.meta dd{margin:0;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:14px}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th,td{text-align:left;padding:9px 10px;border-bottom:1px solid #e4e4e7}
+  th{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:#5c5c66;background:#fafafa}
+  td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;font-family:ui-monospace,SFMono-Regular,Consolas,monospace}
+  tfoot td{font-weight:700;border-top:2px solid #26262b;border-bottom:none;background:#fafafa}
+  .bar{height:10px;background:#e4e4e7;border-radius:2px;overflow:hidden;min-width:80px;display:block}
+  .bar>i{display:block;height:100%;background:#4a5c73}
+  code.mono{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12px}
+  button{font:inherit;font-size:14px;padding:8px 14px;border:1px solid #26262b;background:#26262b;color:#fff;border-radius:3px;cursor:pointer}
+  button.secondary{background:#fff;color:#26262b;border-color:#b9b9c0}
+  button:focus{outline:2px solid #2b5d8a;outline-offset:1px}
+  .statebar{background:#e9e9ec;border-bottom:1px solid #d6d6da;padding:8px 20px;font-size:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .statebar span{color:#5c5c66;margin-right:4px}
+  .statebar button{font-size:12px;padding:4px 9px}
+  .empty{padding:34px 18px;text-align:center;color:#3d3d47;font-size:14px}
+  .errbox{background:#fbeeee;border:1px solid #d9b3b3;color:#7d2626;border-radius:3px;padding:12px 14px;font-size:13px}
+  .notice{background:#eef1f5;border:1px solid #b8c4d4;color:#2c3e52;border-radius:3px;padding:10px 12px;font-size:13px;margin-bottom:16px}
+</style>
+</head>
+<body>
+<header class="app">
+  <h1>WealthWise</h1>
+  <span class="role">Signed in as customer03@wealthwise.test — <code style="font-size:12px">role: customer</code></span>
+  <nav class="app" aria-label="Primary">
+    <a href="E6-S5.html">Dashboard</a>
+    <a href="E4-S4.html">Risk profile</a>
+    <a href="#" aria-current="page">Allocation</a>
+    <a href="E7-S5.html">Goals</a>
+    <a href="E8-S4.html">Rebalancing</a>
+  </nav>
+</header>
+
+<div class="statebar" role="group" aria-label="Mockup state controls">
+  <span>Mockup state:</span>
+  <button type="button" class="secondary" onclick="setState('data')">Show allocation</button>
+  <button type="button" class="secondary" onclick="setState('empty')">Show empty state (404 NO_RISK_BAND_ASSIGNMENT)</button>
+  <button type="button" class="secondary" onclick="setState('error')">Show error state (500 INTERNAL_ERROR)</button>
+  <button type="button" class="secondary" onclick="simulateOverride()">Simulate advisor override (refetch)</button>
+</div>
+
+<main>
+  <h2>Recommended allocation</h2>
+  <p class="sub">Deterministic, rule-based allocation for your risk band and goal horizon. <code class="mono">total_percent</code> is always exactly <code class="mono">"100.00"</code> (AC-02).</p>
+
+  <!-- ============ POPULATED ============ -->
+  <div id="view-data">
+    <div class="notice" id="refetch-note" role="status" hidden>
+      Your <code class="mono">risk_band</code> changed to <strong id="new-band-label">Conservative</strong> following an advisor override. The allocation below was refetched and re-rendered without a page reload (E5-S4 AC5). <span class="api">GET /api/recommendation</span>
+    </div>
+
+    <section class="panel">
+      <h3>Basis for this recommendation</h3>
+      <dl class="meta">
+        <div><dt>risk_band</dt><dd id="m-band">MODERATE</dd></div>
+        <div><dt>rule_version</dt><dd id="m-rule">1</dd></div>
+        <div><dt>template_version</dt><dd id="m-template">2</dd></div>
+        <div><dt>horizon</dt><dd id="m-horizon">LONG</dd></div>
+        <div><dt>generated_at</dt><dd id="m-generated">2026-09-03T10:20:00Z</dd></div>
+      </dl>
+      <p class="sub" style="margin:14px 0 0">You stay pinned to <code class="mono">template_version <span id="m-template-2">2</span></code>, the version active when your band was assigned. Published templates are immutable (AC-10, E5-S3 AC4).</p>
+      <p style="margin:10px 0 0"><span class="api">GET /api/recommendation</span></p>
+    </section>
+
+    <section class="panel">
+      <h3>Target allocation by asset class</h3>
+      <table>
+        <caption class="sub" style="text-align:left;margin-bottom:8px"><code class="mono">allocations</code> — array of <code class="mono">{ asset_class_id, asset_class_code, asset_class_name, percent }</code></caption>
+        <thead>
+          <tr>
+            <th scope="col" class="num">asset_class_id</th>
+            <th scope="col">asset_class_code</th>
+            <th scope="col">asset_class_name</th>
+            <th scope="col" style="width:150px">Share</th>
+            <th scope="col" class="num">percent</th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+        <tfoot>
+          <tr>
+            <td colspan="4">total_percent</td>
+            <td class="num" id="total">100.00</td>
+          </tr>
+        </tfoot>
+      </table>
+    </section>
+  </div>
+
+  <!-- ============ EMPTY ============ -->
+  <div id="view-empty" hidden>
+    <section class="panel">
+      <div class="empty">
+        <p><strong>404 <code class="mono">NO_RISK_BAND_ASSIGNMENT</code> — you do not have a risk band yet.</strong></p>
+        <p>Complete the risk-profile questionnaire and your recommended allocation will appear here. No default or fallback allocation is shown (E5-S3 AC2, E5-S4 AC2).</p>
+        <p style="margin-top:18px">
+          <a href="E4-S4.html"><button type="button" title="POST /api/risk-profile/submit">Complete the risk-profile questionnaire</button></a>
+        </p>
+        <p><span class="api" aria-hidden="true">POST /api/risk-profile/submit</span></p>
+      </div>
+    </section>
+  </div>
+
+  <!-- ============ ERROR ============ -->
+  <div id="view-error" hidden>
+    <section class="panel">
+      <div class="errbox" role="alert">
+        <strong>500 <code class="mono">INTERNAL_ERROR</code></strong> — the recommendation could not be loaded. No partial or stale allocation is shown. There is no notification channel; this synchronous response is the only signal (BRD §11). A correlation id is returned for log lookup.
+        <p style="margin:10px 0 0"><button type="button" class="secondary" onclick="setState('data')" title="GET /api/recommendation">Retry</button> <span class="api" aria-hidden="true">GET /api/recommendation</span></p>
+      </div>
+    </section>
+  </div>
+</main>
+
+<script>
+  // GET /api/recommendation response. percent values are fixed 2-decimal strings.
+  var MODERATE = {
+    risk_band: "MODERATE",
+    rule_version: 1,
+    template_version: 2,
+    horizon: "LONG",
+    generated_at: "2026-09-03T10:20:00Z",
+    allocations: [
+      { asset_class_id: 1, asset_class_code: "EQ_DM",   asset_class_name: "Developed-Market Equity", percent: "40.00" },
+      { asset_class_id: 2, asset_class_code: "EQ_EM",   asset_class_name: "Emerging-Market Equity",  percent: "12.00" },
+      { asset_class_id: 3, asset_class_code: "FI_GOV",  asset_class_name: "Government Fixed Income", percent: "25.00" },
+      { asset_class_id: 4, asset_class_code: "FI_CORP", asset_class_name: "Corporate Fixed Income",  percent: "15.00" },
+      { asset_class_id: 5, asset_class_code: "REIT",    asset_class_name: "Listed Real Estate",      percent: "5.00"  },
+      { asset_class_id: 6, asset_class_code: "CASH",    asset_class_name: "Cash",                    percent: "3.00"  }
+    ],
+    total_percent: "100.00"
+  };
+
+  var CONSERVATIVE = {
+    risk_band: "CONSERVATIVE",
+    rule_version: 1,
+    template_version: 4,
+    horizon: "MEDIUM",
+    generated_at: "2026-09-03T12:31:00Z",
+    allocations: [
+      { asset_class_id: 1, asset_class_code: "EQ_DM",   asset_class_name: "Developed-Market Equity", percent: "22.00" },
+      { asset_class_id: 2, asset_class_code: "EQ_EM",   asset_class_name: "Emerging-Market Equity",  percent: "4.00"  },
+      { asset_class_id: 3, asset_class_code: "FI_GOV",  asset_class_name: "Government Fixed Income", percent: "42.00" },
+      { asset_class_id: 4, asset_class_code: "FI_CORP", asset_class_name: "Corporate Fixed Income",  percent: "20.00" },
+      { asset_class_id: 5, asset_class_code: "REIT",    asset_class_name: "Listed Real Estate",      percent: "3.00"  },
+      { asset_class_id: 6, asset_class_code: "CASH",    asset_class_name: "Cash",                    percent: "9.00"  }
+    ],
+    total_percent: "100.00"
+  };
+
+  var BAND_LABELS = { CONSERVATIVE: "Conservative", MODERATE: "Moderate", AGGRESSIVE: "Aggressive" };
+
+  function render(rec) {
+    document.getElementById("m-band").textContent = rec.risk_band;
+    document.getElementById("m-rule").textContent = rec.rule_version;
+    document.getElementById("m-template").textContent = rec.template_version;
+    document.getElementById("m-template-2").textContent = rec.template_version;
+    document.getElementById("m-horizon").textContent = rec.horizon;
+    document.getElementById("m-generated").textContent = rec.generated_at;
+
+    var rows = document.getElementById("rows");
+    rows.innerHTML = "";
+    rec.allocations.forEach(function (a) {
+      var tr = document.createElement("tr");
+      tr.innerHTML =
+        '<td class="num">' + a.asset_class_id + '</td>' +
+        '<td><code class="mono">' + a.asset_class_code + '</code></td>' +
+        '<td>' + a.asset_class_name + '</td>' +
+        '<td><span class="bar" role="img" aria-label="' + a.percent + ' percent"><i style="width:' + a.percent + '%"></i></span></td>' +
+        '<td class="num">' + a.percent + '</td>';
+      rows.appendChild(tr);
+    });
+    // total_percent comes from the API verbatim — it is not recomputed client-side
+    document.getElementById("total").textContent = rec.total_percent;
+  }
+
+  function setState(name) {
+    document.getElementById("view-data").hidden = (name !== "data");
+    document.getElementById("view-empty").hidden = (name !== "empty");
+    document.getElementById("view-error").hidden = (name !== "error");
+    if (name === "data") { document.getElementById("refetch-note").hidden = true; render(MODERATE); }
+  }
+
+  function simulateOverride() {
+    setState("data");
+    render(CONSERVATIVE);   // refetch + re-render in place, no full page reload (E5-S4 AC5)
+    document.getElementById("new-band-label").textContent = BAND_LABELS[CONSERVATIVE.risk_band];
+    document.getElementById("refetch-note").hidden = false;
+  }
+
+  render(MODERATE);
+</script>
+</body>
+</html>

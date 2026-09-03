@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>E7-S5 — Goals (list, create/edit, progress) — WealthWise</title>
+<!--
+  Mockup: E7-S5 Goals UI
+  Aligned to specs/design/api-contracts.md:
+    §9.1 POST /api/goals   body { target_amount, target_date, priority }
+         -> 201 { id, customer_id, target_amount, target_date, priority, created_at, updated_at,
+                  percent_complete }  (percent_complete is null until the first snapshot exists)
+         -> 422 VALIDATION_ERROR when target_amount <= 0 or target_date is in the past
+    §9.2 GET /api/goals  -> array of goal objects, ordered by priority ASC, target_date ASC
+    §9.3 PATCH /api/goals/{goal_id}  body { priority } -> 200 full updated goal
+    §9.4 GET /api/goals/{goal_id}/progress
+         -> { goal_id, target_amount, snapshots[{ id, current_value, percent_complete,
+              snapshot_at, price_date }] }
+  Money and percent values are fixed 2-decimal decimal strings (NFR-01). priority is 1–5.
+-->
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;background:#f4f4f5;color:#1b1b1f;line-height:1.45;font-size:15px}
+  header.app{background:#26262b;color:#f4f4f5;padding:12px 20px;display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+  header.app h1{font-size:16px;margin:0;font-weight:600}
+  header.app .role{font-size:12px;color:#b9b9c0}
+  nav.app{margin-left:auto;display:flex;gap:14px;flex-wrap:wrap}
+  nav.app a{color:#d6d6da;text-decoration:none;font-size:13px;border-bottom:1px solid transparent;padding-bottom:2px}
+  nav.app a:hover,nav.app a:focus{color:#fff;border-bottom-color:#fff}
+  nav.app a[aria-current="page"]{color:#fff;border-bottom-color:#fff}
+  main{max-width:1000px;margin:0 auto;padding:24px 20px 64px}
+  h2{font-size:20px;margin:0 0 4px}
+  .sub{color:#5c5c66;font-size:13px;margin:0 0 20px}
+  section.panel{background:#fff;border:1px solid #d6d6da;border-radius:4px;padding:18px;margin-bottom:20px}
+  section.panel>h3{margin:0 0 12px;font-size:15px}
+  .api{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:11px;color:#3d3d47;background:#ececee;border:1px solid #d6d6da;border-radius:3px;padding:1px 5px;display:inline-block}
+  .formrow{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start}
+  .field{flex:1 1 190px;min-width:170px;margin-bottom:12px}
+  label{display:block;font-size:13px;font-weight:600;margin-bottom:4px}
+  input,select{font:inherit;font-size:14px;padding:7px 9px;border:1px solid #b9b9c0;border-radius:3px;background:#fff;width:100%}
+  [aria-invalid="true"]{border-color:#c98d8d;background:#fdf7f7}
+  input:focus,select:focus,button:focus{outline:2px solid #2b5d8a;outline-offset:1px}
+  button{font:inherit;font-size:14px;padding:8px 14px;border:1px solid #26262b;background:#26262b;color:#fff;border-radius:3px;cursor:pointer}
+  button.secondary{background:#fff;color:#26262b;border-color:#b9b9c0}
+  button.small{font-size:13px;padding:5px 10px}
+  button[disabled]{opacity:.45;cursor:not-allowed}
+  .err{color:#8a2b2b;font-size:13px;margin:4px 0 0;font-weight:600}
+  .okbox{background:#eef5ef;border:1px solid #b3ccb8;color:#26562f;border-radius:3px;padding:10px 12px;font-size:13px;margin-bottom:14px}
+  .errbox{background:#fbeeee;border:1px solid #d9b3b3;color:#7d2626;border-radius:3px;padding:12px 14px;font-size:13px}
+  .statebar{background:#e9e9ec;border-bottom:1px solid #d6d6da;padding:8px 20px;font-size:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .statebar span{color:#5c5c66;margin-right:4px}
+  .statebar button{font-size:12px;padding:4px 9px}
+  .goal{border:1px solid #d6d6da;border-radius:4px;padding:14px 16px;margin-bottom:14px}
+  .goal header{display:flex;gap:12px;align-items:baseline;flex-wrap:wrap;margin-bottom:8px}
+  .goal h4{margin:0;font-size:16px;font-family:ui-monospace,SFMono-Regular,Consolas,monospace}
+  .prio{display:inline-block;font-size:11px;border:1px solid #b9b9c0;border-radius:10px;padding:1px 8px;background:#f4f4f5;color:#3d3d47;font-family:ui-monospace,SFMono-Regular,Consolas,monospace}
+  dl.g{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px 16px;margin:0 0 12px}
+  dl.g dt{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#5c5c66}
+  dl.g dd{margin:0;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:14px}
+  .bar{height:14px;background:#e4e4e7;border-radius:2px;overflow:hidden}
+  .bar>i{display:block;height:100%;background:#4a5c73}
+  .barlabel{display:flex;justify-content:space-between;font-size:12px;color:#5c5c66;margin-top:4px}
+  .barlabel b{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;color:#1b1b1f}
+  .empty{padding:34px 18px;text-align:center;color:#3d3d47;font-size:14px}
+  code.mono{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12px}
+  .editrow{border-top:1px solid #e4e4e7;margin-top:12px;padding-top:12px}
+  table.snap{width:100%;border-collapse:collapse;font-size:13px;margin-top:10px}
+  table.snap th,table.snap td{text-align:left;padding:6px 9px;border-bottom:1px solid #e4e4e7}
+  table.snap th{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#5c5c66;background:#fafafa}
+  table.snap td.num{text-align:right;font-variant-numeric:tabular-nums;font-family:ui-monospace,SFMono-Regular,Consolas,monospace}
+</style>
+</head>
+<body>
+<header class="app">
+  <h1>WealthWise</h1>
+  <span class="role">Signed in as customer03@wealthwise.test — <code style="font-size:12px">role: customer</code></span>
+  <nav class="app" aria-label="Primary">
+    <a href="E6-S5.html">Dashboard</a>
+    <a href="E4-S4.html">Risk profile</a>
+    <a href="E5-S4.html">Allocation</a>
+    <a href="#" aria-current="page">Goals</a>
+    <a href="E8-S4.html">Rebalancing</a>
+  </nav>
+</header>
+
+<div class="statebar" role="group" aria-label="Mockup state controls">
+  <span>Mockup state:</span>
+  <button type="button" class="secondary" onclick="setState('data')">Show goals</button>
+  <button type="button" class="secondary" onclick="setState('empty')">Show empty state (no goals)</button>
+  <button type="button" class="secondary" onclick="setState('error422')">Show error state (422 VALIDATION_ERROR)</button>
+  <button type="button" class="secondary" onclick="setState('error500')">Show error state (500 INTERNAL_ERROR)</button>
+</div>
+
+<main>
+  <h2>My goals</h2>
+  <p class="sub">Each goal tracks <code class="mono">target_amount</code>. <code class="mono">percent_complete</code> comes from the latest <code class="mono">GoalProgressSnapshot</code>, recomputed on every NAV refresh (AC-08), and is <code class="mono">null</code> until the first snapshot exists.</p>
+
+  <!-- ============ CREATE FORM ============ -->
+  <section class="panel">
+    <h3>Create a goal</h3>
+    <div class="okbox" id="create-ok" role="status" hidden>
+      <strong>201 Created</strong> — <code class="mono">{ "id": <span id="new-id">—</span>, "customer_id": 3, "percent_complete": null }</code>. The list below updated without a page reload.
+    </div>
+    <div class="errbox" id="create-422" role="alert" hidden style="margin-bottom:14px">
+      <strong>422 <code class="mono">VALIDATION_ERROR</code></strong> — <code class="mono">target_amount</code> must be greater than zero and <code class="mono">target_date</code> must be in the future. Nothing was written (E7-S4 AC2, E7-S5 AC2).
+    </div>
+    <form id="create-form" novalidate>
+      <div class="formrow">
+        <div class="field">
+          <label for="target_amount">target_amount</label>
+          <input type="number" id="target_amount" name="target_amount" step="0.01" min="0.01" value="250000.00" aria-describedby="err-amount">
+          <p class="err" id="err-amount" hidden>target_amount must be greater than 0.</p>
+        </div>
+        <div class="field">
+          <label for="target_date">target_date</label>
+          <input type="date" id="target_date" name="target_date" value="2038-04-30" aria-describedby="err-date">
+          <p class="err" id="err-date" hidden>target_date is required and must be in the future.</p>
+        </div>
+        <div class="field">
+          <label for="priority">priority</label>
+          <select id="priority" name="priority">
+            <option value="1">1 — highest</option>
+            <option value="2" selected>2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+            <option value="5">5 — lowest</option>
+          </select>
+        </div>
+        <div class="field" style="flex:0 0 auto;min-width:0;padding-top:23px">
+          <button type="submit" title="POST /api/goals">Create goal</button>
+        </div>
+      </div>
+      <p style="margin:0"><span class="api">POST /api/goals</span> <span class="sub" style="display:inline">body <code class="mono">{ "target_amount", "target_date", "priority" }</code></span></p>
+    </form>
+  </section>
+
+  <!-- ============ LIST ============ -->
+  <div id="view-data">
+    <section class="panel">
+      <h3>Goals <span class="sub" style="display:inline;font-weight:400">— <span class="api">GET /api/goals</span> · ordered by <code class="mono">priority ASC, target_date ASC</code></span></h3>
+      <div id="goals"></div>
+    </section>
+  </div>
+
+  <!-- ============ EMPTY ============ -->
+  <div id="view-empty" hidden>
+    <section class="panel">
+      <div class="empty">
+        <p><strong>You have no goals yet.</strong></p>
+        <p><code class="mono">GET /api/goals</code> returned <code class="mono">[]</code>. Create your first goal above — set a <code class="mono">target_amount</code>, a <code class="mono">target_date</code> and a <code class="mono">priority</code>, and <code class="mono">percent_complete</code> will be tracked against it on every NAV refresh.</p>
+      </div>
+    </section>
+  </div>
+
+  <!-- ============ 500 ============ -->
+  <div id="view-error500" hidden>
+    <section class="panel">
+      <div class="errbox" role="alert">
+        <strong>500 <code class="mono">INTERNAL_ERROR</code></strong> — goals could not be loaded. A correlation id is returned for log lookup.
+        <p style="margin:10px 0 0"><button type="button" class="secondary" onclick="setState('data')" title="GET /api/goals">Retry</button> <span class="api" aria-hidden="true">GET /api/goals</span></p>
+      </div>
+    </section>
+  </div>
+</main>
+
+<script>
+  // GET /api/goals — goal objects with percent_complete from the latest GoalProgressSnapshot.
+  var GOALS = [
+    { id: 7,  customer_id: 3, target_amount: "450000.00", target_date: "2041-09-30", priority: 1, created_at: "2026-04-12T08:31:00Z", updated_at: "2026-04-12T08:31:00Z", percent_complete: "32.97" },
+    { id: 9,  customer_id: 3, target_amount: "60000.00",  target_date: "2029-03-15", priority: 2, created_at: "2026-05-02T14:07:00Z", updated_at: "2026-05-02T14:07:00Z", percent_complete: "68.70" },
+    { id: 12, customer_id: 3, target_amount: "25000.00",  target_date: "2028-08-01", priority: 3, created_at: "2026-06-21T19:45:00Z", updated_at: "2026-08-30T11:02:00Z", percent_complete: null }
+  ];
+
+  // GET /api/goals/{goal_id}/progress — snapshots oldest first.
+  var PROGRESS = {
+    7:  { goal_id: 7,  target_amount: "450000.00", snapshots: [
+            { id: 80, current_value: "141210.00", percent_complete: "31.38", snapshot_at: "2026-09-03T10:30:00Z", price_date: "2026-09-03" },
+            { id: 88, current_value: "148379.15", percent_complete: "32.97", snapshot_at: "2026-09-04T10:30:00Z", price_date: "2026-09-04" } ] },
+    9:  { goal_id: 9,  target_amount: "60000.00",  snapshots: [
+            { id: 81, current_value: "40515.20",  percent_complete: "67.53", snapshot_at: "2026-09-03T10:30:00Z", price_date: "2026-09-03" },
+            { id: 89, current_value: "41220.60",  percent_complete: "68.70", snapshot_at: "2026-09-04T10:30:00Z", price_date: "2026-09-04" } ] },
+    12: { goal_id: 12, target_amount: "25000.00",  snapshots: [] }
+  };
+
+  function group(v) {
+    var parts = String(v).split(".");
+    return parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",") + "." + (parts[1] || "00");
+  }
+
+  function render() {
+    var wrap = document.getElementById("goals");
+    wrap.innerHTML = "";
+    GOALS.slice().sort(function (a, b) {
+      return (a.priority - b.priority) || (a.target_date < b.target_date ? -1 : 1);
+    }).forEach(function (g) {
+      var pct = g.percent_complete;
+      var pctNum = pct === null ? 0 : Math.min(100, Number(pct));
+      var art = document.createElement("article");
+      art.className = "goal";
+      art.id = "goal-" + g.id;
+      art.innerHTML =
+        '<header>' +
+          '<h4>goal id ' + g.id + '</h4>' +
+          '<span class="prio" id="prio-badge-' + g.id + '">priority: ' + g.priority + '</span>' +
+        '</header>' +
+        '<dl class="g">' +
+          '<div><dt>target_amount</dt><dd>' + group(g.target_amount) + '</dd></div>' +
+          '<div><dt>target_date</dt><dd>' + g.target_date + '</dd></div>' +
+          '<div><dt>priority</dt><dd id="prio-val-' + g.id + '">' + g.priority + '</dd></div>' +
+          '<div><dt>percent_complete</dt><dd id="pct-val-' + g.id + '">' + (pct === null ? "null" : pct) + '</dd></div>' +
+          '<div><dt>created_at</dt><dd>' + g.created_at + '</dd></div>' +
+          '<div><dt>updated_at</dt><dd id="upd-val-' + g.id + '">' + g.updated_at + '</dd></div>' +
+        '</dl>' +
+        '<div class="bar" role="progressbar" aria-valuenow="' + pctNum + '" aria-valuemin="0" aria-valuemax="100" aria-label="Goal ' + g.id + ' percent_complete">' +
+          '<i style="width:' + pctNum + '%"></i>' +
+        '</div>' +
+        '<div class="barlabel"><span>percent_complete</span><b>' + (pct === null ? "null — no snapshot yet" : pct + "%") + '</b></div>' +
+        '<div class="editrow">' +
+          '<form class="formrow" data-goal="' + g.id + '" style="align-items:flex-end">' +
+            '<div class="field" style="flex:0 1 190px">' +
+              '<label for="edit-priority-' + g.id + '">Edit priority</label>' +
+              '<select id="edit-priority-' + g.id + '">' +
+                [1, 2, 3, 4, 5].map(function (p) {
+                  return '<option value="' + p + '"' + (p === g.priority ? ' selected' : '') + '>' + p + '</option>';
+                }).join("") +
+              '</select>' +
+            '</div>' +
+            '<div class="field" style="flex:0 0 auto;min-width:0">' +
+              '<button type="submit" class="small" title="PATCH /api/goals/' + g.id + '">Save priority</button> ' +
+              '<span class="api">PATCH /api/goals/' + g.id + '</span>' +
+            '</div>' +
+            '<div class="field" style="flex:0 0 auto;min-width:0">' +
+              '<button type="button" class="small secondary" id="prog-btn-' + g.id + '" title="GET /api/goals/' + g.id + '/progress">Show progress history</button> ' +
+              '<span class="api">GET /api/goals/' + g.id + '/progress</span>' +
+            '</div>' +
+          '</form>' +
+          '<p class="okbox" id="saved-' + g.id + '" hidden style="margin:8px 0 0">200 OK — <code class="mono">priority</code> updated to <b id="saved-val-' + g.id + '"></b>; <code class="mono">created_at</code> unchanged, <code class="mono">updated_at</code> moved. Re-rendered in place, no page reload.</p>' +
+          '<div id="prog-' + g.id + '" hidden></div>' +
+        '</div>';
+      wrap.appendChild(art);
+
+      art.querySelector("form").addEventListener("submit", function (e) {
+        e.preventDefault();
+        // Simulated PATCH /api/goals/{goal_id} -> 200 with the full updated goal
+        var next = Number(document.getElementById("edit-priority-" + g.id).value);
+        g.priority = next;
+        g.updated_at = "2026-09-04T12:05:00Z";
+        document.getElementById("prio-val-" + g.id).textContent = next;
+        document.getElementById("prio-badge-" + g.id).textContent = "priority: " + next;
+        document.getElementById("upd-val-" + g.id).textContent = g.updated_at;
+        document.getElementById("saved-val-" + g.id).textContent = next;
+        document.getElementById("saved-" + g.id).hidden = false;
+      });
+
+      document.getElementById("prog-btn-" + g.id).addEventListener("click", function () {
+        // Simulated GET /api/goals/{goal_id}/progress
+        var box = document.getElementById("prog-" + g.id);
+        if (!box.hidden) { box.hidden = true; return; }
+        var p = PROGRESS[g.id];
+        box.innerHTML = p.snapshots.length
+          ? '<table class="snap"><caption class="sub" style="text-align:left;margin:8px 0 4px"><code class="mono">snapshots</code> for goal_id ' + p.goal_id + ' — target_amount ' + group(p.target_amount) + '</caption>' +
+            '<thead><tr><th scope="col">id</th><th scope="col" class="num">current_value</th><th scope="col" class="num">percent_complete</th><th scope="col">snapshot_at</th><th scope="col">price_date</th></tr></thead><tbody>' +
+            p.snapshots.map(function (s) {
+              return '<tr><td>' + s.id + '</td><td class="num">' + group(s.current_value) + '</td><td class="num">' + s.percent_complete + '</td>' +
+                     '<td><code class="mono">' + s.snapshot_at + '</code></td><td><code class="mono">' + s.price_date + '</code></td></tr>';
+            }).join("") + '</tbody></table>'
+          : '<p class="sub" style="margin:8px 0 0">200 OK with <code class="mono">"snapshots": []</code> — no NAV refresh has run for this goal yet.</p>';
+        box.hidden = false;
+      });
+    });
+  }
+
+  function setState(name) {
+    document.getElementById("view-data").hidden = (name !== "data" && name !== "error422");
+    document.getElementById("view-empty").hidden = (name !== "empty");
+    document.getElementById("view-error500").hidden = (name !== "error500");
+    document.getElementById("create-422").hidden = (name !== "error422");
+    document.getElementById("create-ok").hidden = true;
+    if (name === "error422") {
+      document.getElementById("target_amount").value = "0.00";
+      document.getElementById("target_amount").setAttribute("aria-invalid", "true");
+      document.getElementById("err-amount").hidden = false;
+    }
+    if (name === "data") {
+      document.getElementById("target_amount").value = "250000.00";
+      document.getElementById("target_amount").removeAttribute("aria-invalid");
+      document.getElementById("err-amount").hidden = true;
+    }
+  }
+
+  document.getElementById("create-form").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var amountEl = document.getElementById("target_amount");
+    var dateEl = document.getElementById("target_date");
+    var amount = Number(amountEl.value);
+    var ok = true;
+
+    document.getElementById("create-422").hidden = true;
+    document.getElementById("create-ok").hidden = true;
+
+    if (!(amount > 0)) {
+      // Inline validation — the create API is not called (E7-S5 AC2)
+      document.getElementById("err-amount").hidden = false;
+      amountEl.setAttribute("aria-invalid", "true");
+      ok = false;
+    } else {
+      document.getElementById("err-amount").hidden = true;
+      amountEl.removeAttribute("aria-invalid");
+    }
+    if (!dateEl.value || dateEl.value <= "2026-09-04") {
+      document.getElementById("err-date").hidden = false;
+      dateEl.setAttribute("aria-invalid", "true");
+      ok = false;
+    } else {
+      document.getElementById("err-date").hidden = true;
+      dateEl.removeAttribute("aria-invalid");
+    }
+    if (!ok) { return; }
+
+    // Simulated POST /api/goals -> 201, percent_complete null until the first snapshot
+    var newId = GOALS.reduce(function (m, g) { return Math.max(m, g.id); }, 0) + 1;
+    GOALS.push({
+      id: newId,
+      customer_id: 3,
+      target_amount: amount.toFixed(2),
+      target_date: dateEl.value,
+      priority: Number(document.getElementById("priority").value),
+      created_at: "2026-09-04T12:05:00Z",
+      updated_at: "2026-09-04T12:05:00Z",
+      percent_complete: null
+    });
+    PROGRESS[newId] = { goal_id: newId, target_amount: amount.toFixed(2), snapshots: [] };
+    document.getElementById("new-id").textContent = newId;
+    document.getElementById("create-ok").hidden = false;
+    setState("data");
+    document.getElementById("create-ok").hidden = false;
+    render();
+  });
+
+  render();
+</script>
+</body>
+</html>

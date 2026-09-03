@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>E2-S3 — Login (role-based redirect) — WealthWise</title>
+<!--
+  Mockup: E2-S3 Login UI with role-based redirect
+  Aligned to specs/design/api-contracts.md §5.1 POST /api/auth/login and §5.2 GET /api/auth/me.
+  Field names verbatim from the contract: email, password, access_token, token_type, role,
+  expires_in, user_id, customer_id. password_hash is never returned or displayed (E2-S2 AC4).
+  Error codes from the contract's §1.4 envelope: INVALID_CREDENTIALS, VALIDATION_ERROR.
+-->
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;background:#f4f4f5;color:#1b1b1f;line-height:1.45;font-size:15px}
+  header.app{background:#26262b;color:#f4f4f5;padding:12px 20px;display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+  header.app h1{font-size:16px;margin:0;font-weight:600}
+  header.app .role{font-size:12px;color:#b9b9c0}
+  main{max-width:880px;margin:0 auto;padding:24px 20px 64px}
+  h2{font-size:20px;margin:0 0 4px}
+  .sub{color:#5c5c66;font-size:13px;margin:0 0 20px}
+  section.panel{background:#fff;border:1px solid #d6d6da;border-radius:4px;padding:18px;margin-bottom:20px}
+  section.panel>h3{margin:0 0 12px;font-size:15px}
+  .api{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:11px;color:#3d3d47;background:#ececee;border:1px solid #d6d6da;border-radius:3px;padding:1px 5px;display:inline-block}
+  .field{margin-bottom:14px;max-width:360px}
+  label{display:block;font-size:13px;font-weight:600;margin-bottom:4px}
+  input,select{font:inherit;font-size:14px;padding:7px 9px;border:1px solid #b9b9c0;border-radius:3px;background:#fff;width:100%}
+  [aria-invalid="true"]{border-color:#c98d8d;background:#fdf7f7}
+  input:focus,select:focus,button:focus{outline:2px solid #2b5d8a;outline-offset:1px}
+  button{font:inherit;font-size:14px;padding:8px 14px;border:1px solid #26262b;background:#26262b;color:#fff;border-radius:3px;cursor:pointer}
+  button.secondary{background:#fff;color:#26262b;border-color:#b9b9c0}
+  button[disabled]{opacity:.45;cursor:not-allowed}
+  .err{color:#8a2b2b;font-size:13px;margin-top:6px;font-weight:600}
+  .errbox{background:#fbeeee;border:1px solid #d9b3b3;color:#7d2626;border-radius:3px;padding:10px 12px;font-size:13px;margin-bottom:14px}
+  .okbox{background:#eef5ef;border:1px solid #b3ccb8;color:#26562f;border-radius:3px;padding:10px 12px;font-size:13px;margin-bottom:14px}
+  .statebar{background:#e9e9ec;border-bottom:1px solid #d6d6da;padding:8px 20px;font-size:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .statebar span{color:#5c5c66;margin-right:4px}
+  .statebar button{font-size:12px;padding:4px 9px}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th,td{text-align:left;padding:7px 10px;border-bottom:1px solid #e4e4e7;vertical-align:top}
+  th{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:#5c5c66;background:#fafafa}
+  code.mono{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12px;word-break:break-all}
+  .hint{font-size:12px;color:#5c5c66;margin-top:6px}
+</style>
+</head>
+<body>
+<header class="app">
+  <h1>WealthWise</h1>
+  <span class="role">Robo-Advisory &amp; Portfolio Recommendation Platform</span>
+</header>
+
+<div class="statebar" role="group" aria-label="Mockup state controls">
+  <span>Mockup state:</span>
+  <button type="button" class="secondary" onclick="setState('form')">Show login form</button>
+  <button type="button" class="secondary" onclick="setState('error')">Show error state (401 INVALID_CREDENTIALS)</button>
+  <button type="button" class="secondary" onclick="setState('session')">Show authenticated session</button>
+</div>
+
+<main>
+  <!-- ============ LOGIN FORM ============ -->
+  <div id="view-form">
+    <h2>Sign in</h2>
+    <p class="sub">Shared entry point for all four personas. The <code class="mono">role</code> claim in the returned JWT determines the landing screen.</p>
+
+    <section class="panel">
+      <div id="login-error" class="errbox" hidden role="alert">
+        <strong>401 <code class="mono">INVALID_CREDENTIALS</code></strong> — Invalid email or password. No <code class="mono">access_token</code> was issued and no navigation occurred.
+      </div>
+
+      <form id="login-form" novalidate>
+        <div class="field">
+          <label for="email">email</label>
+          <input type="email" id="email" name="email" autocomplete="username" value="customer03@wealthwise.test" aria-describedby="email-err">
+          <p class="err" id="email-err" hidden>email is required — 422 <code class="mono">VALIDATION_ERROR</code> avoided client-side.</p>
+        </div>
+        <div class="field">
+          <label for="password">password</label>
+          <input type="password" id="password" name="password" autocomplete="current-password" value="DemoPass!2026" aria-describedby="password-err">
+          <p class="err" id="password-err" hidden>password is required — 422 <code class="mono">VALIDATION_ERROR</code> avoided client-side.</p>
+        </div>
+        <button type="submit" id="submit-btn" title="POST /api/auth/login">Sign in</button>
+        <span class="api" aria-hidden="true">POST /api/auth/login</span>
+        <p class="hint">Body <code class="mono">{ "email", "password" }</code> → 200 <code class="mono">{ "access_token", "token_type", "role", "expires_in" }</code>. <code class="mono">password_hash</code> is never present in any response.</p>
+      </form>
+    </section>
+
+    <section class="panel">
+      <h3>Seeded demo accounts</h3>
+      <p class="sub" style="margin-bottom:12px">No self-registration flow (BRD §8). Select an account to prefill the form and preview its role-based redirect.</p>
+      <table>
+        <caption class="sub" style="text-align:left;margin-bottom:8px"><code class="mono">User(id, email, role)</code> — customers additionally have a <code class="mono">Customer</code> row</caption>
+        <thead>
+          <tr><th scope="col">user_id</th><th scope="col">email</th><th scope="col">role</th><th scope="col">customer_id</th><th scope="col">Landing screen</th><th scope="col"></th></tr>
+        </thead>
+        <tbody id="accounts"></tbody>
+      </table>
+    </section>
+  </div>
+
+  <!-- ============ AUTHENTICATED SESSION ============ -->
+  <div id="view-session" hidden>
+    <h2>Signed in</h2>
+    <p class="sub">Rendered after a successful <code class="mono">POST /api/auth/login</code>. The route below is chosen from the <code class="mono">role</code> claim.</p>
+
+    <section class="panel">
+      <div class="okbox" role="status">
+        <strong>200 OK</strong> — authenticated as <span id="s-email">—</span> (<code class="mono">role: <span id="s-role">—</span></code>). Redirecting to <code class="mono" id="s-route">—</code>.
+      </div>
+      <table>
+        <tbody>
+          <tr><th scope="row">access_token</th><td><code class="mono" id="s-token">—</code></td></tr>
+          <tr><th scope="row">token_type</th><td><code class="mono">bearer</code></td></tr>
+          <tr><th scope="row">role</th><td><code class="mono" id="s-role-2">—</code></td></tr>
+          <tr><th scope="row">expires_in</th><td><code class="mono">3600</code> seconds</td></tr>
+          <tr><th scope="row">Storage</th><td>Persisted client-side and re-read on page load, so a refresh inside the validity window does not require re-login (E2-S3 AC5).</td></tr>
+          <tr><th scope="row">Attached as</th><td><code class="mono">Authorization: Bearer &lt;access_token&gt;</code> on every subsequent API call (E2-S3 AC4)</td></tr>
+        </tbody>
+      </table>
+
+      <p style="margin-top:14px">
+        <button type="button" class="secondary" onclick="simulateRefresh()" title="GET /api/auth/me">Simulate page refresh (restore session)</button>
+        <span class="api">GET /api/auth/me</span>
+        <button type="button" class="secondary" onclick="setState('form')">Sign out</button>
+      </p>
+
+      <div class="okbox" id="refresh-note" hidden style="margin:14px 0 0" role="status">
+        <strong>200 OK</strong> — session restored server-side without a second login:
+        <code class="mono">{ "user_id": <span id="me-user">—</span>, "email": "<span id="me-email">—</span>", "role": "<span id="me-role">—</span>", "customer_id": <span id="me-customer">—</span> }</code>
+      </div>
+    </section>
+  </div>
+</main>
+
+<script>
+  // Seeded demo users. role is the JWT claim that drives the redirect (BRD §3, §12).
+  var USERS = [
+    { user_id: 3,  email: "customer03@wealthwise.test",   role: "customer",   customer_id: 3,    route: "/dashboard", label: "Customer dashboard (holdings + drift)" },
+    { user_id: 11, email: "advisor01@wealthwise.test",    role: "advisor",    customer_id: null, route: "/advisor",   label: "Advisor customer list" },
+    { user_id: 13, email: "admin01@wealthwise.test",      role: "admin",      customer_id: null, route: "/admin",     label: "Admin console" },
+    { user_id: 14, email: "compliance01@wealthwise.test", role: "compliance", customer_id: null, route: "/audit",     label: "Audit-log screen (read-only)" }
+  ];
+  var VALID_PASSWORD = "DemoPass!2026";
+  var MOCK_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIzIiwicm9sZSI6ImN1c3RvbWVyIiwiZXhwIjoxNzcyNzY1NDAwfQ.9tQ2Hs0k4bVnJ1oXqYbL7dRm3fWc8sPzA6eKgN2uTiY";
+
+  var accountsEl = document.getElementById("accounts");
+  USERS.forEach(function (u) {
+    var tr = document.createElement("tr");
+    tr.innerHTML =
+      '<td>' + u.user_id + '</td>' +
+      '<td><code class="mono">' + u.email + '</code></td>' +
+      '<td><code class="mono">' + u.role + '</code></td>' +
+      '<td><code class="mono">' + (u.customer_id === null ? "null" : u.customer_id) + '</code></td>' +
+      '<td>' + u.label + ' <code class="mono">' + u.route + '</code></td>' +
+      '<td></td>';
+    var btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "secondary";
+    btn.textContent = "Use";
+    btn.setAttribute("aria-label", "Prefill login form with " + u.email);
+    btn.onclick = function () {
+      document.getElementById("email").value = u.email;
+      document.getElementById("password").value = VALID_PASSWORD;
+      document.getElementById("login-error").hidden = true;
+      document.getElementById("email").focus();
+    };
+    tr.lastElementChild.appendChild(btn);
+    accountsEl.appendChild(tr);
+  });
+
+  var activeUser = USERS[0];
+
+  function setState(name) {
+    document.getElementById("view-form").hidden = (name === "session");
+    document.getElementById("view-session").hidden = (name !== "session");
+    document.getElementById("login-error").hidden = (name !== "error");
+    document.getElementById("refresh-note").hidden = true;
+    if (name === "session") { fillSession(USERS[0]); }
+  }
+
+  function fillSession(user) {
+    activeUser = user;
+    document.getElementById("s-email").textContent = user.email;
+    document.getElementById("s-role").textContent = user.role;
+    document.getElementById("s-role-2").textContent = user.role;
+    document.getElementById("s-route").textContent = user.route;
+    document.getElementById("s-token").textContent = MOCK_TOKEN;
+  }
+
+  function simulateRefresh() {
+    // Simulated GET /api/auth/me — server-verified session restore (contract §5.2)
+    document.getElementById("me-user").textContent = activeUser.user_id;
+    document.getElementById("me-email").textContent = activeUser.email;
+    document.getElementById("me-role").textContent = activeUser.role;
+    document.getElementById("me-customer").textContent = activeUser.customer_id === null ? "null" : activeUser.customer_id;
+    document.getElementById("refresh-note").hidden = false;
+  }
+
+  document.getElementById("login-form").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var emailEl = document.getElementById("email");
+    var pwEl = document.getElementById("password");
+    var email = emailEl.value.trim();
+    var password = pwEl.value;
+    var loginErr = document.getElementById("login-error");
+
+    document.getElementById("email-err").hidden = !!email;
+    document.getElementById("password-err").hidden = !!password;
+    if (email) { emailEl.removeAttribute("aria-invalid"); } else { emailEl.setAttribute("aria-invalid", "true"); }
+    if (password) { pwEl.removeAttribute("aria-invalid"); } else { pwEl.setAttribute("aria-invalid", "true"); }
+    loginErr.hidden = true;
+    if (!email || !password) { return; }
+
+    var btn = document.getElementById("submit-btn");
+    btn.disabled = true;
+    btn.textContent = "Signing in…";
+
+    // Simulated POST /api/auth/login
+    window.setTimeout(function () {
+      btn.disabled = false;
+      btn.textContent = "Sign in";
+      var user = USERS.filter(function (u) { return u.email === email; })[0];
+      if (!user || password !== VALID_PASSWORD) {
+        loginErr.hidden = false;           // 401 INVALID_CREDENTIALS — stays on the login screen
+        pwEl.focus();
+        return;
+      }
+      fillSession(user);
+      document.getElementById("view-form").hidden = true;
+      document.getElementById("view-session").hidden = false;
+    }, 250);
+  });
+</script>
+</body>
+</html>

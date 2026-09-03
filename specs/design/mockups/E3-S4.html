@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>E3-S4 — Audit log (compliance, read-only) — WealthWise</title>
+<!--
+  Mockup: E3-S4 Compliance audit-log UI screen
+  Aligned to specs/design/api-contracts.md §13.1 GET /api/audit.
+  Response envelope: { total, limit, offset, entries[] }
+  Entry fields verbatim: id, entity_type, entity_id (string), actor_id, actor_role, action,
+  timestamp, details_json (object). Query params: actor_id, entity_type, from, to, limit, offset.
+  Entries ordered by timestamp ASC (E3-S1 AC4).
+  Read-only screen: the only controls are Apply, Clear and pagination (E3-S4 AC4).
+-->
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;background:#f4f4f5;color:#1b1b1f;line-height:1.45;font-size:15px}
+  header.app{background:#26262b;color:#f4f4f5;padding:12px 20px;display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+  header.app h1{font-size:16px;margin:0;font-weight:600}
+  header.app .role{font-size:12px;color:#b9b9c0}
+  nav.app{margin-left:auto;display:flex;gap:14px;flex-wrap:wrap}
+  nav.app a{color:#d6d6da;text-decoration:none;font-size:13px;border-bottom:1px solid transparent;padding-bottom:2px}
+  nav.app a:hover,nav.app a:focus{color:#fff;border-bottom-color:#fff}
+  nav.app a[aria-current="page"]{color:#fff;border-bottom-color:#fff}
+  main{max-width:1200px;margin:0 auto;padding:24px 20px 64px}
+  h2{font-size:20px;margin:0 0 4px}
+  .sub{color:#5c5c66;font-size:13px;margin:0 0 20px}
+  section.panel{background:#fff;border:1px solid #d6d6da;border-radius:4px;padding:18px;margin-bottom:20px}
+  section.panel>h3{margin:0 0 12px;font-size:15px}
+  .api{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:11px;color:#3d3d47;background:#ececee;border:1px solid #d6d6da;border-radius:3px;padding:1px 5px;display:inline-block}
+  .filters{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end}
+  .field{min-width:170px;flex:1 1 170px}
+  label{display:block;font-size:13px;font-weight:600;margin-bottom:4px}
+  input,select{font:inherit;font-size:14px;padding:7px 9px;border:1px solid #b9b9c0;border-radius:3px;background:#fff;width:100%}
+  input:focus,select:focus,button:focus{outline:2px solid #2b5d8a;outline-offset:1px}
+  button{font:inherit;font-size:14px;padding:8px 14px;border:1px solid #26262b;background:#26262b;color:#fff;border-radius:3px;cursor:pointer}
+  button.secondary{background:#fff;color:#26262b;border-color:#b9b9c0}
+  button[disabled]{opacity:.45;cursor:not-allowed}
+  .tablewrap{overflow-x:auto}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid #e4e4e7;vertical-align:top}
+  th{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:#5c5c66;background:#fafafa;white-space:nowrap}
+  code.mono{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12px}
+  td.details{max-width:340px}
+  td.details code{white-space:pre-wrap;word-break:break-word;color:#3d3d47}
+  .badge{display:inline-block;font-size:11px;border:1px solid #b9b9c0;border-radius:10px;padding:1px 8px;background:#f4f4f5;color:#3d3d47}
+  .statebar{background:#e9e9ec;border-bottom:1px solid #d6d6da;padding:8px 20px;font-size:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .statebar span{color:#5c5c66;margin-right:4px}
+  .statebar button{font-size:12px;padding:4px 9px}
+  .empty{padding:34px 18px;text-align:center;color:#5c5c66;font-size:14px}
+  .errbox{background:#fbeeee;border:1px solid #d9b3b3;color:#7d2626;border-radius:3px;padding:12px 14px;font-size:13px}
+  .readonly-note{font-size:12px;color:#5c5c66;margin-top:12px;border-top:1px solid #e4e4e7;padding-top:10px}
+  .count{font-size:13px;color:#5c5c66;margin:0 0 10px}
+  .pager{display:flex;gap:10px;align-items:center;margin-top:14px;font-size:13px;color:#5c5c66;flex-wrap:wrap}
+</style>
+</head>
+<body>
+<header class="app">
+  <h1>WealthWise</h1>
+  <span class="role">Signed in as compliance01@wealthwise.test — <code style="font-size:12px">role: compliance</code></span>
+  <nav class="app" aria-label="Primary">
+    <a href="#" aria-current="page">Audit log</a>
+  </nav>
+</header>
+
+<div class="statebar" role="group" aria-label="Mockup state controls">
+  <span>Mockup state:</span>
+  <button type="button" class="secondary" onclick="setState('data')">Show results</button>
+  <button type="button" class="secondary" onclick="setState('empty')">Show empty state (no matches)</button>
+  <button type="button" class="secondary" onclick="setState('error')">Show error state (403 ROLE_NOT_PERMITTED)</button>
+</div>
+
+<main>
+  <h2>Audit log</h2>
+  <p class="sub">Append-only trail of risk-band assignments, recommendations, rebalancing actions and advisor overrides (NFR-02). Read-only by construction — <code class="mono">POST</code>/<code class="mono">PUT</code>/<code class="mono">PATCH</code>/<code class="mono">DELETE</code> on this path return <code class="mono">405 METHOD_NOT_ALLOWED</code>.</p>
+
+  <section class="panel">
+    <h3>Filters</h3>
+    <form id="filter-form" class="filters">
+      <div class="field">
+        <label for="actor_id">actor_id</label>
+        <select id="actor_id" name="actor_id">
+          <option value="">All actors</option>
+          <option value="3">3 — customer03@wealthwise.test</option>
+          <option value="5">5 — customer05@wealthwise.test</option>
+          <option value="7">7 — customer07@wealthwise.test</option>
+          <option value="11">11 — advisor01@wealthwise.test</option>
+          <option value="13">13 — admin01@wealthwise.test</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="entity_type">entity_type</label>
+        <select id="entity_type" name="entity_type">
+          <option value="">All entity types</option>
+          <option value="RiskBandAssignment">RiskBandAssignment</option>
+          <option value="AllocationRecommendation">AllocationRecommendation</option>
+          <option value="RebalancingRecommendation">RebalancingRecommendation</option>
+          <option value="AdvisorOverride">AdvisorOverride</option>
+          <option value="ManualRecommendation">ManualRecommendation</option>
+          <option value="RiskBandRule">RiskBandRule</option>
+          <option value="AllocationTemplate">AllocationTemplate</option>
+          <option value="AssetClass">AssetClass</option>
+          <option value="RebalancingThreshold">RebalancingThreshold</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="from">from (inclusive)</label>
+        <input type="date" id="from" name="from" value="">
+      </div>
+      <div class="field">
+        <label for="to">to (inclusive)</label>
+        <input type="date" id="to" name="to" value="">
+      </div>
+      <div class="field" style="max-width:110px;flex:0 0 110px">
+        <label for="limit">limit</label>
+        <input type="number" id="limit" name="limit" value="50" min="1" max="200">
+      </div>
+      <div class="field" style="flex:0 0 auto;min-width:0">
+        <button type="submit" title="GET /api/audit?actor_id=&entity_type=&from=&to=&limit=&offset=">Apply filters</button>
+        <button type="button" class="secondary" onclick="clearFilters()">Clear</button>
+      </div>
+    </form>
+    <p style="margin:12px 0 0"><span class="api" id="query-preview">GET /api/audit?limit=50&amp;offset=0</span></p>
+    <p class="readonly-note">Compliance-role JWT required. A customer-, advisor- or admin-role token returns <code class="mono">403 ROLE_NOT_PERMITTED</code>; an unparseable date or an out-of-enum <code class="mono">entity_type</code> returns <code class="mono">400 INVALID_QUERY_PARAMETER</code>.</p>
+  </section>
+
+  <section class="panel">
+    <h3>Entries</h3>
+    <p class="count" id="count">—</p>
+
+    <div id="view-error" class="errbox" role="alert" hidden>
+      <strong>403 <code class="mono">ROLE_NOT_PERMITTED</code></strong> — this JWT does not carry the <code class="mono">compliance</code> role. The audit trail is restricted to the Compliance/Auditor persona (NFR-04, E3-S3 AC2). No entries were returned.
+    </div>
+
+    <div id="view-empty" class="empty" hidden>
+      <p><strong>No audit entries match these filters.</strong></p>
+      <p>The query returned <code class="mono">{ "total": 0, "entries": [] }</code>. Try widening the date range or clearing the <code class="mono">entity_type</code> filter.</p>
+    </div>
+
+    <div class="tablewrap" id="view-data">
+      <table>
+        <caption class="sub" style="text-align:left;margin-bottom:8px"><code class="mono">entries</code> — ordered by <code class="mono">timestamp ASC</code></caption>
+        <thead>
+          <tr>
+            <th scope="col">id</th>
+            <th scope="col">timestamp</th>
+            <th scope="col">actor_id</th>
+            <th scope="col">actor_role</th>
+            <th scope="col">entity_type</th>
+            <th scope="col">entity_id</th>
+            <th scope="col">action</th>
+            <th scope="col">details_json</th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+      <div class="pager">
+        <span>total <b id="p-total">—</b> · limit <b id="p-limit">50</b> · offset <b id="p-offset">0</b></span>
+        <button type="button" class="secondary" id="prev" onclick="page(-1)" title="GET /api/audit?offset=...">Previous</button>
+        <button type="button" class="secondary" id="next" onclick="page(1)" title="GET /api/audit?offset=...">Next</button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+  // AuditLogEntry rows as returned inside the GET /api/audit envelope.
+  // details_json is an object; it carries ids, enums and version numbers only (NFR-03),
+  // except for entity_type = "ManualRecommendation" whose note is the record itself.
+  var ENTRIES = [
+    { id: 409, timestamp: "2026-08-31T18:40:02Z", actor_id: 11, actor_role: "advisor",  entity_type: "ManualRecommendation",      entity_id: "5",  action: "LOG_MANUAL_RECOMMENDATION",           details_json: { note: "Suggested trimming EM equity exposure ahead of the target date." } },
+    { id: 410, timestamp: "2026-09-01T09:02:18Z", actor_id: 5,  actor_role: "customer", entity_type: "AllocationRecommendation",  entity_id: "44", action: "GENERATE_ALLOCATION_RECOMMENDATION", details_json: { customer_id: 5, risk_band: "MODERATE", template_version: 2, horizon: "MEDIUM" } },
+    { id: 411, timestamp: "2026-09-01T10:15:39Z", actor_id: 3,  actor_role: "customer", entity_type: "RiskBandAssignment",        entity_id: "12", action: "ASSIGN_RISK_BAND",                   details_json: { customer_id: 3, risk_band: "MODERATE", rule_version: 1 } },
+    { id: 412, timestamp: "2026-09-02T11:48:55Z", actor_id: 13, actor_role: "admin",    entity_type: "RiskBandRule",              entity_id: "2",  action: "PUBLISH_RISK_BAND_RULE",             details_json: { version: 2, question_count: 7 } },
+    { id: 413, timestamp: "2026-09-02T15:04:10Z", actor_id: 13, actor_role: "admin",    entity_type: "AssetClass",                entity_id: "6",  action: "CREATE_ASSET_CLASS",                 details_json: { id: 6, code: "REIT" } },
+    { id: 414, timestamp: "2026-09-02T16:22:47Z", actor_id: 7,  actor_role: "customer", entity_type: "RiskBandAssignment",        entity_id: "13", action: "ASSIGN_RISK_BAND",                   details_json: { customer_id: 7, risk_band: "AGGRESSIVE", rule_version: 1 } },
+    { id: 415, timestamp: "2026-09-03T08:30:00Z", actor_id: 13, actor_role: "admin",    entity_type: "AllocationTemplate",        entity_id: "9",  action: "PUBLISH_ALLOCATION_TEMPLATE",        details_json: { version: 3, risk_band: "AGGRESSIVE", total_percent: "100.00" } },
+    { id: 416, timestamp: "2026-09-03T08:57:33Z", actor_id: 3,  actor_role: "customer", entity_type: "RebalancingRecommendation", entity_id: "b6f0c2a4-1d3e-4f58-9a71-0c2e5d8b7a10", action: "ACCEPT_REBALANCING_RECOMMENDATION",  details_json: { status: "accepted", resolved_at: "2026-09-03T08:57:33Z", threshold_bps: 500 } },
+    { id: 417, timestamp: "2026-09-03T09:12:04Z", actor_id: 5,  actor_role: "customer", entity_type: "RebalancingRecommendation", entity_id: "3f21ad9c-77b4-4e0a-8c15-6ba2e4d09f37", action: "DISMISS_REBALANCING_RECOMMENDATION", details_json: { status: "dismissed", resolved_at: "2026-09-03T09:12:04Z", threshold_bps: 500 } },
+    { id: 418, timestamp: "2026-09-03T09:41:12Z", actor_id: 11, actor_role: "advisor",  entity_type: "AdvisorOverride",           entity_id: "4",  action: "OVERRIDE_RISK_BAND",                 details_json: { customer_id: 5, previous_band: "MODERATE", new_band: "CONSERVATIVE", assignment_id: 14 } },
+    { id: 419, timestamp: "2026-09-03T10:05:20Z", actor_id: 13, actor_role: "admin",    entity_type: "RebalancingThreshold",      entity_id: "2",  action: "PUBLISH_REBALANCING_THRESHOLD",      details_json: { version: 2, threshold_bps: 500 } }
+  ];
+
+  var LIMIT = 50;
+  var offset = 0;
+  var filtered = ENTRIES.slice();
+
+  var rowsEl = document.getElementById("rows");
+  var countEl = document.getElementById("count");
+
+  function render() {
+    var page = filtered.slice(offset, offset + LIMIT);
+    rowsEl.innerHTML = "";
+    page.forEach(function (e) {
+      var tr = document.createElement("tr");
+      tr.innerHTML =
+        '<td>' + e.id + '</td>' +
+        '<td><code class="mono">' + e.timestamp + '</code></td>' +
+        '<td>' + e.actor_id + '</td>' +
+        '<td><span class="badge">' + e.actor_role + '</span></td>' +
+        '<td><code class="mono">' + e.entity_type + '</code></td>' +
+        '<td><code class="mono">' + e.entity_id + '</code></td>' +
+        '<td><code class="mono">' + e.action + '</code></td>' +
+        '<td class="details"><code class="mono">' + JSON.stringify(e.details_json).replace(/</g, "&lt;") + '</code></td>';
+      rowsEl.appendChild(tr);
+    });
+    countEl.textContent = "Showing " + page.length + " of " + filtered.length + " matching entries.";
+    document.getElementById("p-total").textContent = filtered.length;
+    document.getElementById("p-limit").textContent = LIMIT;
+    document.getElementById("p-offset").textContent = offset;
+    document.getElementById("prev").disabled = (offset === 0);
+    document.getElementById("next").disabled = (offset + LIMIT >= filtered.length);
+  }
+
+  function page(dir) {
+    offset = Math.max(0, offset + dir * LIMIT);
+    updateQueryPreview();
+    render();
+  }
+
+  function currentFilters() {
+    return {
+      actor_id: document.getElementById("actor_id").value,
+      entity_type: document.getElementById("entity_type").value,
+      from: document.getElementById("from").value,
+      to: document.getElementById("to").value
+    };
+  }
+
+  function updateQueryPreview() {
+    var f = currentFilters();
+    var parts = [];
+    if (f.actor_id) { parts.push("actor_id=" + f.actor_id); }
+    if (f.entity_type) { parts.push("entity_type=" + f.entity_type); }
+    if (f.from) { parts.push("from=" + f.from); }
+    if (f.to) { parts.push("to=" + f.to); }
+    parts.push("limit=" + LIMIT);
+    parts.push("offset=" + offset);
+    document.getElementById("query-preview").textContent = "GET /api/audit?" + parts.join("&");
+  }
+
+  function applyFilters() {
+    var f = currentFilters();
+    LIMIT = Math.min(200, Math.max(1, Number(document.getElementById("limit").value) || 50));
+    offset = 0;
+    filtered = ENTRIES.filter(function (e) {
+      if (f.actor_id && String(e.actor_id) !== f.actor_id) { return false; }
+      if (f.entity_type && e.entity_type !== f.entity_type) { return false; }
+      var day = e.timestamp.slice(0, 10);
+      if (f.from && day < f.from) { return false; }   // inclusive lower bound
+      if (f.to && day > f.to) { return false; }       // inclusive upper bound — whole day included
+      return true;
+    });
+    updateQueryPreview();
+    setState(filtered.length ? "data" : "empty");
+  }
+
+  function clearFilters() {
+    document.getElementById("filter-form").reset();
+    document.getElementById("actor_id").value = "";
+    document.getElementById("entity_type").value = "";
+    document.getElementById("limit").value = "50";
+    LIMIT = 50;
+    offset = 0;
+    filtered = ENTRIES.slice();
+    updateQueryPreview();
+    setState("data");
+  }
+
+  function setState(name) {
+    document.getElementById("view-data").hidden = (name !== "data");
+    document.getElementById("view-empty").hidden = (name !== "empty");
+    document.getElementById("view-error").hidden = (name !== "error");
+    if (name === "data") {
+      if (!filtered.length) { filtered = ENTRIES.slice(); offset = 0; }
+      render();
+    }
+    if (name === "empty") { countEl.textContent = "0 of 0 matching entries."; }
+    if (name === "error") { countEl.textContent = "Request rejected."; }
+  }
+
+  document.getElementById("filter-form").addEventListener("submit", function (e) {
+    e.preventDefault();   // Enter key in any filter input submits the form (E3-S4 AC5)
+    applyFilters();
+  });
+
+  updateQueryPreview();
+  setState("data");
+</script>
+</body>
+</html>

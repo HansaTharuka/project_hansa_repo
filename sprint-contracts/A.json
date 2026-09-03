@@ -1,0 +1,251 @@
+{
+  "group": "A",
+  "stories": ["E1-S1", "E1-S2"],
+  "features": ["F001", "F002", "F003", "F004", "F005", "F006", "F007", "F008", "F009", "F010"],
+
+  "api_checks": [],
+  "playwright_checks": [],
+  "design_checks": [],
+
+  "architecture_checks": {
+    "files_must_exist": [
+      "backend/src/types/enums.py",
+      "backend/src/types/entities.py",
+      "backend/src/types/fixedpoint.py",
+      "backend/src/types/errors.py",
+      "frontend/src/types/entities.ts",
+      "backend/tests/unit/test_types_entities.py",
+      "backend/tests/unit/test_fixedpoint.py",
+      "backend/tests/architecture/test_no_float_in_domain.py",
+      "frontend/src/types/entities.test.ts",
+      "backend/src/core/config.py",
+      "backend/.env.example",
+      "frontend/.env.example",
+      ".gitignore",
+      "backend/tests/unit/test_config.py"
+    ],
+    "typing": {
+      "required": true,
+      "traces": ["E1-S1 AC4"],
+      "features": ["F004"],
+      "command": "cd backend && uv run mypy src/types src/core",
+      "description": "mypy exits 0 with zero errors against the types module (and the config module it is co-delivered with). Same command as ut-011."
+    },
+    "layering": {
+      "required": true,
+      "traces": ["E1-S1 AC1", "E1-S2 AC1", "folder-structure.md §4"],
+      "features": ["F001", "F006"],
+      "command": "cd backend && uv run pytest tests/architecture/test_layering.py",
+      "description": "backend/src/types/ imports only stdlib, pydantic and other types modules. backend/src/core/ imports only types (never db, domain or app). No module in this group imports from app/, db/ or domain/."
+    },
+    "no_float": {
+      "required": true,
+      "traces": ["E1-S1 AC2", "NFR-01"],
+      "features": ["F002"],
+      "command": "cd backend && uv run pytest tests/architecture/test_no_float_in_domain.py",
+      "description": "No float annotation, float() call or float literal anywhere under backend/src/types/. The test module is authored here and extended by later groups to cover src/domain and src/db."
+    },
+    "folder_structure": {
+      "required": true,
+      "traces": ["component-map.md rows E1-S1, E1-S2"],
+      "features": ["F001", "F005", "F006", "F010"],
+      "description": "Every path in files_must_exist sits exactly where folder-structure.md §2 and §3 place it. No file in this group is created outside backend/src/types/, backend/src/core/, backend/tests/, frontend/src/types/, or the four repo-level config files."
+    },
+    "env_vars": {
+      "required": true,
+      "traces": ["E1-S2 AC4", "E1-S2 AC5"],
+      "features": ["F009", "F010"],
+      "command": "detect-secrets scan backend/src/core/config.py backend/.env.example",
+      "description": "detect-secrets passes on backend/src/core/config.py and on backend/.env.example. No backend/.env file is committed or created."
+    },
+    "migrations": {
+      "required": false,
+      "description": "No migrations in this group — the full Alembic chain is authored in E1-S3 (group B)."
+    }
+  },
+
+  "unit_test_checks": [
+    {
+      "id": "ut-001",
+      "traces": "E1-S1 AC1",
+      "features": ["F001"],
+      "test_file": "backend/tests/unit/test_types_entities.py",
+      "assertion": "backend/src/types/entities.py defines a Pydantic model for each of the 14 BRD §9 entities: User, Customer, RiskProfileAnswer, RiskBandAssignment, RiskBandRule, AllocationTemplate, Goal, GoalProgressSnapshot, AssetClass, NavSnapshot, Holding, RebalancingRecommendation, AdvisorOverride, AuditLogEntry. The test imports each class by name and fails if any is missing."
+    },
+    {
+      "id": "ut-002",
+      "traces": "E1-S1 AC1",
+      "features": ["F001"],
+      "test_file": "backend/tests/unit/test_types_entities.py",
+      "assertion": "For each of the 14 models, the set of field names equals the column list in data-models.md §4 exactly — snake_case, no renaming, no pluralisation change, no camelCase. The only fields beyond BRD §9 are the four documented in data-models.md §1.1: User.created_at, Customer.created_at, Goal.updated_at, GoalProgressSnapshot.price_date. Any other extra field fails the test."
+    },
+    {
+      "id": "ut-003",
+      "traces": "E1-S1 AC1 (via component-map.md E1-S1 row and folder-structure.md §2)",
+      "features": ["F001"],
+      "test_file": "backend/tests/unit/test_types_entities.py",
+      "assertion": "entities.py additionally defines RebalancingThreshold (system-design.md §6.1), with threshold_bps typed as int per data-models.md §2."
+    },
+    {
+      "id": "ut-004",
+      "traces": "E1-S1 AC2",
+      "features": ["F002"],
+      "test_file": "backend/tests/unit/test_types_entities.py",
+      "assertion": "Every money field is Decimal (or int minor units) and never float: Goal.target_amount, GoalProgressSnapshot.current_value, NavSnapshot.nav_value, and the amount inside RebalancingRecommendation.proposed_actions_json. The test reads the resolved annotation for each field and fails on float."
+    },
+    {
+      "id": "ut-005",
+      "traces": "E1-S1 AC2",
+      "features": ["F002"],
+      "test_file": "backend/tests/unit/test_types_entities.py",
+      "assertion": "Every percentage/drift field is Decimal (or int basis points) and never float: GoalProgressSnapshot.percent_complete, the current_percent / target_percent / drift_percent drift fields, and the allocation percent entries inside AllocationTemplate.allocations_json."
+    },
+    {
+      "id": "ut-006",
+      "traces": "E1-S1 AC2",
+      "features": ["F002"],
+      "test_file": "backend/tests/unit/test_fixedpoint.py",
+      "assertion": "fixedpoint.py round-trips per data-models.md §2: minor units -> Decimal quantized to 0.01 -> 2-decimal string and back (2500000 <-> Decimal('25000.00') <-> '25000.00'); basis points -> 2-decimal percent string and back (6000 <-> '60.00', 10000 <-> '100.00', -725 <-> '-7.25'); rounding is ROUND_HALF_UP applied once; units quantize to 4 decimals ('12.3456'). No float appears in the module or in any intermediate value."
+    },
+    {
+      "id": "ut-007",
+      "traces": "E1-S1 AC3",
+      "features": ["F003"],
+      "test_file": "backend/tests/unit/test_types_entities.py",
+      "assertion": "enums.py Role has exactly the four members with literal values {'customer','advisor','admin','compliance'} — set equality, so an extra or renamed member fails. User.role is annotated with Role."
+    },
+    {
+      "id": "ut-008",
+      "traces": "E1-S1 AC3",
+      "features": ["F003"],
+      "test_file": "backend/tests/unit/test_types_entities.py",
+      "assertion": "enums.py RiskBand has exactly {'CONSERVATIVE','MODERATE','AGGRESSIVE'} (uppercase literals per data-models.md §4.4/§4.6), and both RiskBandAssignment.risk_band and AllocationTemplate.risk_band are annotated with it."
+    },
+    {
+      "id": "ut-009",
+      "traces": "E1-S1 AC3",
+      "features": ["F003"],
+      "test_file": "backend/tests/unit/test_types_entities.py",
+      "assertion": "enums.py RecommendationStatus has exactly {'pending','accepted','dismissed'} and RebalancingRecommendation.status is annotated with it."
+    },
+    {
+      "id": "ut-010",
+      "traces": "E1-S1 AC3",
+      "features": ["F003"],
+      "test_file": "backend/tests/unit/test_types_entities.py",
+      "assertion": "The enums are closed: constructing User(role='superuser'), RiskBandAssignment(risk_band='conservative') or RebalancingRecommendation(status='PENDING') each raises a Pydantic ValidationError rather than being coerced or accepted."
+    },
+    {
+      "id": "ut-011",
+      "traces": "E1-S1 AC4",
+      "features": ["F004"],
+      "test_file": "command check (no test module)",
+      "command": "cd backend && uv run mypy src/types",
+      "assertion": "mypy exits with status 0 and reports zero errors against backend/src/types/. Run with the strictness configured in backend/pyproject.toml; the run must not be narrowed by per-module ignore_errors or a blanket type: ignore in the types package."
+    },
+    {
+      "id": "ut-012",
+      "traces": "E1-S1 AC5",
+      "features": ["F005"],
+      "test_file": "frontend/src/types/entities.test.ts",
+      "assertion": "frontend/src/types/entities.ts exports a TypeScript interface for each of the same 14 entities (plus RebalancingThreshold), with field names identical to the Pydantic models — snake_case, no key mapping — and money/percent fields typed string, never number, per data-models.md §2. Verified statically in group A (see note 1)."
+    },
+    {
+      "id": "ut-013",
+      "traces": "E1-S2 AC1",
+      "features": ["F006"],
+      "test_file": "backend/tests/unit/test_config.py",
+      "assertion": "backend/src/core/config.py exposes a typed Settings object carrying database_url, jwt_secret, jwt_access_token_expiry_minutes, default_drift_threshold_percent and seed_csv_path, each with a concrete annotation (no Any, no Optional-with-None on a required setting)."
+    },
+    {
+      "id": "ut-014",
+      "traces": "E1-S2 AC1",
+      "features": ["F006"],
+      "test_file": "backend/tests/unit/test_config.py",
+      "assertion": "With DEFAULT_DRIFT_THRESHOLD_PERCENT unset in the environment, Settings.default_drift_threshold_percent equals 5 (BRD §5.1 default, deployment.md §5.1)."
+    },
+    {
+      "id": "ut-015",
+      "traces": "E1-S2 AC1",
+      "features": ["F006"],
+      "test_file": "backend/tests/unit/test_config.py",
+      "assertion": "With JWT_ACCESS_TOKEN_EXPIRY_MINUTES unset, Settings.jwt_access_token_expiry_minutes equals 60 (the documented default in deployment.md §5.1)."
+    },
+    {
+      "id": "ut-016",
+      "traces": "E1-S2 AC1",
+      "features": ["F006"],
+      "test_file": "backend/tests/unit/test_config.py",
+      "assertion": "Values come from the environment: with DATABASE_URL, JWT_SECRET, JWT_ACCESS_TOKEN_EXPIRY_MINUTES, DEFAULT_DRIFT_THRESHOLD_PERCENT and SEED_CSV_PATH monkeypatched, each Settings attribute reflects the patched value and is coerced to its declared type (ints parsed as int, not left as str)."
+    },
+    {
+      "id": "ut-017",
+      "traces": "E1-S2 AC2",
+      "features": ["F007"],
+      "test_file": "backend/tests/unit/test_config.py",
+      "assertion": "With DATABASE_URL absent from the environment, constructing Settings raises an error at startup. The test asserts the raise happens (pytest.raises) rather than a Settings instance with database_url = None being returned."
+    },
+    {
+      "id": "ut-018",
+      "traces": "E1-S2 AC2",
+      "features": ["F007"],
+      "test_file": "backend/tests/unit/test_config.py",
+      "assertion": "With JWT_SECRET absent, constructing Settings raises the same way — no silent default, no empty-string fallback."
+    },
+    {
+      "id": "ut-019",
+      "traces": "E1-S2 AC2",
+      "features": ["F007"],
+      "test_file": "backend/tests/unit/test_config.py",
+      "assertion": "The error is clear: its message names the missing environment variable (e.g. contains 'JWT_SECRET'), so an operator can act on it without reading the source."
+    },
+    {
+      "id": "ut-020",
+      "traces": "E1-S2 AC3",
+      "features": ["F008"],
+      "test_file": "backend/tests/unit/test_config.py",
+      "assertion": "The drift threshold is only ever read from config: Settings.default_drift_threshold_percent is the single source, and a static scan of backend/src/ excluding core/config.py finds no drift-threshold literal (no bare 5 / 500 / 0.05 assigned to a threshold-named symbol). In group A this scan covers src/types only; the check is re-run unchanged in the groups that add domain/rebalancing (see note 2)."
+    },
+    {
+      "id": "ut-021",
+      "traces": "E1-S2 AC4",
+      "features": ["F009"],
+      "test_file": "backend/tests/unit/test_config.py",
+      "assertion": "No secret literal exists in config.py: every secret-bearing setting (jwt_secret, database_url) is sourced from an environment lookup, with no hardcoded string fallback. detect-secrets scan on backend/src/core/config.py reports no finding."
+    },
+    {
+      "id": "ut-022",
+      "traces": "E1-S2 AC5",
+      "features": ["F010"],
+      "test_file": "backend/tests/unit/test_config.py",
+      "assertion": "backend/.env.example documents every required backend variable — set equality between the keys parsed out of .env.example and the env-var names the Settings model reads. Per deployment.md §5.1 that set is DATABASE_URL, JWT_SECRET, JWT_ACCESS_TOKEN_EXPIRY_MINUTES, DEFAULT_DRIFT_THRESHOLD_PERCENT, SEED_CSV_PATH, LOG_LEVEL. A variable added to Settings without being added to .env.example fails this test."
+    },
+    {
+      "id": "ut-023",
+      "traces": "E1-S2 AC5",
+      "features": ["F010"],
+      "test_file": "backend/tests/unit/test_config.py",
+      "assertion": "Every key in backend/.env.example has a non-empty placeholder value, and no key carries a real credential — JWT_SECRET's value is a placeholder, not a 32-byte hex string."
+    },
+    {
+      "id": "ut-024",
+      "traces": "E1-S2 AC5",
+      "features": ["F010"],
+      "test_file": "backend/tests/unit/test_config.py",
+      "assertion": "frontend/.env.example exists and documents VITE_API_BASE_URL with the placeholder http://localhost:8000 (deployment.md §5.1)."
+    },
+    {
+      "id": "ut-025",
+      "traces": "E1-S2 AC4",
+      "features": ["F009"],
+      "test_file": "backend/tests/unit/test_config.py",
+      "assertion": ".gitignore excludes backend/.env, frontend/.env and backend/*.db, so no real secret value or database file can be staged (deployment.md §5.2 mechanism 3, folder-structure.md §5). Neither backend/.env nor frontend/.env exists on disk after this group."
+    }
+  ],
+
+  "notes": [
+    "1. The frontend toolchain (package.json, tsconfig.json, vite.config.ts, vitest setup) is created by E2-S3 in group E, not here. ut-012 is therefore verified statically in group A — the file exists and declares the 14 interfaces with the right field names and string-typed money/percent — and tsc/vitest execution of frontend/src/types/entities.test.ts is deferred to the first group with a runnable frontend. Alternative if the lead prefers a runnable gate now: pull the frontend scaffold files forward into group A, which widens E1-S1's file ownership.",
+    "2. ut-020 asserts an absence across backend/src/. In group A there is no rebalancing service yet, so the scan is near-vacuous; it is written now because E1-S2 AC3 states the requirement, and re-runs unchanged as later groups add code.",
+    "3. Contract shape: the lead's requested key list places api_checks / playwright_checks / design_checks / architecture_checks / unit_test_checks at the top level, matching how .claude/skills/evaluate/SKILL.md step 2 reads the file. This differs from .claude/templates/sprint-contract.json, which nests them under a \"contract\" object, and unit_test_checks is not in .claude/skills/evaluation/references/contract-schema.json at all. Nothing validates the file at runtime — sprint-contract-gate.js only checks existence plus the evaluator verdict — so this is a documentation inconsistency to resolve, not a blocker."
+  ]
+}

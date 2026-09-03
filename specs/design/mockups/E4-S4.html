@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>E4-S4 — Risk-profile questionnaire &amp; result — WealthWise</title>
+<!--
+  Mockup: E4-S4 Risk-profile questionnaire UI and result screen
+  Aligned to specs/design/api-contracts.md:
+    §6.1 GET /api/risk-profile/questionnaire -> { rule_version, questions[{ question_id, text,
+          options[{ value, label }] }] }
+    §6.2 POST /api/risk-profile/submit  body { answers: [{ question_id, answer_value }] }
+          -> 201 { assignment_id, risk_band, rule_version, assigned_at }
+          -> 422 INCOMPLETE_QUESTIONNAIRE (no RiskBandAssignment written)
+    §6.3 GET /api/risk-profile/latest -> { assignment_id, customer_id, risk_band, rule_version,
+          assigned_at } | 404 NO_RISK_BAND_ASSIGNMENT
+  Questionnaire content is illustrative; the literal question set is a risk-profile spec decision.
+-->
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;background:#f4f4f5;color:#1b1b1f;line-height:1.45;font-size:15px}
+  header.app{background:#26262b;color:#f4f4f5;padding:12px 20px;display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+  header.app h1{font-size:16px;margin:0;font-weight:600}
+  header.app .role{font-size:12px;color:#b9b9c0}
+  nav.app{margin-left:auto;display:flex;gap:14px;flex-wrap:wrap}
+  nav.app a{color:#d6d6da;text-decoration:none;font-size:13px;border-bottom:1px solid transparent;padding-bottom:2px}
+  nav.app a:hover,nav.app a:focus{color:#fff;border-bottom-color:#fff}
+  nav.app a[aria-current="page"]{color:#fff;border-bottom-color:#fff}
+  main{max-width:840px;margin:0 auto;padding:24px 20px 64px}
+  h2{font-size:20px;margin:0 0 4px}
+  .sub{color:#5c5c66;font-size:13px;margin:0 0 20px}
+  section.panel{background:#fff;border:1px solid #d6d6da;border-radius:4px;padding:18px;margin-bottom:20px}
+  fieldset{border:1px solid #e4e4e7;border-radius:4px;padding:14px 16px;margin:0 0 16px}
+  fieldset[data-invalid="true"]{border-color:#c98d8d;background:#fdf7f7}
+  legend{font-size:14px;font-weight:600;padding:0 6px}
+  .qid{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:11px;color:#5c5c66}
+  .opt{display:flex;gap:9px;align-items:flex-start;padding:5px 0}
+  .opt input{margin-top:3px;width:auto}
+  .opt label{font-weight:400;font-size:14px;margin:0}
+  .opt .val{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:11px;color:#5c5c66}
+  .api{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:11px;color:#3d3d47;background:#ececee;border:1px solid #d6d6da;border-radius:3px;padding:1px 5px;display:inline-block}
+  input,select{font:inherit}
+  input:focus,select:focus,button:focus{outline:2px solid #2b5d8a;outline-offset:1px}
+  button{font:inherit;font-size:14px;padding:8px 14px;border:1px solid #26262b;background:#26262b;color:#fff;border-radius:3px;cursor:pointer}
+  button.secondary{background:#fff;color:#26262b;border-color:#b9b9c0}
+  button[disabled]{opacity:.45;cursor:not-allowed}
+  .err{color:#8a2b2b;font-size:13px;margin:6px 0 0;font-weight:600}
+  .errbox{background:#fbeeee;border:1px solid #d9b3b3;color:#7d2626;border-radius:3px;padding:12px 14px;font-size:13px;margin-bottom:16px}
+  .infobox{background:#eef1f5;border:1px solid #b8c4d4;color:#2c3e52;border-radius:3px;padding:12px 14px;font-size:13px;margin-bottom:16px}
+  .statebar{background:#e9e9ec;border-bottom:1px solid #d6d6da;padding:8px 20px;font-size:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .statebar span{color:#5c5c66;margin-right:4px}
+  .statebar button{font-size:12px;padding:4px 9px}
+  .band{font-size:34px;font-weight:700;letter-spacing:-.01em;margin:6px 0 2px}
+  .band-raw{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:13px;color:#5c5c66}
+  table{width:100%;border-collapse:collapse;font-size:14px;margin-top:14px}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid #e4e4e7}
+  th{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:#5c5c66;background:#fafafa;width:190px}
+  code.mono{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12px}
+  .progress{font-size:13px;color:#5c5c66;margin:0 0 14px}
+</style>
+</head>
+<body>
+<header class="app">
+  <h1>WealthWise</h1>
+  <span class="role">Signed in as customer03@wealthwise.test — <code style="font-size:12px">role: customer</code></span>
+  <nav class="app" aria-label="Primary">
+    <a href="E6-S5.html">Dashboard</a>
+    <a href="#" aria-current="page">Risk profile</a>
+    <a href="E5-S4.html">Allocation</a>
+    <a href="E7-S5.html">Goals</a>
+    <a href="E8-S4.html">Rebalancing</a>
+  </nav>
+</header>
+
+<div class="statebar" role="group" aria-label="Mockup state controls">
+  <span>Mockup state:</span>
+  <button type="button" class="secondary" onclick="setState('form')">Show questionnaire</button>
+  <button type="button" class="secondary" onclick="setState('result')">Show result screen</button>
+  <button type="button" class="secondary" onclick="setState('incomplete')">Show incomplete-submit errors</button>
+  <button type="button" class="secondary" onclick="setState('error')">Show error state (422 INCOMPLETE_QUESTIONNAIRE)</button>
+  <button type="button" class="secondary" onclick="setState('noband')">Show empty state (404 NO_RISK_BAND_ASSIGNMENT)</button>
+</div>
+
+<main>
+  <!-- ============ QUESTIONNAIRE ============ -->
+  <div id="view-form">
+    <h2>Risk-profile questionnaire</h2>
+    <p class="sub">Questions come from the active <code class="mono">RiskBandRule</code>. Answers are stored as append-only <code class="mono">RiskProfileAnswer</code> rows. <span class="api">GET /api/risk-profile/questionnaire</span></p>
+
+    <div class="infobox" id="prior-band" role="status">
+      <strong>Your current band:</strong> Moderate — <code class="mono">{ "assignment_id": 12, "customer_id": 3, "risk_band": "MODERATE", "rule_version": 1, "assigned_at": "2026-09-01T10:15:39Z" }</code>.
+      Re-submitting creates a <em>new</em> <code class="mono">RiskBandAssignment</code>; the previous one is retained (append-only, NFR-02).
+      <div style="margin-top:6px"><span class="api">GET /api/risk-profile/latest</span></div>
+    </div>
+
+    <div class="infobox" id="no-band" role="status" hidden>
+      <strong>404 <code class="mono">NO_RISK_BAND_ASSIGNMENT</code></strong> — you have not been assigned a risk band yet. Complete the questionnaire below to receive one. Nothing is shown as a default or placeholder band.
+      <div style="margin-top:6px"><span class="api">GET /api/risk-profile/latest</span></div>
+    </div>
+
+    <div class="errbox" id="submit-error" role="alert" hidden>
+      <strong>422 <code class="mono">INCOMPLETE_QUESTIONNAIRE</code></strong> — the answer set did not cover every question. No <code class="mono">RiskBandAssignment</code> row was created (E4-S3 AC2, BRD §11).
+    </div>
+
+    <section class="panel">
+      <p class="progress" id="progress">0 of 6 questions answered. <code class="mono">rule_version: 1</code></p>
+      <form id="q-form" novalidate>
+        <div id="questions"></div>
+        <button type="submit" id="submit-btn" title="POST /api/risk-profile/submit" disabled>Submit questionnaire</button>
+        <span class="api" aria-hidden="true">POST /api/risk-profile/submit</span>
+        <p class="sub" style="margin:10px 0 0">Body <code class="mono">{ "answers": [ { "question_id", "answer_value" } ] }</code> → 201 <code class="mono">{ "assignment_id", "risk_band", "rule_version", "assigned_at" }</code></p>
+      </form>
+    </section>
+  </div>
+
+  <!-- ============ RESULT ============ -->
+  <div id="view-result" hidden>
+    <h2>Your risk band</h2>
+    <p class="sub">Deterministic result of the rule-based scoring engine — no machine learning is involved.</p>
+    <section class="panel">
+      <p class="band" id="band-label">Moderate</p>
+      <p class="band-raw"><code class="mono">risk_band: <span id="band-code">MODERATE</span></code></p>
+      <table>
+        <tbody>
+          <tr><th scope="row">assignment_id</th><td><code class="mono" id="r-assignment">13</code></td></tr>
+          <tr><th scope="row">risk_band</th><td><code class="mono" id="r-band">MODERATE</code></td></tr>
+          <tr><th scope="row">rule_version</th><td><code class="mono" id="r-version">1</code></td></tr>
+          <tr><th scope="row">assigned_at</th><td><code class="mono" id="r-assigned">2026-09-03T11:24:08Z</code></td></tr>
+        </tbody>
+      </table>
+      <p style="margin-top:18px">
+        <a href="E5-S4.html"><button type="button" title="GET /api/recommendation">View my recommended allocation</button></a>
+        <span class="api" aria-hidden="true">GET /api/recommendation</span>
+        <button type="button" class="secondary" onclick="setState('form')">Retake questionnaire</button>
+      </p>
+    </section>
+  </div>
+</main>
+
+<script>
+  // GET /api/risk-profile/questionnaire — questions[] with options[{ value, label }].
+  var RULE_VERSION = 1;
+  var QUESTIONS = [
+    { question_id: "Q1", text: "What is your investment time horizon?",
+      options: [ { value: "lt_3y", label: "Less than 3 years" }, { value: "3_7y", label: "3 to 7 years" }, { value: "8_15y", label: "8 to 15 years" }, { value: "gt_15y", label: "More than 15 years" } ] },
+    { question_id: "Q2", text: "If your portfolio fell 20% in a single quarter, what would you do?",
+      options: [ { value: "sell_all", label: "Sell everything and move to cash" }, { value: "sell_some", label: "Sell some holdings to limit further loss" }, { value: "hold", label: "Hold and wait for recovery" }, { value: "buy_more", label: "Buy more at lower prices" } ] },
+    { question_id: "Q3", text: "Which statement best describes your investing experience?",
+      options: [ { value: "none", label: "First-time investor" }, { value: "basic", label: "Some funds or pensions only" }, { value: "broad", label: "Several years across multiple asset classes" }, { value: "extensive", label: "Extensive, including higher-volatility assets" } ] },
+    { question_id: "Q4", text: "What share of your total savings does this portfolio represent?",
+      options: [ { value: "nearly_all", label: "Nearly all of it" }, { value: "over_half", label: "More than half" }, { value: "quarter_half", label: "Roughly a quarter to a half" }, { value: "under_quarter", label: "Less than a quarter" } ] },
+    { question_id: "Q5", text: "How stable is your current income?",
+      options: [ { value: "irregular", label: "Irregular or uncertain" }, { value: "stable_no_surplus", label: "Stable but with no surplus" }, { value: "stable_modest", label: "Stable with a modest surplus" }, { value: "stable_large", label: "Stable with a substantial surplus" } ] },
+    { question_id: "Q6", text: "Which outcome would you rather have after five years?",
+      options: [ { value: "preserve", label: "Value preserved, minimal growth" }, { value: "modest", label: "Modest growth, small dips along the way" }, { value: "solid", label: "Solid growth, occasional double-digit dips" }, { value: "max", label: "Maximum growth, accepting large swings" } ] }
+  ];
+
+  var BAND_LABELS = { CONSERVATIVE: "Conservative", MODERATE: "Moderate", AGGRESSIVE: "Aggressive" };
+  var answers = {};   // question_id -> answer_value
+
+  var qWrap = document.getElementById("questions");
+  QUESTIONS.forEach(function (q) {
+    var fs = document.createElement("fieldset");
+    fs.id = "fs-" + q.question_id;
+    var legend = document.createElement("legend");
+    legend.innerHTML = q.text + ' <span class="qid">(' + q.question_id + ')</span>';
+    fs.appendChild(legend);
+    q.options.forEach(function (o) {
+      var id = q.question_id + "-" + o.value;
+      var div = document.createElement("div");
+      div.className = "opt";
+      div.innerHTML =
+        '<input type="radio" id="' + id + '" name="' + q.question_id + '" value="' + o.value + '">' +
+        '<label for="' + id + '">' + o.label + ' <span class="val">' + o.value + '</span></label>';
+      div.querySelector("input").addEventListener("change", function () {
+        answers[q.question_id] = o.value;      // becomes answer_value in the submit body
+        fs.removeAttribute("data-invalid");
+        var e = document.getElementById("err-" + q.question_id);
+        if (e) { e.hidden = true; }
+        updateProgress();
+      });
+      fs.appendChild(div);
+    });
+    var err = document.createElement("p");
+    err.className = "err";
+    err.id = "err-" + q.question_id;
+    err.hidden = true;
+    err.textContent = "Select an answer_value for " + q.question_id + " before submitting.";
+    fs.appendChild(err);
+    qWrap.appendChild(fs);
+  });
+
+  function updateProgress() {
+    var n = Object.keys(answers).length;
+    document.getElementById("progress").innerHTML =
+      n + " of " + QUESTIONS.length + " questions answered. <code class=\"mono\">rule_version: " + RULE_VERSION + "</code>";
+    // Submit stays disabled until every question has an answer (E4-S4 AC1)
+    document.getElementById("submit-btn").disabled = (n !== QUESTIONS.length);
+  }
+
+  function showIncompleteErrors() {
+    QUESTIONS.forEach(function (q, i) {
+      if (i < 4) { return; }                     // Q5/Q6 left blank
+      delete answers[q.question_id];
+      var radios = document.querySelectorAll('input[name="' + q.question_id + '"]');
+      Array.prototype.forEach.call(radios, function (r) { r.checked = false; });
+      document.getElementById("fs-" + q.question_id).setAttribute("data-invalid", "true");
+      document.getElementById("err-" + q.question_id).hidden = false;
+    });
+    updateProgress();
+    document.getElementById("fs-Q5").scrollIntoView({ block: "center" });
+  }
+
+  function answerAll() {
+    QUESTIONS.forEach(function (q, i) {
+      var v = q.options[[1, 2, 2, 2, 2, 1][i]].value;
+      var el = document.getElementById(q.question_id + "-" + v);
+      el.checked = true;
+      answers[q.question_id] = v;
+      document.getElementById("fs-" + q.question_id).removeAttribute("data-invalid");
+      document.getElementById("err-" + q.question_id).hidden = true;
+    });
+    updateProgress();
+  }
+
+  function setState(name) {
+    document.getElementById("view-form").hidden = (name === "result");
+    document.getElementById("view-result").hidden = (name !== "result");
+    document.getElementById("submit-error").hidden = (name !== "error");
+    document.getElementById("no-band").hidden = (name !== "noband");
+    document.getElementById("prior-band").hidden = (name === "noband");
+    if (name === "form") { answerAll(); }
+    if (name === "noband") { answerAll(); }
+    if (name === "incomplete" || name === "error") { showIncompleteErrors(); }
+  }
+
+  document.getElementById("q-form").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var missing = QUESTIONS.filter(function (q) { return !answers[q.question_id]; });
+    if (missing.length) {
+      // Inline validation only — the submit API is not called (E4-S4 AC3)
+      missing.forEach(function (q) {
+        document.getElementById("fs-" + q.question_id).setAttribute("data-invalid", "true");
+        document.getElementById("err-" + q.question_id).hidden = false;
+      });
+      return;
+    }
+    // Simulated POST /api/risk-profile/submit -> 201
+    document.getElementById("r-assignment").textContent = "13";
+    document.getElementById("r-band").textContent = "MODERATE";
+    document.getElementById("band-code").textContent = "MODERATE";
+    document.getElementById("band-label").textContent = BAND_LABELS.MODERATE;
+    document.getElementById("r-version").textContent = RULE_VERSION;
+    document.getElementById("r-assigned").textContent = "2026-09-03T11:24:08Z";
+    setState("result");
+  });
+
+  answerAll();
+</script>
+</body>
+</html>

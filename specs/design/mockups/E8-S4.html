@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>E8-S4 — Rebalancing recommendations — WealthWise</title>
+<!--
+  Mockup: E8-S4 Rebalancing recommendations UI (accept / dismiss)
+  Aligned to specs/design/api-contracts.md:
+    §10.1 GET /api/rebalancing?status=pending
+          -> [ { recommendation_id (UUID), status, generated_at, resolved_at, threshold_bps,
+                 proposed_actions[{ asset_class_id, asset_class_code, action, amount, units,
+                                    drift_percent }] } ]
+          No pending recommendations -> 200 with [] (E8-S4 AC4).
+    §10.2 POST /api/rebalancing/{recommendation_id}/accept
+    §10.3 POST /api/rebalancing/{recommendation_id}/dismiss
+          -> 200 { recommendation_id, status, resolved_at }
+          -> 409 ALREADY_RESOLVED (resolved_at left unchanged)
+          -> 404 RECOMMENDATION_NOT_FOUND (unknown or another customer's)
+  §12.1 notes: kyc_verified = false customers are skipped entirely at advance-day generation
+          time — no RebalancingRecommendation rows are ever created for them. GET /api/rebalancing
+          for such a customer is therefore a plain 200 with [], not a fetch-time error; there is
+          no KYC-specific error code on this endpoint (BRD §11 — the one real gating branch for
+          the kyc_verified stub applies at generation, not at read time).
+  The public UUID recommendation_id is used in paths, not the internal row id.
+  action is BUY or SELL; amount is a money string, units is a 4-decimal quantity string.
+-->
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;background:#f4f4f5;color:#1b1b1f;line-height:1.45;font-size:15px}
+  header.app{background:#26262b;color:#f4f4f5;padding:12px 20px;display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+  header.app h1{font-size:16px;margin:0;font-weight:600}
+  header.app .role{font-size:12px;color:#b9b9c0}
+  nav.app{margin-left:auto;display:flex;gap:14px;flex-wrap:wrap}
+  nav.app a{color:#d6d6da;text-decoration:none;font-size:13px;border-bottom:1px solid transparent;padding-bottom:2px}
+  nav.app a:hover,nav.app a:focus{color:#fff;border-bottom-color:#fff}
+  nav.app a[aria-current="page"]{color:#fff;border-bottom-color:#fff}
+  main{max-width:1020px;margin:0 auto;padding:24px 20px 64px}
+  h2{font-size:20px;margin:0 0 4px}
+  .sub{color:#5c5c66;font-size:13px;margin:0 0 20px}
+  section.panel{background:#fff;border:1px solid #d6d6da;border-radius:4px;padding:18px;margin-bottom:20px}
+  .api{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:11px;color:#3d3d47;background:#ececee;border:1px solid #d6d6da;border-radius:3px;padding:1px 5px;display:inline-block;word-break:break-all}
+  .rec{border:1px solid #d6d6da;border-radius:4px;padding:14px 16px;margin-bottom:16px;background:#fff}
+  .rec header{display:flex;gap:12px;align-items:baseline;flex-wrap:wrap;margin-bottom:10px}
+  .rec h4{margin:0;font-size:14px;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;word-break:break-all}
+  .meta{font-size:12px;color:#5c5c66}
+  .status{display:inline-block;font-size:11px;border:1px solid #b9b9c0;border-radius:10px;padding:1px 8px;background:#f4f4f5;color:#3d3d47;font-family:ui-monospace,SFMono-Regular,Consolas,monospace}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid #e4e4e7}
+  th{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:#5c5c66;background:#fafafa;white-space:nowrap}
+  td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;font-family:ui-monospace,SFMono-Regular,Consolas,monospace}
+  .action{display:inline-block;font-size:11px;font-weight:700;border-radius:3px;padding:1px 7px;font-family:ui-monospace,SFMono-Regular,Consolas,monospace}
+  .action.BUY{background:#e9f0ea;border:1px solid #a9c4ae;color:#245c30}
+  .action.SELL{background:#f6ece6;border:1px solid #d1a97f;color:#7d4a12}
+  button{font:inherit;font-size:14px;padding:8px 14px;border:1px solid #26262b;background:#26262b;color:#fff;border-radius:3px;cursor:pointer}
+  button.secondary{background:#fff;color:#26262b;border-color:#b9b9c0}
+  button[disabled]{opacity:.45;cursor:not-allowed}
+  button:focus{outline:2px solid #2b5d8a;outline-offset:1px}
+  .actions{margin-top:14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .statebar{background:#e9e9ec;border-bottom:1px solid #d6d6da;padding:8px 20px;font-size:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .statebar span{color:#5c5c66;margin-right:4px}
+  .statebar button{font-size:12px;padding:4px 9px}
+  .empty{padding:34px 18px;text-align:center;color:#3d3d47;font-size:14px}
+  .errbox{background:#fbeeee;border:1px solid #d9b3b3;color:#7d2626;border-radius:3px;padding:12px 14px;font-size:13px}
+  .okbox{background:#eef5ef;border:1px solid #b3ccb8;color:#26562f;border-radius:3px;padding:10px 12px;font-size:13px;margin-bottom:16px}
+  code.mono{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12px;word-break:break-all}
+</style>
+</head>
+<body>
+<header class="app">
+  <h1>WealthWise</h1>
+  <span class="role">Signed in as customer03@wealthwise.test — <code style="font-size:12px">role: customer</code></span>
+  <nav class="app" aria-label="Primary">
+    <a href="E6-S5.html">Dashboard</a>
+    <a href="E4-S4.html">Risk profile</a>
+    <a href="E5-S4.html">Allocation</a>
+    <a href="E7-S5.html">Goals</a>
+    <a href="#" aria-current="page">Rebalancing</a>
+  </nav>
+</header>
+
+<div class="statebar" role="group" aria-label="Mockup state controls">
+  <span>Mockup state:</span>
+  <button type="button" class="secondary" onclick="setState('data')">Show pending recommendations</button>
+  <button type="button" class="secondary" onclick="setState('empty')">Show empty state (200 with [], within threshold)</button>
+  <button type="button" class="secondary" onclick="setState('kyc')">Show empty state (200 with [], kyc_verified=false)</button>
+  <button type="button" class="secondary" onclick="setState('conflict')">Show error state (409 ALREADY_RESOLVED)</button>
+</div>
+
+<main>
+  <h2>Rebalancing recommendations</h2>
+  <p class="sub">Generated by advance-a-day when an asset class drifts beyond <code class="mono">threshold_bps</code>. Accepting or dismissing is append-only and writes an <code class="mono">AuditLogEntry</code> (AC-06, AC-07). <span class="api">GET /api/rebalancing?status=pending</span></p>
+
+  <div class="okbox" id="resolved-note" role="status" hidden>
+    <span id="resolved-text">—</span>
+  </div>
+
+  <div class="errbox" id="conflict-note" role="alert" hidden style="margin-bottom:16px">
+    <strong>409 <code class="mono">ALREADY_RESOLVED</code></strong> — <code class="mono">b6f0c2a4-1d3e-4f58-9a71-0c2e5d8b7a10</code> has already been accepted or dismissed. Its <code class="mono">resolved_at</code> was left unchanged (E8-S3 AC4).
+  </div>
+
+  <!-- ============ POPULATED ============ -->
+  <div id="view-data">
+    <div id="recs"></div>
+  </div>
+
+  <!-- ============ EMPTY ============ -->
+  <div id="view-empty" hidden>
+    <section class="panel">
+      <div class="empty">
+        <p><strong>No pending rebalancing recommendations.</strong></p>
+        <p><code class="mono">GET /api/rebalancing</code> returned <code class="mono">200</code> with <code class="mono">[]</code>. Your holdings are within <code class="mono">threshold_bps</code> tolerance of your target allocation. A new recommendation appears here the next time advance-a-day detects drift beyond the threshold.</p>
+        <p style="margin-top:16px"><a href="E6-S5.html"><button type="button" class="secondary" title="GET /api/holdings">View holdings &amp; drift</button></a></p>
+        <p><span class="api" aria-hidden="true">GET /api/holdings</span></p>
+      </div>
+    </section>
+  </div>
+
+  <!-- ============ KYC-NOT-VERIFIED (still a 200 empty array, not an error) ============ -->
+  <div id="view-kyc" hidden>
+    <section class="panel">
+      <div class="empty">
+        <p><strong>No pending rebalancing recommendations.</strong></p>
+        <p><code class="mono">GET /api/rebalancing</code> returned <code class="mono">200</code> with <code class="mono">[]</code> — the same success shape as the threshold-based empty state. Your account has <code class="mono">kyc_verified: false</code>, so the rebalancing engine skips you entirely at advance-day generation time; no <code class="mono">RebalancingRecommendation</code> row is ever created (BRD §11 — the one real gating branch for this stub flag; api-contracts.md §12.1 notes). This is not a fetch-time error. Your holdings and goals are unaffected. Contact your advisor to complete verification.</p>
+        <p style="margin-top:16px"><a href="E6-S5.html"><button type="button" class="secondary" title="GET /api/holdings">View holdings &amp; drift</button></a></p>
+        <p><span class="api" aria-hidden="true">GET /api/rebalancing</span></p>
+      </div>
+    </section>
+  </div>
+</main>
+
+<script>
+  // GET /api/rebalancing?status=pending
+  var RECS = [
+    {
+      recommendation_id: "b6f0c2a4-1d3e-4f58-9a71-0c2e5d8b7a10",
+      status: "pending",
+      generated_at: "2026-09-04T08:00:00Z",
+      resolved_at: null,
+      threshold_bps: 500,
+      proposed_actions: [
+        { asset_class_id: 1, asset_class_code: "EQ_DM",   action: "SELL", amount: "9065.00", units: "24.1600", drift_percent: "6.11"  },
+        { asset_class_id: 3, asset_class_code: "FI_GOV",  action: "BUY",  amount: "6883.00", units: "58.7400", drift_percent: "-4.64" },
+        { asset_class_id: 2, asset_class_code: "EQ_EM",   action: "BUY",  amount: "2182.00", units: "17.9200", drift_percent: "-1.15" }
+      ]
+    },
+    {
+      recommendation_id: "3f21ad9c-77b4-4e0a-8c15-6ba2e4d09f37",
+      status: "pending",
+      generated_at: "2026-09-04T08:00:00Z",
+      resolved_at: null,
+      threshold_bps: 500,
+      proposed_actions: [
+        { asset_class_id: 6, asset_class_code: "CASH",    action: "SELL", amount: "1243.00", units: "12.4300", drift_percent: "0.85"  },
+        { asset_class_id: 4, asset_class_code: "FI_CORP", action: "BUY",  amount: "1243.00", units: "10.9100", drift_percent: "-0.92" }
+      ]
+    }
+  ];
+
+  function group(v) {
+    var parts = String(v).split(".");
+    return parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",") + "." + (parts[1] || "00");
+  }
+
+  var recsEl = document.getElementById("recs");
+
+  function render() {
+    recsEl.innerHTML = "";
+    var pending = RECS.filter(function (r) { return r.status === "pending"; });
+    if (!pending.length) { setState("empty"); return; }
+
+    pending.forEach(function (r) {
+      var art = document.createElement("article");
+      art.className = "rec";
+      art.innerHTML =
+        '<header>' +
+          '<h4>recommendation_id: ' + r.recommendation_id + '</h4>' +
+          '<span class="status">status: ' + r.status + '</span>' +
+          '<span class="meta">generated_at <code class="mono">' + r.generated_at + '</code> · resolved_at <code class="mono">null</code> · threshold_bps <code class="mono">' + r.threshold_bps + '</code></span>' +
+        '</header>' +
+        '<table>' +
+          '<caption class="sub" style="text-align:left;margin-bottom:8px"><code class="mono">proposed_actions</code> — array of <code class="mono">{ asset_class_id, asset_class_code, action, amount, units, drift_percent }</code></caption>' +
+          '<thead><tr><th scope="col" class="num">asset_class_id</th><th scope="col">asset_class_code</th><th scope="col">action</th><th scope="col" class="num">amount</th><th scope="col" class="num">units</th><th scope="col" class="num">drift_percent</th></tr></thead>' +
+          '<tbody>' +
+            r.proposed_actions.map(function (a) {
+              return '<tr><td class="num">' + a.asset_class_id + '</td>' +
+                     '<td><code class="mono">' + a.asset_class_code + '</code></td>' +
+                     '<td><span class="action ' + a.action + '">' + a.action + '</span></td>' +
+                     '<td class="num">' + group(a.amount) + '</td>' +
+                     '<td class="num">' + a.units + '</td>' +
+                     '<td class="num">' + a.drift_percent + '</td></tr>';
+            }).join("") +
+          '</tbody>' +
+        '</table>' +
+        '<div class="actions">' +
+          '<button type="button" id="accept-' + r.recommendation_id + '" title="POST /api/rebalancing/' + r.recommendation_id + '/accept">Accept</button>' +
+          '<span class="api">POST /api/rebalancing/' + r.recommendation_id + '/accept</span>' +
+        '</div>' +
+        '<div class="actions">' +
+          '<button type="button" class="secondary" id="dismiss-' + r.recommendation_id + '" title="POST /api/rebalancing/' + r.recommendation_id + '/dismiss">Dismiss</button>' +
+          '<span class="api">POST /api/rebalancing/' + r.recommendation_id + '/dismiss</span>' +
+        '</div>';
+      recsEl.appendChild(art);
+
+      document.getElementById("accept-" + r.recommendation_id).addEventListener("click", function () { resolve(r, "accepted"); });
+      document.getElementById("dismiss-" + r.recommendation_id).addEventListener("click", function () { resolve(r, "dismissed"); });
+    });
+  }
+
+  function resolve(rec, nextStatus) {
+    var acceptBtn = document.getElementById("accept-" + rec.recommendation_id);
+    var dismissBtn = document.getElementById("dismiss-" + rec.recommendation_id);
+    // Both buttons disabled while the call is in flight — prevents double-submit (E8-S4 AC5)
+    acceptBtn.disabled = true;
+    dismissBtn.disabled = true;
+    (nextStatus === "accepted" ? acceptBtn : dismissBtn).textContent =
+      (nextStatus === "accepted" ? "Accepting…" : "Dismissing…");
+
+    window.setTimeout(function () {
+      // Simulated 200 { recommendation_id, status, resolved_at }
+      rec.status = nextStatus;
+      rec.resolved_at = "2026-09-04T09:12:00Z";
+      document.getElementById("resolved-text").innerHTML =
+        '<strong>200 OK</strong> — <code class="mono">{ "recommendation_id": "' + rec.recommendation_id +
+        '", "status": "' + nextStatus + '", "resolved_at": "' + rec.resolved_at +
+        '" }</code>. An <code class="mono">AuditLogEntry</code> was written and the row removed from the pending list.';
+      document.getElementById("resolved-note").hidden = false;
+      document.getElementById("conflict-note").hidden = true;
+      render();
+    }, 500);
+  }
+
+  function setState(name) {
+    document.getElementById("view-data").hidden = (name !== "data" && name !== "conflict");
+    document.getElementById("view-empty").hidden = (name !== "empty");
+    document.getElementById("view-kyc").hidden = (name !== "kyc");
+    document.getElementById("conflict-note").hidden = (name !== "conflict");
+    if (name === "data") {
+      // Reset the seed data back to pending
+      RECS.forEach(function (r) { r.status = "pending"; r.resolved_at = null; });
+      document.getElementById("resolved-note").hidden = true;
+      render();
+    }
+  }
+
+  render();
+</script>
+</body>
+</html>
