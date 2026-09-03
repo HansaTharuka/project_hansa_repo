@@ -57,7 +57,7 @@
       "backend_url": "http://localhost:8000",
       "frontend_url": "http://localhost:5173",
       "start_commands": [
-        "cd backend && uv run uvicorn app.main:app --reload",
+        "cd backend && uv run uvicorn src.app.main:app --reload",
         "cd frontend && npm run dev"
       ]
     }

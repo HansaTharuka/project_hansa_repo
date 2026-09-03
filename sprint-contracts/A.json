@@ -3,64 +3,73 @@
   "stories": ["E1-S1", "E1-S2"],
   "features": ["F001", "F002", "F003", "F004", "F005", "F006", "F007", "F008", "F009", "F010"],
 
+  "runtime_expectations": {
+    "verification_mode": "local",
+    "app_expected_running": false,
+    "health_check_required": false,
+    "reason": "Group A delivers backend/src/types, backend/src/core and frontend/src/types only. No FastAPI application exists until E1-S4 (group C) creates backend/src/app/main.py and GET /health, and no frontend toolchain exists until E2-S3 (group E). The evaluate skill's step-4 health probe MUST be skipped for this group — an unreachable http://localhost:8000/health is not a failure of this contract. Every check below runs offline against the filesystem, mypy, pytest and detect-secrets."
+  },
+
   "api_checks": [],
   "playwright_checks": [],
   "design_checks": [],
 
   "architecture_checks": {
     "files_must_exist": [
+      "backend/pyproject.toml",
       "backend/src/types/enums.py",
       "backend/src/types/entities.py",
       "backend/src/types/fixedpoint.py",
       "backend/src/types/errors.py",
-      "frontend/src/types/entities.ts",
-      "backend/tests/unit/test_types_entities.py",
-      "backend/tests/unit/test_fixedpoint.py",
-      "backend/tests/architecture/test_no_float_in_domain.py",
-      "frontend/src/types/entities.test.ts",
       "backend/src/core/config.py",
       "backend/.env.example",
       "frontend/.env.example",
       ".gitignore",
-      "backend/tests/unit/test_config.py"
+      "frontend/src/types/entities.ts",
+      "backend/tests/unit/test_types_entities.py",
+      "backend/tests/unit/test_fixedpoint.py",
+      "backend/tests/unit/test_config.py",
+      "backend/tests/architecture/test_no_float_in_domain.py",
+      "frontend/src/types/entities.test.ts"
     ],
     "typing": {
       "required": true,
-      "traces": ["E1-S1 AC4"],
-      "features": ["F004"],
+      "traces": ["E1-S1 AC4", "E1-S2 AC1"],
+      "features": ["F004", "F006"],
       "command": "cd backend && uv run mypy src/types src/core",
-      "description": "mypy exits 0 with zero errors against the types module (and the config module it is co-delivered with). Same command as ut-011."
+      "description": "mypy exits 0 with zero errors against both modules delivered by this group. The narrower AC4 command (src/types only) is ut-011; this check additionally covers src/core, which is co-delivered by E1-S2. Strictness comes from backend/pyproject.toml and may not be relaxed by per-module ignore_errors or blanket type: ignore comments."
     },
     "layering": {
       "required": true,
-      "traces": ["E1-S1 AC1", "E1-S2 AC1", "folder-structure.md §4"],
+      "traces": ["folder-structure.md §2 (types layer: 'imports nothing project-local except other types modules')", "NFR-08 (brd.md — architecture rules enforced as tests)"],
       "features": ["F001", "F006"],
-      "command": "cd backend && uv run pytest tests/architecture/test_layering.py",
-      "description": "backend/src/types/ imports only stdlib, pydantic and other types modules. backend/src/core/ imports only types (never db, domain or app). No module in this group imports from app/, db/ or domain/."
+      "command": "rg -n \"^\\s*(from|import)\\s+(src\\.)?(app|db|domain)\\b\" backend/src/types backend/src/core ; rg -n \"^\\s*(from|import)\\s+(src\\.)?core\\b\" backend/src/types",
+      "description": "Both ripgrep invocations must return no matches (exit 1). backend/src/types/ imports only stdlib, pydantic and other types modules; backend/src/core/ imports only stdlib, pydantic/pydantic-settings and types. Nothing in this group imports app/, db/ or domain/, none of which exist yet. The optional `src.` prefix in both patterns is load-bearing: the delivered pyproject.toml sets `[tool.uv] package = false` and imports resolve as `src.types.*` rather than as top-level `types.*` (see note 3), so a pattern anchored only on the bare package name would silently miss `from src.db import ...` and the gate would be blind. Deliberately a static scan and not a pytest run: backend/tests/architecture/test_layering.py is in folder-structure.md §2 but is not attributed to any story in component-map.md, so no group owns it — see note 4. This check traces to a normative design-doc requirement rather than to a numbered story AC; it is retained because folder-structure.md §2 states the types-layer import rule normatively and NFR-08 requires architecture rules to be enforced as tests.",
+      "evaluator_note": "Command tightened by the evaluator at sign-off. The generator's draft matched only bare `app|db|domain` / `core`, which does not match the import form the code actually uses."
     },
     "no_float": {
       "required": true,
       "traces": ["E1-S1 AC2", "NFR-01"],
       "features": ["F002"],
       "command": "cd backend && uv run pytest tests/architecture/test_no_float_in_domain.py",
-      "description": "No float annotation, float() call or float literal anywhere under backend/src/types/. The test module is authored here and extended by later groups to cover src/domain and src/db."
+      "description": "No float annotation, float() call or float literal anywhere under backend/src/types/ or backend/src/core/ — the two source trees this group delivers. The test module is authored here and extended by later groups to cover src/domain and src/db (component-map.md note 5). The module must also keep its self-check that the detector rejects a known-offending module, so a passing run is never vacuous."
     },
     "folder_structure": {
       "required": true,
-      "traces": ["component-map.md rows E1-S1, E1-S2"],
+      "traces": ["component-map.md rows E1-S1, E1-S2", "folder-structure.md §2, §3"],
       "features": ["F001", "F005", "F006", "F010"],
-      "description": "Every path in files_must_exist sits exactly where folder-structure.md §2 and §3 place it. No file in this group is created outside backend/src/types/, backend/src/core/, backend/tests/, frontend/src/types/, or the four repo-level config files."
+      "description": "Every path in files_must_exist sits exactly where folder-structure.md §2 and §3 place it. No file in this group is created outside backend/src/types/, backend/src/core/, backend/tests/, frontend/src/types/, backend/pyproject.toml, backend/.env.example, frontend/.env.example and .gitignore. In particular backend/src/types/requests.py and responses.py are NOT authored here (E2-S2 onward), and no file is created under backend/src/app/, backend/src/db/ or backend/src/domain/. Like layering, this traces to the design docs that fix the story's file surface rather than to a numbered AC; it is the check that keeps the group from silently doing another group's work."
     },
     "env_vars": {
       "required": true,
-      "traces": ["E1-S2 AC4", "E1-S2 AC5"],
+      "traces": ["E1-S2 AC4", "E1-S2 AC5", "deployment.md §5.2, §5.3"],
       "features": ["F009", "F010"],
-      "command": "detect-secrets scan backend/src/core/config.py backend/.env.example",
-      "description": "detect-secrets passes on backend/src/core/config.py and on backend/.env.example. No backend/.env file is committed or created."
+      "command": "cd backend && uv run detect-secrets scan src .env.example",
+      "description": "detect-secrets reports no finding across backend/src (types + core) and backend/.env.example — i.e. the scan's \"results\" object is empty. detect-secrets is declared as a dev dependency in backend/pyproject.toml so this command is runnable in-group. frontend/.env.example carries only VITE_API_BASE_URL and is covered by ut-024. No backend/.env or frontend/.env file exists on disk or is committed after this group (deployment.md §5.2 mechanisms 1 and 3)."
     },
     "migrations": {
       "required": false,
-      "description": "No migrations in this group — the full Alembic chain is authored in E1-S3 (group B)."
+      "description": "No migrations in this group — the full Alembic chain 0001…0008 is authored in E1-S3 (group B), per data-models.md §6 and component-map.md note 1."
     }
   },
 
@@ -77,28 +86,35 @@
       "traces": "E1-S1 AC1",
       "features": ["F001"],
       "test_file": "backend/tests/unit/test_types_entities.py",
-      "assertion": "For each of the 14 models, the set of field names equals the column list in data-models.md §4 exactly — snake_case, no renaming, no pluralisation change, no camelCase. The only fields beyond BRD §9 are the four documented in data-models.md §1.1: User.created_at, Customer.created_at, Goal.updated_at, GoalProgressSnapshot.price_date. Any other extra field fails the test."
+      "assertion": "For each of the 14 models, the set of field names equals the column list in data-models.md §4 exactly — snake_case, no renaming, no pluralisation change, no camelCase. The only fields beyond BRD §9 are the four documented in data-models.md §1.1: User.created_at, Customer.created_at, Goal.updated_at, GoalProgressSnapshot.price_date. Any other extra field fails the test. Note that User.password_hash IS required here: entities.py mirrors the persistence shape (data-models.md §4.1); the never-serialise rule (E2-S2 AC4) is enforced later by types/responses.py, not by omitting the column here."
     },
     {
       "id": "ut-003",
-      "traces": "E1-S1 AC1 (via component-map.md E1-S1 row and folder-structure.md §2)",
+      "traces": "E1-S1 AC1 (via component-map.md E1-S1 row, folder-structure.md §2, system-design.md §6.1)",
       "features": ["F001"],
       "test_file": "backend/tests/unit/test_types_entities.py",
-      "assertion": "entities.py additionally defines RebalancingThreshold (system-design.md §6.1), with threshold_bps typed as int per data-models.md §2."
+      "assertion": "entities.py additionally defines RebalancingThreshold with fields id, version, threshold_bps, published_at, is_active (data-models.md §4.15), and threshold_bps typed int per data-models.md §2 — the one money/percent-class quantity whose canonical Python type is int, not Decimal."
+    },
+    {
+      "id": "ut-026",
+      "traces": "E1-S1 AC1",
+      "features": ["F001"],
+      "test_file": "backend/tests/unit/test_types_entities.py",
+      "assertion": "Non money/percent field types match data-models.md §4 and the §1 conventions: id and every *_id foreign key are int, except the three TEXT identifiers question_id, recommendation_id and entity_id which are str (data-models.md §4.3, §4.12, §4.14); priority, version, rule_version are int; timestamps and dates (created_at, updated_at, submitted_at, assigned_at, published_at, generated_at, resolved_at, snapshot_at, timestamp, target_date, price_date, as_of_date) are str, not datetime/date objects (data-models.md §1 stores them as ISO-8601 / YYYY-MM-DD TEXT); kyc_verified and is_active are bool; JSON columns (questionnaire_json, scoring_rules_json, allocations_json, proposed_actions_json, details_json) are typed as nested Pydantic models or typed containers, never bare str and never Any. Nullability is exact: only RebalancingRecommendation.resolved_at and AdvisorOverride.note are Optional; every other field on every model is required (data-models.md §1 'every column is NOT NULL unless explicitly marked nullable')."
     },
     {
       "id": "ut-004",
       "traces": "E1-S1 AC2",
       "features": ["F002"],
       "test_file": "backend/tests/unit/test_types_entities.py",
-      "assertion": "Every money field is Decimal (or int minor units) and never float: Goal.target_amount, GoalProgressSnapshot.current_value, NavSnapshot.nav_value, and the amount inside RebalancingRecommendation.proposed_actions_json. The test reads the resolved annotation for each field and fails on float."
+      "assertion": "Every money field on the Pydantic entities is decimal.Decimal and never float, per the normative Python-type column of data-models.md §2: Goal.target_amount, GoalProgressSnapshot.current_value, NavSnapshot.nav_value, Holding.current_value, and the amount inside RebalancingRecommendation.proposed_actions_json. The units field inside proposed_actions_json is Decimal too (scale 4). The test reads the resolved annotation for each field and fails on float or on a bare int for these five."
     },
     {
       "id": "ut-005",
       "traces": "E1-S1 AC2",
       "features": ["F002"],
       "test_file": "backend/tests/unit/test_types_entities.py",
-      "assertion": "Every percentage/drift field is Decimal (or int basis points) and never float: GoalProgressSnapshot.percent_complete, the current_percent / target_percent / drift_percent drift fields, and the allocation percent entries inside AllocationTemplate.allocations_json."
+      "assertion": "Every percentage/drift quantity is Decimal or int basis points exactly as data-models.md specifies, never float: GoalProgressSnapshot.percent_complete is Decimal (§2 Python-type column); the entries inside AllocationTemplate.allocations_json use the stored key percent_bps typed int (§4.6 stored form); drift_percent inside proposed_actions_json is Decimal and may be negative; RebalancingThreshold.threshold_bps is int. The derived read-model fields current_percent / target_percent / drift_percent (data-models.md §5) are non-persisted and belong to types/responses.py (E6-S4), so they are out of scope for entities.py — but if any of them is declared anywhere under src/types in this group it must be Decimal, never float."
     },
     {
       "id": "ut-006",
@@ -112,14 +128,14 @@
       "traces": "E1-S1 AC3",
       "features": ["F003"],
       "test_file": "backend/tests/unit/test_types_entities.py",
-      "assertion": "enums.py Role has exactly the four members with literal values {'customer','advisor','admin','compliance'} — set equality, so an extra or renamed member fails. User.role is annotated with Role."
+      "assertion": "enums.py Role has exactly the four members with literal values {'customer','advisor','admin','compliance'} — set equality, so an extra or renamed member fails. User.role is annotated with Role, and AuditLogEntry.actor_role is annotated with Role (data-models.md §4.14 CHECK uses the same closed set)."
     },
     {
       "id": "ut-008",
       "traces": "E1-S1 AC3",
       "features": ["F003"],
       "test_file": "backend/tests/unit/test_types_entities.py",
-      "assertion": "enums.py RiskBand has exactly {'CONSERVATIVE','MODERATE','AGGRESSIVE'} (uppercase literals per data-models.md §4.4/§4.6), and both RiskBandAssignment.risk_band and AllocationTemplate.risk_band are annotated with it."
+      "assertion": "enums.py RiskBand has exactly {'CONSERVATIVE','MODERATE','AGGRESSIVE'} (uppercase literals per data-models.md §4.4/§4.6), and RiskBandAssignment.risk_band, AllocationTemplate.risk_band, AdvisorOverride.previous_band and AdvisorOverride.new_band are all annotated with it."
     },
     {
       "id": "ut-009",
@@ -136,6 +152,20 @@
       "assertion": "The enums are closed: constructing User(role='superuser'), RiskBandAssignment(risk_band='conservative') or RebalancingRecommendation(status='PENDING') each raises a Pydantic ValidationError rather than being coerced or accepted."
     },
     {
+      "id": "ut-027",
+      "traces": "E1-S1 AC1, E1-S1 AC3 (closed-set columns in data-models.md §4.12/§4.14, enums.py contents per folder-structure.md §2)",
+      "features": ["F001", "F003"],
+      "test_file": "backend/tests/unit/test_types_entities.py",
+      "assertion": "enums.py also defines the three remaining closed sets named in folder-structure.md §2, each with exact set equality and each used as the annotation for its field rather than str: TradeAction = {'BUY','SELL'} (the action inside proposed_actions_json, data-models.md §4.12); AuditEntityType = the 9 values {RiskBandAssignment, AllocationRecommendation, RebalancingRecommendation, AdvisorOverride, ManualRecommendation, RiskBandRule, AllocationTemplate, AssetClass, RebalancingThreshold} annotating AuditLogEntry.entity_type; AuditAction = the 12 values listed in data-models.md §4.14 annotating AuditLogEntry.action. An out-of-set value raises ValidationError."
+    },
+    {
+      "id": "ut-028",
+      "traces": "E1-S1 (via component-map.md E1-S1 row, folder-structure.md §2, api-contracts.md §1.4)",
+      "features": ["F001"],
+      "test_file": "backend/tests/unit/test_types_entities.py",
+      "assertion": "errors.py is not a stub: it defines a base domain exception carrying a machine-readable code attribute plus an optional details mapping (the api-contracts.md §1.4 error envelope fields), and the subclasses named in folder-structure.md §2 — ValidationError, NotFoundError, ConflictError — each deriving from that base. The test instantiates each subclass and asserts its code is a non-empty string. The full code vocabulary is added by the stories that raise them; nothing here imports fastapi or constructs an HTTP status."
+    },
+    {
       "id": "ut-011",
       "traces": "E1-S1 AC4",
       "features": ["F004"],
@@ -148,7 +178,14 @@
       "traces": "E1-S1 AC5",
       "features": ["F005"],
       "test_file": "frontend/src/types/entities.test.ts",
-      "assertion": "frontend/src/types/entities.ts exports a TypeScript interface for each of the same 14 entities (plus RebalancingThreshold), with field names identical to the Pydantic models — snake_case, no key mapping — and money/percent fields typed string, never number, per data-models.md §2. Verified statically in group A (see note 1)."
+      "assertion": "frontend/src/types/entities.ts exports a TypeScript interface for each of the same 14 entities plus RebalancingThreshold, with field names identical to the Pydantic models — snake_case, no key mapping — and money/percent fields typed string, never number, per data-models.md §2 (money '25000.00', percent '60.00', units '12.3456'). The two documented exceptions typed number are RebalancingThreshold.threshold_bps and the percent_bps entries inside allocations_json; ids, priority, version and rule_version are number; kyc_verified and is_active are boolean; timestamps and dates are string. Verified statically in group A (see note 1)."
+    },
+    {
+      "id": "ut-029",
+      "traces": "E1-S1 AC5, E1-S1 AC3",
+      "features": ["F005", "F003"],
+      "test_file": "frontend/src/types/entities.test.ts",
+      "assertion": "The enum-constrained fields in entities.ts are closed string-literal unions with exactly the same literals as the Python enums, never string: role is 'customer' | 'advisor' | 'admin' | 'compliance'; risk_band / previous_band / new_band are 'CONSERVATIVE' | 'MODERATE' | 'AGGRESSIVE'; status is 'pending' | 'accepted' | 'dismissed'. Verified statically in group A (see note 1)."
     },
     {
       "id": "ut-013",
@@ -169,14 +206,21 @@
       "traces": "E1-S2 AC1",
       "features": ["F006"],
       "test_file": "backend/tests/unit/test_config.py",
-      "assertion": "With JWT_ACCESS_TOKEN_EXPIRY_MINUTES unset, Settings.jwt_access_token_expiry_minutes equals 60 (the documented default in deployment.md §5.1)."
+      "assertion": "With JWT_ACCESS_TOKEN_EXPIRY_MINUTES unset, Settings.jwt_access_token_expiry_minutes equals 60 (the documented default in deployment.md §5.1, matching the 60-minute access token in api-contracts.md §1.2)."
     },
     {
       "id": "ut-016",
       "traces": "E1-S2 AC1",
       "features": ["F006"],
       "test_file": "backend/tests/unit/test_config.py",
-      "assertion": "Values come from the environment: with DATABASE_URL, JWT_SECRET, JWT_ACCESS_TOKEN_EXPIRY_MINUTES, DEFAULT_DRIFT_THRESHOLD_PERCENT and SEED_CSV_PATH monkeypatched, each Settings attribute reflects the patched value and is coerced to its declared type (ints parsed as int, not left as str)."
+      "assertion": "Values come from the environment: with DATABASE_URL, JWT_SECRET, JWT_ACCESS_TOKEN_EXPIRY_MINUTES, DEFAULT_DRIFT_THRESHOLD_PERCENT and SEED_CSV_PATH monkeypatched, each Settings attribute reflects the patched value and is coerced to its declared type (ints parsed as int, not left as str). Every construction in the test module passes _env_file=None so a developer's local backend/.env can never make a test pass or fail spuriously."
+    },
+    {
+      "id": "ut-030",
+      "traces": "E1-S2 AC1, NFR-01",
+      "features": ["F006", "F002"],
+      "test_file": "backend/tests/unit/test_config.py",
+      "assertion": "default_drift_threshold_percent is int (a whole-percent value that seeds RebalancingThreshold version 1 as 500 bps, data-models.md §4.15 and system-design.md §6.1) and jwt_access_token_expiry_minutes is int — neither is float and neither is left as str. No float annotation, float() call or float literal appears anywhere in backend/src/core/config.py."
     },
     {
       "id": "ut-017",
@@ -190,35 +234,35 @@
       "traces": "E1-S2 AC2",
       "features": ["F007"],
       "test_file": "backend/tests/unit/test_config.py",
-      "assertion": "With JWT_SECRET absent, constructing Settings raises the same way — no silent default, no empty-string fallback."
+      "assertion": "With JWT_SECRET absent, constructing Settings raises the same way — no silent default, no empty-string fallback. An empty JWT_SECRET is treated as absent, not as a supplied value."
     },
     {
       "id": "ut-019",
       "traces": "E1-S2 AC2",
       "features": ["F007"],
       "test_file": "backend/tests/unit/test_config.py",
-      "assertion": "The error is clear: its message names the missing environment variable (e.g. contains 'JWT_SECRET'), so an operator can act on it without reading the source."
+      "assertion": "The error is clear: its message names the missing environment variable (e.g. contains 'JWT_SECRET'), so an operator can act on it without reading the source. When several are missing, every missing name appears."
     },
     {
       "id": "ut-020",
       "traces": "E1-S2 AC3",
       "features": ["F008"],
       "test_file": "backend/tests/unit/test_config.py",
-      "assertion": "The drift threshold is only ever read from config: Settings.default_drift_threshold_percent is the single source, and a static scan of backend/src/ excluding core/config.py finds no drift-threshold literal (no bare 5 / 500 / 0.05 assigned to a threshold-named symbol). In group A this scan covers src/types only; the check is re-run unchanged in the groups that add domain/rebalancing (see note 2)."
+      "assertion": "The drift threshold is only ever read from config: Settings.default_drift_threshold_percent is the single source, and a static scan of backend/src/ excluding core/config.py finds no drift-threshold literal (no bare 5 / 500 / 0.05 assigned to a threshold-named symbol). In group A this scan covers src/types only; the check is re-run unchanged in the groups that add domain/rebalancing (see note 2). Because the scan is near-vacuous today it must carry a self-check proving the detector flags a known-offending module."
     },
     {
       "id": "ut-021",
       "traces": "E1-S2 AC4",
       "features": ["F009"],
       "test_file": "backend/tests/unit/test_config.py",
-      "assertion": "No secret literal exists in config.py: every secret-bearing setting (jwt_secret, database_url) is sourced from an environment lookup, with no hardcoded string fallback. detect-secrets scan on backend/src/core/config.py reports no finding."
+      "assertion": "No secret literal exists in config.py: every secret-bearing setting (jwt_secret, database_url) is sourced from an environment lookup with no hardcoded string fallback and no Pydantic default (deployment.md §5.3). detect-secrets scan on backend/src/core/config.py reports no finding."
     },
     {
       "id": "ut-022",
       "traces": "E1-S2 AC5",
       "features": ["F010"],
       "test_file": "backend/tests/unit/test_config.py",
-      "assertion": "backend/.env.example documents every required backend variable — set equality between the keys parsed out of .env.example and the env-var names the Settings model reads. Per deployment.md §5.1 that set is DATABASE_URL, JWT_SECRET, JWT_ACCESS_TOKEN_EXPIRY_MINUTES, DEFAULT_DRIFT_THRESHOLD_PERCENT, SEED_CSV_PATH, LOG_LEVEL. A variable added to Settings without being added to .env.example fails this test."
+      "assertion": "backend/.env.example documents exactly the six backend variables listed in deployment.md §5.1 — set equality between the keys parsed out of .env.example and {DATABASE_URL, JWT_SECRET, JWT_ACCESS_TOKEN_EXPIRY_MINUTES, DEFAULT_DRIFT_THRESHOLD_PERCENT, SEED_CSV_PATH, LOG_LEVEL} — AND every environment variable the Settings model reads is a subset of those keys. A variable added to Settings without being added to .env.example fails this test. LOG_LEVEL is documented here but is not required to be a Settings field in this group; core/logging.py (E1-S4) consumes it."
     },
     {
       "id": "ut-023",
@@ -236,16 +280,22 @@
     },
     {
       "id": "ut-025",
-      "traces": "E1-S2 AC4",
+      "traces": "E1-S2 AC4 (mechanism 3 of deployment.md §5.2; content per folder-structure.md §5)",
       "features": ["F009"],
       "test_file": "backend/tests/unit/test_config.py",
-      "assertion": ".gitignore excludes backend/.env, frontend/.env and backend/*.db, so no real secret value or database file can be staged (deployment.md §5.2 mechanism 3, folder-structure.md §5). Neither backend/.env nor frontend/.env exists on disk after this group."
+      "assertion": ".gitignore contains, at minimum, every entry in folder-structure.md §5: backend/.env, backend/*.db, backend/.venv/, backend/.pytest_cache/, backend/htmlcov/, backend/.coverage, frontend/.env, frontend/node_modules/, frontend/dist/, frontend/coverage/ — so no real secret value, database file or build artefact can be staged. Neither backend/.env nor frontend/.env exists on disk after this group; backend/.env.example and frontend/.env.example are NOT ignored."
     }
   ],
 
   "notes": [
-    "1. The frontend toolchain (package.json, tsconfig.json, vite.config.ts, vitest setup) is created by E2-S3 in group E, not here. ut-012 is therefore verified statically in group A — the file exists and declares the 14 interfaces with the right field names and string-typed money/percent — and tsc/vitest execution of frontend/src/types/entities.test.ts is deferred to the first group with a runnable frontend. Alternative if the lead prefers a runnable gate now: pull the frontend scaffold files forward into group A, which widens E1-S1's file ownership.",
+    "1. The frontend toolchain (package.json, tsconfig.json, vite.config.ts, vitest setup) is created by E2-S3 in group E, not here. ut-012 and ut-029 are therefore verified statically in group A — the file exists and declares the interfaces with the right field names, string-typed money/percent and closed literal unions — and tsc/vitest execution of frontend/src/types/entities.test.ts is deferred to the first group with a runnable frontend. frontend/src/types/entities.test.ts is still authored here (component-map.md E1-S1) so the assertions exist before the runner does.",
     "2. ut-020 asserts an absence across backend/src/. In group A there is no rebalancing service yet, so the scan is near-vacuous; it is written now because E1-S2 AC3 states the requirement, and re-runs unchanged as later groups add code.",
-    "3. Contract shape: the lead's requested key list places api_checks / playwright_checks / design_checks / architecture_checks / unit_test_checks at the top level, matching how .claude/skills/evaluate/SKILL.md step 2 reads the file. This differs from .claude/templates/sprint-contract.json, which nests them under a \"contract\" object, and unit_test_checks is not in .claude/skills/evaluation/references/contract-schema.json at all. Nothing validates the file at runtime — sprint-contract-gate.js only checks existence plus the evaluator verdict — so this is a documentation inconsistency to resolve, not a blocker."
+    "3. backend/pyproject.toml was added to files_must_exist by the evaluator. component-map.md attributes it to E1-S3 (group B), but E1-S1 AC4 requires mypy to run against the types module in THIS group, and every unit_test_check above runs under pytest. Neither `uv run mypy` nor `uv run pytest` is executable without a project definition, so group A authors pyproject.toml — mypy strictness, pytest testpaths, ruff config and dev dependencies including mypy, pytest, ruff and detect-secrets. E1-S3 then MODIFIES it (alembic, SQLAlchemy) rather than creating it. backend/uv.lock is generated by uv on first run and is deliberately not a files_must_exist entry, since it does not exist until a command in this contract runs.",
+    "3a. IMPORT-PATH DEVIATION, accepted at evaluator sign-off and routed to the lead. folder-structure.md §2's import-path note calls for hatchling `packages = [\"src/app\", \"src/core\", \"src/types\", \"src/db\", \"src/domain\"]` so that `types.*`, `core.*` and `app.main` resolve as TOP-LEVEL packages. The generator did not do this, and was right not to: a top-level package named `types` shadows the standard library's `types` module, which `enum`, `re` and `dataclasses` import during interpreter start-up, and breaks the interpreter outright. The delivered pyproject.toml instead sets `[tool.uv] package = false` with `pythonpath = [\".\"]`, and modules are imported as `src.types.*` / `src.core.*` from the `backend/` root. This is verified working: mypy, pytest and a bare `python` run all resolve the modules. Two consequences the lead must route: (a) folder-structure.md §2's import-path note needs an amendment; (b) project-manifest.json's start command `uv run uvicorn app.main:app` will NOT resolve — E1-S4 (group C) needs `src.app.main:app` or an equivalent fix. Neither blocks group A, which ships no application.",
+    "4. backend/tests/architecture/test_layering.py appears in folder-structure.md §2 but is not attributed to any story in component-map.md — no group owns it. Rather than invent ownership in a group-A contract, the layering gate here is a static import scan (see architecture_checks.layering). This is a spec gap for the lead to route to a later story; it does not block group A.",
+    "5. api_checks, playwright_checks and design_checks are empty by design and this is confirmed correct: group A creates no router, no endpoint and no page, so there is nothing to call or render. performance_checks is omitted for the same reason. Forcing a health-check or a Playwright step into this group would test E1-S4 and E2-S3, which belong to groups C and E.",
+    "6. Contract shape: api_checks / playwright_checks / design_checks / architecture_checks / unit_test_checks sit at the top level, matching how .claude/skills/evaluate/SKILL.md step 2 reads the file. .claude/templates/sprint-contract.json nests them under a \"contract\" object and omits unit_test_checks; nothing validates the file at runtime, and SKILL.md already recognises failure_layer \"unit_test\", so the top-level shape is the operative one. Documentation inconsistency to resolve, not a blocker.",
+    "7. Evaluator changes to the generator's draft: ADDED backend/pyproject.toml to files_must_exist (note 3) and removed nothing from it; ADDED ut-026 (scalar types + exact nullability), ut-027 (TradeAction / AuditEntityType / AuditAction closed sets), ut-028 (errors.py is not a stub), ut-029 (TS literal unions), ut-030 (config is int-typed and float-free); TIGHTENED ut-004 and ut-005 to the normative Python types in data-models.md §2/§4.6 (Decimal for scalar money and percent_complete, int for percent_bps and threshold_bps) and added the missing Holding.current_value; CLARIFIED ut-002 (password_hash belongs in entities.py), ut-012 (threshold_bps / percent_bps are the number exceptions), ut-022 (was internally contradictory — it demanded set equality with a six-variable list including LOG_LEVEL while ut-013 required only five Settings fields; now equality against deployment.md §5.1 plus a subset rule on what Settings reads), ut-025 (full folder-structure.md §5 list); REPLACED the layering command, which invoked a pytest module (test_layering.py) that no story creates, with an equivalent static scan; EXTENDED no_float and typing to cover src/core as well as src/types; ADDED runtime_expectations to stop the evaluate skill's health probe from producing a false infrastructure FAIL for a group with no application.",
+    "8. Evaluator changes at FINAL sign-off (this revision, 2026-09-04), after which the contract is immutable: TIGHTENED architecture_checks.layering's command — the draft pattern matched only bare `app|db|domain` and `core` and would have been blind to the `src.`-prefixed import form the delivered code actually uses (note 3a), so the pattern now accepts an optional `src.` prefix in both invocations; ADDED note 3a recording the import-path deviation and the two downstream spec gaps it creates; CLARIFIED ut-026 (the three TEXT identifiers question_id / recommendation_id / entity_id are str, not int — the draft's blanket '*_id is int' rule contradicted data-models.md §4.3/§4.12/§4.14), ut-016 (_env_file=None isolation), ut-018 (empty value counts as absent), ut-019 (all missing names reported), ut-021 (no Pydantic default on secret-bearing settings); ADDED an explicit non-vacuity requirement to no_float and ut-020 (the detector must be proven to flag a known-offending module); RESTATED layering's and folder_structure's traceability, which is to normative design-doc requirements (folder-structure.md §2, NFR-08, component-map.md rows) rather than to a numbered story AC — both are retained on that basis. AC coverage was audited in both directions: all 10 acceptance criteria across E1-S1 and E1-S2 have at least one check, and every check traces to an AC or to a normative design-doc requirement. No check was removed."
   ]
 }

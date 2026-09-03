@@ -9,8 +9,8 @@
       "Arrange/execute: A backend types module defines a typed class/schema for each of the 14 entities listed in BRD section 9.",
       "Assert: with field names and types matching the BRD data-model table exactly."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-03T18:33:35Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -24,8 +24,8 @@
       "Arrange/execute: Monetary and percentage fields (target_amount, current_value, nav_value, allocation percentages) are typed as fixed-point/Decimal types,.",
       "Assert: never float, per NFR-01."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-03T18:33:35Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -39,8 +39,8 @@
       "Arrange/execute: Enum-constrained fields (role on User.",
       "Assert: risk_band on RiskBandAssignment/AllocationTemplate, status on RebalancingRecommendation) are defined as closed enums matching the exact literal values from the BRD (role in {customer, advisor, admin, compliance}; status in {pending, accepted, dismissed})."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-03T18:33:35Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -54,8 +54,8 @@
       "Execute the scenario described: Running mypy against the types module exits with zero errors.",
       "Assert the described outcome is observed."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-03T18:33:35Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -69,8 +69,8 @@
       "Execute the scenario described: A corresponding TypeScript type/interface file exists on the frontend mirroring the same 14 entities' field names and types for shared client-side use.",
       "Assert the described outcome is observed."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-03T18:33:35Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -84,8 +84,8 @@
       "Arrange/execute: A backend config module exposes typed settings including database_url.",
       "Assert: jwt_secret, jwt_access_token_expiry_minutes, default_drift_threshold_percent (default value 5), and seed_csv_path, loaded from environment variables with documented defaults."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-03T18:33:35Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -99,8 +99,8 @@
       "Arrange/execute: Missing a required environment variable at startup.",
       "Assert: raises a clear startup error rather than the app silently starting with None values."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-03T18:33:35Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -114,8 +114,8 @@
       "Arrange/execute: The drift threshold is exposed as a versionable config value.",
       "Assert: not a literal hardcoded inside the rebalancing service, matching BRD section 5.1's default-5%-versioned requirement."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-03T18:33:35Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -129,8 +129,8 @@
       "Arrange/execute: No secret value (JWT secret.",
       "Assert: DB credentials) appears hardcoded in source outside the config module; the repo's detect-secrets hook passes on the config module."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-03T18:33:35Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -144,8 +144,8 @@
       "Execute the scenario described: A .env.example file documents every required environment variable with a placeholder value.",
       "Assert the described outcome is observed."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-03T18:33:35Z",
     "failure_reason": null,
     "failure_layer": null
   },
