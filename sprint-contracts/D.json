@@ -1,0 +1,196 @@
+{
+  "group": "D",
+  "stories": ["E2-S2", "E3-S2", "E6-S2", "E6-S3", "E7-S2", "E10-S1"],
+  "features": [
+    "F026", "F027", "F028", "F029", "F030",
+    "F041", "F042", "F043", "F044", "F045",
+    "F102", "F103", "F104", "F105", "F106",
+    "F107", "F108", "F109", "F110", "F111",
+    "F127", "F128", "F129", "F130", "F131",
+    "F188", "F189", "F190", "F191", "F192"
+  ],
+
+  "runtime_expectations": {
+    "verification_mode": "local",
+    "app_expected_running": true,
+    "health_check_required": true,
+    "reason": "The FastAPI app has been runnable since Group C (E1-S4); this is the first group that registers a second router beyond /health. `backend/src/app/routers/auth.py` adds POST /api/auth/login (public) and GET /api/auth/me (protected, any authenticated role via app.dependencies.require_role()), both wired into src/app/main.py's create_app(). Started per project-manifest.json's verification.local.start_commands as `cd backend && uv run uvicorn src.app.main:app --reload`. The evaluator ran the pytest api-client suite (backend/tests/api/test_auth_login.py), which exercises both endpoints through FastAPI's real TestClient against the real `src.app.main.app` object (not a stub) — this is equivalent in every respect that matters (real ASGI app, real dependency graph, real error handlers) to a live HTTP probe, so a separate live-uvicorn-plus-curl pass was judged unnecessary and not performed. E6-S2/E6-S3/E7-S2/E3-S2/E10-S1 remain Service- and Repository-layer stories with no new HTTP surface this group (their eventual routers land in later groups per component-map.md)."
+  },
+
+  "api_checks": [
+    {
+      "id": "api-d-01",
+      "method": "POST",
+      "path": "/api/auth/login",
+      "body": { "email": "<seeded email>", "password": "<correct password>" },
+      "expected_status": 200,
+      "expected_body_keys": ["access_token", "role"],
+      "description": "E2-S2 AC1; api-contracts.md §5.1. Covered live-equivalent by tests/api/test_auth_login.py::test_login_with_valid_credentials_returns_200_with_token_and_role via FastAPI TestClient against the real app object. Response body contains access_token and role; token_type/expires_in are also present per LoginResponse but not required by the AC text."
+    },
+    {
+      "id": "api-d-02",
+      "method": "POST",
+      "path": "/api/auth/login",
+      "body": { "email": "<seeded email>", "password": "wrong-password" },
+      "expected_status": 401,
+      "description": "E2-S2 AC2. Covered by test_login_with_wrong_password_returns_401_with_no_token. No access_token key appears anywhere in the 401 body."
+    },
+    {
+      "id": "api-d-03",
+      "method": "POST",
+      "path": "/api/auth/login",
+      "body": { "email": "<seeded email>" },
+      "expected_status": 422,
+      "description": "E2-S2 AC3 (missing password). Covered by test_login_with_a_malformed_body_returns_422 — FastAPI's own Pydantic validation on LoginRequest rejects a missing/empty field before domain.auth.service.authenticate is ever called."
+    },
+    {
+      "id": "api-d-04",
+      "method": "GET",
+      "path": "/api/auth/me",
+      "headers": {},
+      "expected_status": 401,
+      "description": "E2-S2 AC5. Covered by test_a_protected_endpoint_rejects_a_request_missing_the_authorization_header — GET /api/auth/me is the first protected endpoint this group adds, guarded by app.dependencies.require_role()."
+    },
+    {
+      "id": "api-d-05",
+      "method": "GET",
+      "path": "/api/auth/me",
+      "headers": { "Authorization": "Bearer <valid token>" },
+      "expected_status": 200,
+      "expected_body_keys": ["user_id", "email", "role", "customer_id"],
+      "description": "E2-S2 AC5 (positive path), api-contracts.md §5.2, system-design.md D14. Covered by test_get_me_with_a_valid_token_returns_the_caller_identity. Response never includes password_hash (AC4, shared response-shape guarantee with login) — confirmed by CurrentUserResponse's fixed field set."
+    }
+  ],
+
+  "playwright_checks": [],
+  "design_checks": [],
+
+  "performance_checks": [],
+
+  "architecture_checks": {
+    "files_must_exist": [
+      "backend/src/app/routers/auth.py",
+      "backend/src/app/dependencies.py",
+      "backend/tests/api/test_auth_login.py",
+      "backend/tests/unit/test_dependencies.py",
+      "backend/src/domain/audit/service.py",
+      "backend/tests/unit/test_audit_service.py",
+      "backend/src/domain/holdings/service.py",
+      "backend/src/domain/holdings/drift.py",
+      "backend/src/core/clock.py",
+      "backend/tests/unit/test_advance_day.py",
+      "backend/tests/unit/test_drift.py",
+      "backend/src/domain/goals/service.py",
+      "backend/tests/unit/test_goal_service.py",
+      "backend/src/domain/admin/repository.py",
+      "backend/tests/repository/test_admin_publish_repository.py"
+    ],
+
+    "typing": {
+      "required": true,
+      "traces": ["E2-S2 AC1-AC5", "E3-S2 AC1-AC5", "E6-S2 AC1-AC5", "E6-S3 AC1-AC5", "E7-S2 AC1-AC5", "E10-S1 AC1-AC5"],
+      "features": ["F026", "F041", "F102", "F107", "F127", "F188"],
+      "command": "cd backend && uv run mypy src/",
+      "description": "mypy exits 0 with zero errors across the whole src/ tree, including this group's 5 new modules (app/routers/auth.py, domain/audit/service.py, domain/holdings/service.py, domain/holdings/drift.py, core/clock.py, domain/goals/service.py, domain/admin/repository.py) and the 2 extended repository modules (domain/holdings/repository.py's Holding functions, domain/risk_profile/repository.py's get_latest_assignment). CONFIRMED runnable at evaluator sign-off: `uv run mypy src/` exits 0, 'Success: no issues found in 52 source files'."
+    },
+
+    "layering": {
+      "required": true,
+      "traces": ["system-design.md §2.1's directory-to-layer table", "system-design.md D3 ('Routers may not import repositories' — rejected alternative: 'Thin pass-through routers reading repos directly')", "folder-structure.md §4"],
+      "features": ["F026", "F030"],
+      "command": "rg -n \"^\\s*(from|import)\\s+(src\\.)?app\\b\" backend/src/domain backend/src/db ; rg -n \"^\\s*(from|import)\\s+(src\\.)?domain\\.[a-z_]+\\.(repository|threshold_repository)\\b\" backend/src/app ; rg -n \"^\\s*(from|import)\\s+(src\\.)?db\\.models\\b\" backend/src/app ; rg -n \"raise HTTPException\" backend/src/domain",
+      "description": "Same four static scans carried forward unchanged from Group C's contract (that contract's own layering resolution — permitting app/ to import db/session.py and db/engine.py directly for connection plumbing, never db/models.py and never any domain/*/repository.py module — is reused here without modification; it was not renegotiated this group). MUST return no matches on all four scans for this group to pass. AS DELIVERED, scan 2 currently returns ONE match: `backend/src/app/routers/auth.py:21: from src.domain.auth.repository import get_user_by_id`, used by GET /api/auth/me to look up the caller's row after `require_role()` has already decoded the JWT. This is a genuine, unambiguous violation, not a resolvable judgment call the way Group C's health-probe carve-out was: system-design.md line 51 states the API layer 'May NOT import from: domain/*/repository.py (routers never reach past the service layer)', and design decision D3 in the same document names 'Routers may not import repositories' as the chosen design specifically to reject 'Thin pass-through routers reading repos directly' as an alternative — which is exactly what this line of code does. See notes for the required fix."
+    },
+
+    "no_float": {
+      "required": true,
+      "traces": ["NFR-01", "E6-S3 AC2", "data-models.md §2 rule 2"],
+      "features": ["F108"],
+      "command": "cd backend && uv run pytest tests/architecture/test_no_float_in_domain.py",
+      "description": "No change needed to SCANNED_PACKAGES (already covers src/domain and src/db recursively per Group C's contract); this group's new domain/holdings/drift.py is the one module doing genuinely new arithmetic (largest-remainder basis-point allocation) and uses only Decimal and int throughout — confirmed by direct read, no float literal, float() call, or -> float annotation appears anywhere in drift.py, holdings/service.py, goals/service.py, audit/service.py, admin/repository.py, or core/clock.py. CONFIRMED runnable: pytest tests/architecture/test_no_float_in_domain.py passes at evaluator sign-off (part of the 463-test full-suite run, all green)."
+    },
+
+    "append_only": {
+      "required": true,
+      "traces": ["E10-S1 AC3", "component-map.md note 5 pattern extended to this group's versioned-publish repositories"],
+      "features": ["F190"],
+      "command": "cd backend && uv run pytest tests/architecture/test_append_only.py",
+      "description": "backend/tests/architecture/test_append_only.py is EXTENDED by this group's E10-S1 (AC3) with three new cases — test_risk_band_rule_repository_exposes_no_update_or_delete_function, test_allocation_template_repository_exposes_no_update_or_delete_function, test_rebalancing_threshold_repository_exposes_no_update_or_delete_function — each confirming no update_rule/update_template/update_threshold callable exists on its owning module (getattr-with-default introspection, the same pattern the module already used for AuditLogEntry and AdvisorOverride in Group C). CONFIRMED runnable and passing (part of the 52-test architecture-suite run, all green)."
+    },
+
+    "double_advance_guarantee": {
+      "required": true,
+      "traces": ["E6-S2 AC2", "system-design.md §9.5, D11", "api-contracts.md §12.1"],
+      "features": ["F103"],
+      "command": "cd backend && uv run pytest tests/unit/test_advance_day.py",
+      "description": "NEW check this group, not present in C.json's schema (E6-S2 is the first story to need it): `domain.holdings.service.advance_day` computes `next_date = clock.next_price_date(max(latest NAV price_date))` fresh on every call and relies on the `UNIQUE(asset_class_id, price_date)` DB constraint (not a check-then-act read) to reject a genuine double-advance race, translating the resulting IntegrityError into ConflictError(code=DAY_ALREADY_ADVANCED). EVALUATOR JUDGMENT (see notes for full reasoning): this reasoning was independently verified against system-design.md §9.5 ('the UNIQUE(asset_class_id, price_date) constraint that makes the double-advance edge case a DB-level guarantee rather than a check-then-act race') and D11 ('Double advance-a-day → 409 ... Silent 200 no-op' rejected) and found sound. Two sequential advance_day() calls in the same test process can never naturally collide — the second call legitimately sees the first's committed row and advances to the day after — so the two tests covering this AC (test_advancing_a_second_time_on_the_same_simulated_day_is_rejected, test_advancing_does_not_insert_duplicate_nav_snapshot_rows_after_a_rejected_retry) simulate the losing writer by monkeypatching insert_nav_snapshot to raise the IntegrityError SQLite would raise on the real unique index. This genuinely exercises advance_day's own try/except/rollback/translate-to-ConflictError code path (the part of the production code this AC is actually about) — only the low-level insert call is replaced, not the orchestration logic under test — so it is sound, not merely self-consistent with the mock."
+    },
+
+    "parameterized_queries": {
+      "required": true,
+      "traces": ["E1-S3 AC4 pattern, extended to this group's new modules", "NFR-08"],
+      "features": ["F037"],
+      "command": "rg -n \"f[\\\"']|%\\s*\\(|\\.format\\(\" backend/src/domain/holdings/repository.py backend/src/domain/holdings/service.py backend/src/domain/risk_profile/repository.py backend/src/domain/goals/repository.py backend/src/domain/goals/service.py backend/src/domain/admin/repository.py",
+      "description": "This scan is intentionally restricted to repository-and-adjacent modules touching SQL construction, matching Group C's scoping (service-layer modules that only build error-message strings, e.g. audit/service.py's f-string on an actor_role validation message, are out of scope for this check the same way they would be if flagged as a false positive). All 6 files listed here return no matches: every query goes through SQLAlchemy ORM construction with no string-interpolated SQL, confirmed by direct read of every diff hunk in holdings/repository.py and risk_profile/repository.py."
+    },
+
+    "migrations_unchanged": {
+      "required": true,
+      "traces": ["component-map.md note 1", "NFR-05"],
+      "features": ["F102"],
+      "command": "git diff --stat c5af99f..HEAD -- backend/alembic/versions/ backend/alembic.ini backend/alembic/env.py backend/alembic/script.py.mako",
+      "description": "Must produce empty output. `c5af99f` ('docs: record group C completion in progress tracking') is the tip commit on `feat/wealthwise-build` immediately preceding this group's (uncommitted) work. This group adds no new table and needs no schema change — Holding and RiskBandAssignment already exist from Group C's migrations; this group only adds repository/service functions reading and writing already-migrated columns."
+    },
+
+    "env_vars": {
+      "required": true,
+      "traces": ["Synthetic-Data rule (CLAUDE.md)"],
+      "features": ["F023"],
+      "command": "cd backend && uv run detect-secrets scan src seed",
+      "description": "No new, unallowlisted finding. CONFIRMED runnable at evaluator sign-off: empty `results` object. Test-only JWT secrets (e.g. tests/unit/test_dependencies.py's TEST_SECRET) already carry `# pragma: allowlist secret` per the established Group C convention."
+    }
+  },
+
+  "unit_test_checks": [
+    { "id": "ut-091", "traces": "E2-S2 AC1", "features": ["F026"], "test_file": "backend/tests/api/test_auth_login.py", "assertion": "POST /api/auth/login with a valid seeded email/password returns 200 with a body containing access_token (non-empty string) and role matching the seeded user's stored role." },
+    { "id": "ut-092", "traces": "E2-S2 AC2", "features": ["F027"], "test_file": "backend/tests/api/test_auth_login.py", "assertion": "POST /api/auth/login with an incorrect password for an existing email returns 401; the response body contains no access_token key at any level." },
+    { "id": "ut-093", "traces": "E2-S2 AC3", "features": ["F028"], "test_file": "backend/tests/api/test_auth_login.py", "assertion": "POST /api/auth/login with a body missing email, missing password, or with either as an empty string, returns 422 without ever calling domain.auth.service.authenticate." },
+    { "id": "ut-094", "traces": "E2-S2 AC4", "features": ["F029"], "test_file": "backend/tests/api/test_auth_login.py", "assertion": "Neither the 200 login response body nor the 200 GET /api/auth/me response body ever contains a password_hash key or value, confirmed by asserting the key's absence from the parsed JSON, not merely eyeballing the schema." },
+    { "id": "ut-095", "traces": "E2-S2 AC5", "features": ["F030"], "test_file": "backend/tests/api/test_auth_login.py, backend/tests/unit/test_dependencies.py", "assertion": "GET /api/auth/me with no Authorization header, and separately with a malformed Bearer header, both return 401; a valid, unexpired token for any of the four seeded roles is accepted. test_dependencies.py additionally proves require_role(*roles) rejects an authenticated-but-wrong-role caller with 403 ROLE_NOT_PERMITTED and an expired token with 401 TOKEN_EXPIRED." },
+    { "id": "ut-096", "traces": "E3-S2 AC1", "features": ["F041"], "test_file": "backend/tests/unit/test_audit_service.py", "assertion": "A valid write_audit_entry(...) call produces exactly one new row in the audit repository, readable back via query_audit_entries with matching id and entity_id." },
+    { "id": "ut-097", "traces": "E3-S2 AC2", "features": ["F042"], "test_file": "backend/tests/unit/test_audit_service.py", "assertion": "A call with actor_role in {None, '', 'superadmin', 'customer_service'} (unparametrized set covering missing and out-of-vocabulary values) raises ValidationError and persists no row." },
+    { "id": "ut-098", "traces": "E3-S2 AC3", "features": ["F043"], "test_file": "backend/tests/unit/test_audit_service.py", "assertion": "A stand-in downstream risk-band-assignment flow that calls write_audit_entry once, verified via a MagicMock(wraps=...) spy asserting assert_called_once()." },
+    { "id": "ut-099", "traces": "E3-S2 AC4", "features": ["F044"], "test_file": "backend/tests/unit/test_audit_service.py", "assertion": "Calling write_audit_entry twice for the same entity_id inserts two distinct rows (distinct ids), neither overwriting the other; both remain queryable." },
+    { "id": "ut-100", "traces": "E3-S2 AC5", "features": ["F045"], "test_file": "backend/tests/unit/test_audit_service.py", "assertion": "With insert_audit_entry monkeypatched to raise RuntimeError, write_audit_entry propagates that RuntimeError unmodified rather than swallowing it or returning a sentinel." },
+    { "id": "ut-101", "traces": "E6-S2 AC1", "features": ["F102"], "test_file": "backend/tests/unit/test_advance_day.py", "assertion": "One call to advance_day() against a freshly seeded database inserts exactly one new NavSnapshot per seeded AssetClass (6), all sharing the same next sequential price_date." },
+    { "id": "ut-102", "traces": "E6-S2 AC2", "features": ["F103"], "test_file": "backend/tests/unit/test_advance_day.py", "assertion": "See architecture_checks.double_advance_guarantee for the full reasoning. A simulated losing-writer IntegrityError on the second advance is translated to ConflictError(code=DAY_ALREADY_ADVANCED), and the rollback leaves no duplicate/partial NavSnapshot row behind." },
+    { "id": "ut-103", "traces": "E6-S2 AC3", "features": ["F104"], "test_file": "backend/tests/unit/test_advance_day.py", "assertion": "After one advance_day() call, get_latest_nav for a seeded asset class returns the newly inserted snapshot's price_date, not the prior day's." },
+    { "id": "ut-104", "traces": "E6-S2 AC4", "features": ["F105"], "test_file": "backend/tests/unit/test_advance_day.py, backend/src/core/clock.py's module docstring", "assertion": "No scheduler, cron entry, background task, or timer registration exists anywhere in the codebase that calls advance_day; it is reachable only via an explicit function call (confirmed by the absence of any APScheduler/Celery/asyncio.create_task-based periodic trigger in src/app or src/domain, consistent with core/clock.py's own docstring)." },
+    { "id": "ut-105", "traces": "E6-S2 AC5", "features": ["F106"], "test_file": "backend/tests/unit/test_advance_day.py", "assertion": "A successful advance_day() call recomputes drift for every customer with at least one Holding row (present in result.customers_redrifted) without a separate manual step, confirmed by a customer with seeded holdings, a risk-band assignment, and an active template ending up with a non-empty drift result immediately after advance_day() returns." },
+    { "id": "ut-106", "traces": "E6-S3 AC1", "features": ["F107"], "test_file": "backend/tests/unit/test_drift.py", "assertion": "compute_drift returns, per held asset class, current_percent, target_percent, and drift_percent == current_percent - target_percent exactly." },
+    { "id": "ut-107", "traces": "E6-S3 AC2", "features": ["F108"], "test_file": "backend/tests/unit/test_drift.py", "assertion": "No float type appears in any AssetClassDrift field or intermediate value; every value is Decimal or int, confirmed by type() introspection on the dataclass fields." },
+    { "id": "ut-108", "traces": "E6-S3 AC3", "features": ["F109"], "test_file": "backend/tests/unit/test_drift.py", "assertion": "compute_drift with an empty holdings dict, and separately with holdings summing to zero total value, both return [] without raising (no ZeroDivisionError)." },
+    { "id": "ut-109", "traces": "E6-S3 AC4", "features": ["F110"], "test_file": "backend/tests/unit/test_drift.py", "assertion": "is_over_threshold returns False when abs(drift_bps) == threshold_bps exactly (the exclusive boundary, D13), True when it exceeds by even 1 basis point, and False when below." },
+    { "id": "ut-110", "traces": "E6-S3 AC5", "features": ["F111"], "test_file": "backend/tests/unit/test_drift.py", "assertion": "For an awkward three-way holding split whose naive per-item rounding would not sum to 10000 bps, the largest-remainder allocation in _allocate_bps_exact still sums current_percent across all held asset classes to exactly 100 (not merely within tolerance)." },
+    { "id": "ut-111", "traces": "E7-S2 AC1", "features": ["F127"], "test_file": "backend/tests/unit/test_goal_service.py", "assertion": "create_customer_goal with target_amount <= 0 (0 and a negative value) raises ValidationError and persists no row." },
+    { "id": "ut-112", "traces": "E7-S2 AC2", "features": ["F128"], "test_file": "backend/tests/unit/test_goal_service.py", "assertion": "create_customer_goal with a target_date strictly before today's date raises ValidationError and persists no row; today's own date is accepted (not rejected as 'past')." },
+    { "id": "ut-113", "traces": "E7-S2 AC3", "features": ["F129"], "test_file": "backend/tests/unit/test_goal_service.py", "assertion": "Creating a second goal for the same customer_id succeeds and both goals remain independently readable via list_goals_for_customer; the first is neither removed nor overwritten." },
+    { "id": "ut-114", "traces": "E7-S2 AC4", "features": ["F130"], "test_file": "backend/tests/unit/test_goal_service.py", "assertion": "update_customer_goal changing only priority is reflected on the next get_goal read and leaves created_at exactly unchanged, while updated_at moves forward." },
+    { "id": "ut-115", "traces": "E7-S2 AC5", "features": ["F131"], "test_file": "backend/tests/unit/test_goal_service.py", "assertion": "update_customer_goal called with a customer_id that does not own the target goal_id raises NotFoundError (D12: 404, not 403, so as to not confirm another customer's goal exists) and leaves the goal's fields unchanged." },
+    { "id": "ut-116", "traces": "E10-S1 AC1", "features": ["F188"], "test_file": "backend/tests/repository/test_risk_profile_repository.py, backend/tests/repository/test_allocation_template_repository.py, backend/tests/repository/test_threshold_repository.py", "assertion": "Already covered by Group B/C's own suites for publish_rule/publish_template/publish_threshold (version = previous_max + 1, prior active row flipped to is_active = false) — re-confirmed passing unmodified this group, no regression." },
+    { "id": "ut-117", "traces": "E10-S1 AC2", "features": ["F189"], "test_file": "backend/tests/repository/test_admin_publish_repository.py", "assertion": "Inserting a second RiskBandRule/AllocationTemplate/RebalancingThreshold row with a version number matching an already-published row's raises IntegrityError at flush (the DB-level unique index), for all three versioned-publish tables." },
+    { "id": "ut-118", "traces": "E10-S1 AC3", "features": ["F190"], "test_file": "backend/tests/architecture/test_append_only.py", "assertion": "None of risk_profile.repository, recommendation.repository, or rebalancing.threshold_repository exposes an update_* callable for its versioned JSON column (getattr-with-default introspection)." },
+    { "id": "ut-119", "traces": "E10-S1 AC4", "features": ["F191"], "test_file": "backend/tests/repository/test_admin_publish_repository.py", "assertion": "update_asset_class edits code and/or name in place and is reflected on the next read; updating to a code already taken by another asset class fails via the existing unique index; renaming/recoding an asset class referenced by a published AllocationTemplate leaves that template's allocations_json (including the referencing asset_class_id and its percent_bps) byte-for-byte unchanged on re-read." },
+    { "id": "ut-120", "traces": "E10-S1 AC5", "features": ["F192"], "test_file": "backend/tests/repository/test_risk_profile_repository.py, backend/tests/repository/test_allocation_template_repository.py, backend/tests/repository/test_threshold_repository.py", "assertion": "Already covered by Group B/C's own get_active_*/get-by-version suites (a superseded version remains individually queryable by version number, unchanged) — re-confirmed passing unmodified this group." }
+  ],
+
+  "notes": [
+    "1. BLOCKING DEFECT FOUND AT EVALUATOR SIGN-OFF — architecture_checks.layering scan 2 (`backend/src/app` importing a `domain/*/repository.py` module) currently returns one match: `backend/src/app/routers/auth.py:21: from src.domain.auth.repository import get_user_by_id`, used by the GET /api/auth/me handler. This is not a carve-out candidate the way Group C's `db/session.py`/`db/engine.py` exception was — system-design.md's directory-to-layer table states the API layer 'May NOT import from: domain/*/repository.py (routers never reach past the service layer)' with no exception listed for auth/me specifically, and design decision D3 in the same document explicitly names the rejected alternative as 'Thin pass-through routers reading repos directly' — the precise pattern this line implements. REQUIRED FIX: add a thin wrapper in `domain/auth/service.py` (e.g. `get_user_details(session, user_id) -> ...`) that calls `get_user_by_id` internally, and change `auth.py`'s `/me` handler to call the service function instead of importing the repository module directly. This is a small, mechanical fix (one new 3-5 line service function, one import swap in the router) that does not require touching any test file's assertions — `tests/api/test_auth_login.py`'s existing GET /me tests exercise behavior, not import structure, and will pass unchanged once the fix lands.",
+    "2. Everything else independently verified clean at evaluator sign-off: `uv run pytest -q` (463 passed, 0 failed), `uv run pytest --cov=src --cov-report=term-missing -q` (100% coverage, 1393/1393 statements, matching the 100% baseline carried from Group C), `uv run ruff check .` (all checks passed), `uv run mypy src/` (0 errors, 52 source files), `uv run pytest tests/architecture/` (52 passed, covering no_float/append_only/allocation_sum together), `uv run detect-secrets scan src seed` (empty results). All three other layering scans (app importing db.models directly, app importing anything from domain/db upward, raise HTTPException anywhere under domain/) returned zero matches — confirmed independently, not accepted from the generator's self-report.",
+    "3. Judgment call E6-S2 AC2 (double-advance rejection via DB-level UNIQUE constraint rather than check-then-act) — VERIFIED SOUND. See architecture_checks.double_advance_guarantee for the full reasoning trail, cross-checked directly against system-design.md §9.5 and D11's text. The monkeypatch-based simulation of the losing writer's IntegrityError is judged a legitimate substitute for true concurrent-session testing (which SQLite/pytest cannot deterministically reproduce), because the code path it proves — advance_day's try/except IntegrityError → session.rollback() → raise ConflictError(DAY_ALREADY_ADVANCED) — is the actual production orchestration logic under test, not a mock of the assertion itself; only the low-level `insert_nav_snapshot` call is replaced.",
+    "4. Judgment call E10-S1 scope (AC1/AC3/AC5 pre-satisfied by Group B/C code; only AC4's update_asset_class and AC2's uniqueness tests are new) — VERIFIED, NOT UNDER-SCOPED. Independently re-read publish_rule (risk_profile/repository.py), publish_template (recommendation/repository.py), and publish_threshold (rebalancing/threshold_repository.py): all three already implement version = max(existing) + 1, flip prior is_active to false, and are already covered by Group B/C's own per-module test suites for AC1 and AC5. AC3's 'no mutation of a published row' guarantee is already true structurally (no update_rule/update_template/update_threshold function exists in any of the three modules) and is now explicitly asserted by three new cases in tests/architecture/test_append_only.py rather than merely being true by omission. AC4 (asset-class master CRUD) genuinely had no prior implementation — insert_asset_class existed from E6-S1 but no update path did — and domain/admin/repository.py's update_asset_class is the one new production function this story requires; test_admin_publish_repository.py covers it plus AC2's DB-level uniqueness guarantee for all three versioned-publish tables. This scoping is confirmed correct, not a shortcut.",
+    "5. Test-file naming deviates from component-map.md's E2-S2 row, which names `test_auth_login.py`, `test_auth_me.py`, and `test_role_matrix.py` as three separate files. The delivered code consolidates login and /me coverage into `tests/api/test_auth_login.py` and role-matrix coverage into `tests/unit/test_dependencies.py` (built against a throwaway FastAPI app rather than the real router, to test require_role() in isolation from any one endpoint). This is judged an acceptable reorganization, not a coverage gap: every behavior component-map.md attributes to the three named files is present and passing under the two consolidated files, confirmed by direct read of both files' test names against E2-S2's five ACs. Flagged for the lead's awareness only, not a blocking issue — no other story's test file depends on this group's file boundaries the way, e.g., Group C's test_append_only.py ownership did.",
+    "6. api_checks are expressed as TestClient-equivalent checks backed 1:1 by tests/api/test_auth_login.py's existing suite rather than a separately-started live uvicorn probe. The task's own instructions treat starting a live server as optional when pytest's api-client tests already exercise the same behavior thoroughly via FastAPI's TestClient, which they do here (real `src.app.main.app` object, real dependency graph, real error handlers) — a live curl pass would exercise identical code paths for no additional signal, so it was not performed.",
+    "7. performance_checks is empty this group by design: no new endpoint in this group carries its own NFR-07-style latency requirement distinct from GET /health's, which Group C's contract already covers and which this group does not modify."
+  ]
+}

@@ -384,8 +384,8 @@
       "Arrange/execute: POST /api/auth/login with a valid seeded email/password.",
       "Assert: returns 200 with a JSON body containing access_token and role."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T00:00:00Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -399,8 +399,8 @@
       "Arrange/execute: POST /api/auth/login with an invalid password.",
       "Assert: returns 401 with no token in the response body."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T00:00:00Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -414,8 +414,8 @@
       "Arrange/execute: POST /api/auth/login with a malformed request body (missing email or password).",
       "Assert: returns 422."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T00:00:00Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -429,8 +429,8 @@
       "Arrange/execute: The response body.",
       "Assert: never includes password_hash or any other credential material."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T00:00:00Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -444,8 +444,8 @@
       "Execute the scenario described: All subsequent protected endpoints reject requests missing a valid Authorization: Bearer header with 401.",
       "Assert the described outcome is observed."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T00:00:00Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -609,8 +609,8 @@
       "Arrange/execute: Calling the audit-writer with a valid entity_type, entity_id, actor_id, actor_role, action, and details dict.",
       "Assert: produces exactly one new row in the audit repository."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T00:00:00Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -624,8 +624,8 @@
       "Arrange/execute: The audit-writer.",
       "Assert: rejects a call missing actor_role or with an actor_role outside {customer, advisor, admin, compliance}."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T00:00:00Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -639,8 +639,8 @@
       "Arrange/execute: A unit test verifies at least one downstream domain flow (risk-band assignment).",
       "Assert: invokes the audit-writer exactly once per assignment."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T00:00:00Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -654,8 +654,8 @@
       "Arrange/execute: The audit-writer.",
       "Assert: never silently overwrites a prior entry with the same entity_id; each call always inserts a new row."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T00:00:00Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -669,8 +669,8 @@
       "Arrange/execute: Failures inside the audit-writer propagate as an exception rather than being silently swallowed.",
       "Assert: so a caller cannot commit a business action while losing its audit trail."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T00:00:00Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -1524,8 +1524,8 @@
       "Execute the scenario described: Invoking the advance-a-day service once inserts exactly one new NavSnapshot per AssetClass for the next sequential price_date.",
       "Assert the described outcome is observed."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T00:00:00Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -1539,8 +1539,8 @@
       "Arrange/execute: Invoking the service a second time on the same simulated day.",
       "Assert: is rejected or is a documented no-op that does not insert duplicate NavSnapshot rows for the same price_date, addressing the BRD double-trigger edge case."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T00:00:00Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -1554,8 +1554,8 @@
       "Arrange/execute: After advancing, get_latest_nav for every seeded asset class.",
       "Assert: returns the newly inserted snapshot, not the prior day's."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T00:00:00Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -1569,8 +1569,8 @@
       "Arrange/execute: The service is invocable only via an explicit call; no background scheduler.",
       "Assert: cron, or timer triggers it automatically."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T00:00:00Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -1584,8 +1584,8 @@
       "Arrange/execute: A successful advance triggers recomputation of holdings drift for all customers with holdings.",
       "Assert: without requiring a separate manual step."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T00:00:00Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -1599,8 +1599,8 @@
       "Arrange/execute: Given a customer's holdings and their active recommended allocation.",
       "Assert: the service returns, for each asset class, current_percent, target_percent, and drift_percent = current_percent - target_percent."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T00:00:00Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -1614,8 +1614,8 @@
       "Arrange/execute: All drift calculations use fixed-point/decimal arithmetic; a unit test.",
       "Assert: confirms no float type appears in any intermediate or final drift value."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T00:00:00Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -1629,8 +1629,8 @@
       "Arrange/execute: A customer with zero holdings.",
       "Assert: produces an empty drift result, not an error and not a divide-by-zero exception."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T00:00:00Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -1644,8 +1644,8 @@
       "Arrange/execute: Drift values at exact boundary conditions (drift exactly equal to the configured threshold) are handled per a documented rounding rule where the threshold is exclusive: drift must exceed.",
       "Assert: not equal, the threshold to trigger rebalancing."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T00:00:00Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -1659,8 +1659,8 @@
       "Arrange/execute: The sum of a customer's current_percent values across all held asset classes equals 100.",
       "Assert: within a documented fixed-point rounding tolerance, when the customer holds at least one asset."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T00:00:00Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -1899,8 +1899,8 @@
       "Arrange/execute: Creating a goal with target_amount <= 0.",
       "Assert: is rejected with a validation error."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T00:00:00Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -1914,8 +1914,8 @@
       "Arrange/execute: Creating a goal with a target_date in the past.",
       "Assert: is rejected with a validation error."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T00:00:00Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -1929,8 +1929,8 @@
       "Execute the scenario described: A customer can hold more than one goal simultaneously; creating a second goal does not remove or overwrite the first.",
       "Assert the described outcome is observed."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T00:00:00Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -1944,8 +1944,8 @@
       "Arrange/execute: Editing an existing goal's priority succeeds and is reflected on the next read.",
       "Assert: without altering created_at."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T00:00:00Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -1959,8 +1959,8 @@
       "Execute the scenario described: A customer cannot create or edit a goal belonging to a different customer_id; the service enforces an ownership check.",
       "Assert the described outcome is observed."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T00:00:00Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -2814,8 +2814,8 @@
       "Arrange/execute: Publishing a new RiskBandRule or AllocationTemplate version inserts a row with version = previous_max_version + 1 and.",
       "Assert: sets the prior active version's is_active = false."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T00:00:00Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -2829,8 +2829,8 @@
       "Arrange/execute: A DB-level uniqueness/monotonic constraint on (risk_band.",
       "Assert: version) for templates and version for rules causes a second concurrent publish attempt for the same next version number to fail rather than silently overwrite."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T00:00:00Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -2844,8 +2844,8 @@
       "Arrange/execute: No repository method allows mutating allocations_json.",
       "Assert: questionnaire_json, or scoring_rules_json on an already-published row."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T00:00:00Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -2859,8 +2859,8 @@
       "Execute the scenario described: Asset-class master CRUD (create/update AssetClass code/name) is supported without affecting historical AllocationTemplate rows that reference the asset class by id.",
       "Assert the described outcome is observed."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T00:00:00Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -2874,8 +2874,8 @@
       "Arrange/execute: Published rows remain individually queryable by version number after superseding versions are published.",
       "Assert: supporting in-flight customer pinning."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T00:00:00Z",
     "failure_reason": null,
     "failure_layer": null
   },
