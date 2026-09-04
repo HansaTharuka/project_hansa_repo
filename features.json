@@ -234,8 +234,8 @@
       "Arrange/execute: GET /health.",
       "Assert: returns 200 with a JSON body within 1 second of the application completing startup."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T09:51:48Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -249,8 +249,8 @@
       "Arrange/execute: Every request/response log line is emitted as structured JSON containing a request correlation ID (e.g..",
       "Assert: X-Request-ID) that is stable across a single request's log entries."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T09:51:48Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -264,8 +264,8 @@
       "Arrange/execute: No log line emitted anywhere in the request-logging middleware contains a customer's password.",
       "Assert: password_hash, or raw financial-position values (NFR-03), verified by a test that asserts these fields are absent or redacted in captured log output."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T09:51:48Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -279,8 +279,8 @@
       "Arrange/execute: GET /health requires no authentication and.",
       "Assert: returns 200 even when the database has zero rows beyond the seed data."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T09:51:48Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -294,8 +294,8 @@
       "Execute the scenario described: The health endpoint response includes a status field with value ok when the database connection succeeds.",
       "Assert the described outcome is observed."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T09:51:48Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -309,8 +309,8 @@
       "Arrange/execute: Given a correct email/password pair, the service.",
       "Assert: returns a signed JWT whose decoded payload contains sub (user id) and role matching one of customer|advisor|admin|compliance."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T09:51:48Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -324,8 +324,8 @@
       "Arrange/execute: Given an incorrect password for an existing email, the service.",
       "Assert: raises a generic invalid-credentials error without revealing whether the email exists."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T09:51:48Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -339,8 +339,8 @@
       "Arrange/execute: Passwords are verified using bcrypt comparison against the stored password_hash; the service.",
       "Assert: never compares or logs plaintext passwords (NFR-03)."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T09:51:48Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -354,8 +354,8 @@
       "Arrange/execute: The issued JWT expires after the configured jwt_access_token_expiry_minutes from E1-S2; a token decoded after expiry.",
       "Assert: is rejected as invalid."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T09:51:48Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -369,8 +369,8 @@
       "Arrange/execute: No self-registration path exists in this service; only seeded accounts can authenticate.",
       "Assert: per BRD section 8."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T09:51:48Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -534,8 +534,8 @@
       "Execute the scenario described: The repository exposes only an insert_audit_entry write function; no update or delete function exists for AuditLogEntry anywhere in the repository module.",
       "Assert the described outcome is observed."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T09:51:48Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -549,8 +549,8 @@
       "Arrange/execute: Each inserted row records entity_type.",
       "Assert: entity_id, actor_id, actor_role, action, timestamp, and details_json, matching the BRD data-model table."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T09:51:48Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -564,8 +564,8 @@
       "Arrange/execute: A repository-level test attempts to mutate an existing audit row directly via the repository API and.",
       "Assert: confirms no such method is exposed."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T09:51:48Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -579,8 +579,8 @@
       "Arrange/execute: Querying by entity_type and a date range.",
       "Assert: returns entries ordered by timestamp ascending."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T09:51:48Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -594,8 +594,8 @@
       "Arrange/execute: details_json.",
       "Assert: never contains a customer's raw PII or financial-position values beyond entity IDs, per NFR-03."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T09:51:48Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -834,8 +834,8 @@
       "Arrange/execute: The repository stores a RiskBandRule row containing version.",
       "Assert: questionnaire_json (at least 6 questions), scoring_rules_json, published_at, and is_active, and exposes no update method, only insert of new versions."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T09:51:48Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -849,8 +849,8 @@
       "Arrange/execute: A get_active_rule() repository function.",
       "Assert: returns exactly one RiskBandRule where is_active = true at any point in time."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T09:51:48Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -864,8 +864,8 @@
       "Arrange/execute: RiskProfileAnswer rows are insert-only per BRD NFR-02; a repository test.",
       "Assert: confirms no update/delete function exists for this table."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T09:51:48Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -879,8 +879,8 @@
       "Arrange/execute: Seeding the repository with an initial rule version.",
       "Assert: produces version = 1; publishing a second version produces version = 2, and version 1's is_active flips to false while remaining queryable by version number."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T09:51:48Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -894,8 +894,8 @@
       "Arrange/execute: Each RiskProfileAnswer row records customer_id.",
       "Assert: question_id, answer_value, and submitted_at."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T09:51:48Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -1149,8 +1149,8 @@
       "Arrange/execute: The repository rejects.",
       "Assert: at the data-access boundary, any insert attempt where the sum of allocations_json percentages for a template does not equal exactly 100."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T09:51:48Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -1164,8 +1164,8 @@
       "Arrange/execute: AllocationTemplate rows are insert-only; no update method is exposed, publishing a correction.",
       "Assert: requires inserting a new version."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T09:51:48Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -1179,8 +1179,8 @@
       "Arrange/execute: get_active_template(risk_band).",
       "Assert: returns exactly one active, published template for a given risk band at any point in time."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T09:51:48Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -1194,8 +1194,8 @@
       "Arrange/execute: Two published template versions for the same risk_band retain distinct version numbers.",
       "Assert: and both remain individually queryable by version after a newer one is published, supporting in-flight customer pinning."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T09:51:48Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -1209,8 +1209,8 @@
       "Arrange/execute: Seeding creates 2 allocation-template versions per risk band (6 total across 3 bands).",
       "Assert: matching BRD section 9 seed volumes."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T09:51:48Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -1449,8 +1449,8 @@
       "Arrange/execute: On first startup against an empty database.",
       "Assert: the seed CSV loader inserts 5-6 AssetClass rows and one NavSnapshot row per asset class for the initial price_date."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T09:51:48Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -1464,8 +1464,8 @@
       "Arrange/execute: Re-running the loader against an already-seeded database.",
       "Assert: does not create duplicate AssetClass rows (unique constraint on code)."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T09:51:48Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -1479,8 +1479,8 @@
       "Execute the scenario described: NavSnapshot rows are append-only; the repository exposes no update method for existing snapshots.",
       "Assert the described outcome is observed."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T09:51:48Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -1494,8 +1494,8 @@
       "Arrange/execute: get_latest_nav(asset_class_id).",
       "Assert: returns the NavSnapshot with the most recent price_date for that asset class."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T09:51:48Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -1509,8 +1509,8 @@
       "Arrange/execute: nav_value is stored as a fixed-point/decimal type,.",
       "Assert: never floating-point."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T09:51:48Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -1824,8 +1824,8 @@
       "Arrange/execute: The repository supports creating multiple Goal rows per customer_id.",
       "Assert: each with target_amount, target_date, priority, and created_at."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T09:51:48Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -1839,8 +1839,8 @@
       "Arrange/execute: GoalProgressSnapshot rows are insert-only; the repository exposes no update/delete method for existing snapshots.",
       "Assert: per NFR-02."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T09:51:48Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -1854,8 +1854,8 @@
       "Arrange/execute: get_latest_progress(goal_id).",
       "Assert: returns the GoalProgressSnapshot with the most recent snapshot_at for that goal."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T09:51:48Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -1869,8 +1869,8 @@
       "Arrange/execute: target_amount is stored as a fixed-point/decimal type,.",
       "Assert: never floating-point."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T09:51:48Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -1884,8 +1884,8 @@
       "Arrange/execute: Editing a Goal's mutable fields (e.g..",
       "Assert: target_amount, priority) is supported via a documented update path distinct from the append-only GoalProgressSnapshot history."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T09:51:48Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -2199,8 +2199,8 @@
       "Arrange/execute: The repository inserts a RebalancingRecommendation row with status = pending.",
       "Assert: proposed_actions_json, and generated_at."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T09:51:48Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -2214,8 +2214,8 @@
       "Arrange/execute: Transitioning status to accepted or dismissed sets resolved_at and.",
       "Assert: never deletes the original row."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T09:51:48Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -2229,8 +2229,8 @@
       "Arrange/execute: A repository test.",
       "Assert: confirms no method exists to hard-delete a RebalancingRecommendation row."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T09:51:48Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -2244,8 +2244,8 @@
       "Execute the scenario described: status only ever transitions from pending to exactly one terminal state (accepted or dismissed); a second transition attempt on an already-resolved recommendation is rejected.",
       "Assert the described outcome is observed."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T09:51:48Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -2259,8 +2259,8 @@
       "Arrange/execute: get_pending(customer_id).",
       "Assert: returns only rows with status = pending for that customer."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T09:51:48Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -2514,8 +2514,8 @@
       "Arrange/execute: The repository inserts an AdvisorOverride row with customer_id.",
       "Assert: advisor_id, previous_band, new_band, reason, note, and created_at."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T09:51:48Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -2529,8 +2529,8 @@
       "Execute the scenario described: No update or delete method exists for AdvisorOverride rows.",
       "Assert the described outcome is observed."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T09:51:48Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -2544,8 +2544,8 @@
       "Arrange/execute: get_overrides(customer_id).",
       "Assert: returns the full override history for a customer ordered by created_at descending."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T09:51:48Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -2559,8 +2559,8 @@
       "Arrange/execute: Inserting an override with an empty/missing reason.",
       "Assert: is rejected at the repository/service boundary, since reason is mandatory per BRD section 5.1."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T09:51:48Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -2574,8 +2574,8 @@
       "Execute the scenario described: previous_band in a new override matches the customer's most recent RiskBandAssignment.risk_band at the time of the override.",
       "Assert the described outcome is observed."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T09:51:48Z",
     "failure_reason": null,
     "failure_layer": null
   },
