@@ -50,3 +50,10 @@ class ConflictError(DomainError):
     """Request conflicts with existing state (409)."""
 
     default_code: ClassVar[str] = "CONFLICT"
+
+
+class AuthenticationError(DomainError):
+    """Unknown email or wrong password — deliberately indistinguishable to the
+    caller (401). E2-S1 AC2: raised identically for both failure modes."""
+
+    default_code: ClassVar[str] = "INVALID_CREDENTIALS"
