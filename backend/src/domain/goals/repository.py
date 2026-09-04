@@ -85,6 +85,14 @@ def list_goals_for_customer(session: Session, customer_id: int) -> list[GoalEnti
     return [_goal_to_entity(row) for row in rows]
 
 
+def list_customer_ids_with_goals(session: Session) -> list[int]:
+    """Distinct `customer_id` values with at least one `Goal` row, ordered
+    (E7-S3 AC1/AC5 — the advance-a-day flow recomputes every active goal, not
+    only goals belonging to customers who also hold a `Holding` row)."""
+    statement = select(GoalRow.customer_id).distinct().order_by(GoalRow.customer_id)
+    return list(session.execute(statement).scalars().all())
+
+
 def insert_progress_snapshot(
     session: Session,
     *,

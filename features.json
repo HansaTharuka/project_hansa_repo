@@ -459,8 +459,8 @@
       "Arrange/execute: Submitting valid credentials navigates the customer role to the customer dashboard.",
       "Assert: advisor role to the advisor customer list, admin role to the admin console, and compliance role to the audit-log screen."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T15:18:22Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -474,8 +474,8 @@
       "Arrange/execute: Submitting invalid credentials.",
       "Assert: displays an inline error message without navigating away from the login screen."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T15:18:22Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -489,8 +489,8 @@
       "Arrange/execute: The email and password inputs are labeled elements associated with their input via for/id.",
       "Assert: satisfying the BRD's keyboard-navigable, labeled-input accessibility baseline."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T15:18:22Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -504,8 +504,8 @@
       "Execute the scenario described: The JWT is stored client-side and attached as a Bearer token on all subsequent API calls.",
       "Assert the described outcome is observed."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T15:18:22Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -519,8 +519,8 @@
       "Execute the scenario described: Refreshing the page while authenticated does not require re-login within the token's validity window.",
       "Assert the described outcome is observed."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T15:18:22Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -684,8 +684,8 @@
       "Arrange/execute: GET /api/audit?actor_id=...&entity_type=...&from=...&to=... with a compliance-role JWT.",
       "Assert: returns 200 with a paginated list of matching audit entries."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T15:18:22Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -699,8 +699,8 @@
       "Arrange/execute: The same endpoint called with a customer-, advisor-, or admin-role JWT.",
       "Assert: returns 403."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T15:18:22Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -714,8 +714,8 @@
       "Arrange/execute: No POST, PUT, PATCH, or DELETE method is registered on the /api/audit route; attempting any of them.",
       "Assert: returns 405."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T15:18:22Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -729,8 +729,8 @@
       "Arrange/execute: Filtering by entity_type=RiskBandAssignment.",
       "Assert: returns only rows whose entity_type matches exactly, excluding all other entity types."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T15:18:22Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -744,8 +744,8 @@
       "Arrange/execute: An unauthenticated request (no Bearer token).",
       "Assert: returns 401."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T15:18:22Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -909,8 +909,8 @@
       "Arrange/execute: Given the same complete set of answers submitted twice, the service.",
       "Assert: returns the identical risk band both times (deterministic, no randomness)."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T15:18:22Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -924,8 +924,8 @@
       "Arrange/execute: Given an incomplete answer set (fewer than the questionnaire's required question count), the service.",
       "Assert: raises a validation error rather than producing a partial risk-band assignment, per the BRD edge-case table."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T15:18:22Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -939,8 +939,8 @@
       "Arrange/execute: A successful scoring call.",
       "Assert: creates a RiskBandAssignment row recording customer_id, risk_band, rule_version (the RiskBandRule version used), and assigned_at."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T15:18:22Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -954,8 +954,8 @@
       "Arrange/execute: A successful scoring call.",
       "Assert: invokes the audit-writer service exactly once with entity_type=RiskBandAssignment."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T15:18:22Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -969,8 +969,8 @@
       "Arrange/execute: Scoring uses only fixed-point/integer arithmetic for point totals and thresholds; no floating-point comparison.",
       "Assert: per NFR-01."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T15:18:22Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -984,8 +984,8 @@
       "Arrange/execute: RiskBandAssignment rows are never updated in place; a re-submission.",
       "Assert: creates a new row rather than mutating the prior assignment, preserving append-only history (NFR-02)."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T15:18:22Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -1674,8 +1674,8 @@
       "Arrange/execute: GET /api/holdings for an authenticated customer.",
       "Assert: returns 200 with their current holdings and drift per asset class."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T15:18:22Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -1689,8 +1689,8 @@
       "Arrange/execute: POST /api/admin/advance-day with an admin-role JWT.",
       "Assert: returns 200 and the new simulated price_date."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T15:18:22Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -1704,8 +1704,8 @@
       "Arrange/execute: POST /api/admin/advance-day with a customer- or advisor-role JWT.",
       "Assert: returns 403."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T15:18:22Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -1719,8 +1719,8 @@
       "Arrange/execute: Calling POST /api/admin/advance-day twice in immediate succession.",
       "Assert: returns 200 the first time and either a 200 no-op response or a 409 the second time, never silently duplicating NAV data."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T15:18:22Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -1734,8 +1734,8 @@
       "Arrange/execute: GET /api/holdings for a customer with no holdings.",
       "Assert: returns 200 with an empty list, not an error."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T15:18:22Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -1974,8 +1974,8 @@
       "Arrange/execute: After an advance-a-day trigger.",
       "Assert: exactly one new GoalProgressSnapshot is created per active goal, timestamped to the new snapshot_at."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T15:18:22Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -1989,8 +1989,8 @@
       "Arrange/execute: percent_complete is computed using fixed-point arithmetic as current_value divided by target_amount times 100, capped at a documented maximum,.",
       "Assert: never floating-point."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T15:18:22Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -2004,8 +2004,8 @@
       "Arrange/execute: A goal whose current_value is 0.",
       "Assert: produces percent_complete = 0, not a division error."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T15:18:22Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -2019,8 +2019,8 @@
       "Arrange/execute: Progress recompute is idempotent for a given price_date; triggering it twice for the same date.",
       "Assert: does not create two snapshots with the same date pairing for the same goal."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T15:18:22Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -2034,8 +2034,8 @@
       "Arrange/execute: The recompute service is invoked automatically as part of the advance-a-day flow.",
       "Assert: verified by a test asserting a new snapshot exists immediately after calling advance-a-day."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T15:18:22Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -2274,8 +2274,8 @@
       "Arrange/execute: For a customer whose holdings drift exceeds the configured threshold on at least one asset class, the service.",
       "Assert: creates a RebalancingRecommendation with proposed_actions_json containing BUY/SELL quantities that move the customer's allocation toward target."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T15:18:22Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -2289,8 +2289,8 @@
       "Arrange/execute: For a customer whose drift is within threshold on every asset class, the service.",
       "Assert: creates no recommendation (no-op)."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T15:18:22Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -2304,8 +2304,8 @@
       "Arrange/execute: For a customer with zero holdings.",
       "Assert: the service is a documented no-op, not an error, per the BRD edge-case table."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T15:18:22Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -2319,8 +2319,8 @@
       "Arrange/execute: For a customer with kyc_verified = false, the service.",
       "Assert: produces no RebalancingRecommendation even if drift exceeds threshold, enforcing the BRD's one real gating branch for the stub flag."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T15:18:22Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -2334,8 +2334,8 @@
       "Arrange/execute: A successful recommendation creation.",
       "Assert: invokes the audit-writer service exactly once with entity_type=RebalancingRecommendation."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T15:18:22Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -2349,8 +2349,8 @@
       "Arrange/execute: All proposed BUY/SELL quantities are computed using fixed-point arithmetic,.",
       "Assert: never floating-point."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T15:18:22Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -2889,8 +2889,8 @@
       "Arrange/execute: Publishing an AllocationTemplate whose allocations_json percentages do not sum to exactly 100.",
       "Assert: is rejected with a validation error and no row is written, per the BRD edge-case table."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T15:18:22Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -2904,8 +2904,8 @@
       "Arrange/execute: Publishing a RiskBandRule with fewer than 6 questions in questionnaire_json.",
       "Assert: is rejected with a validation error."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T15:18:22Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -2919,8 +2919,8 @@
       "Arrange/execute: Two concurrent publish calls for the same risk_band's next version are serialized such that exactly one succeeds and the other.",
       "Assert: raises a conflict error mapped to 409 at the API layer."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T15:18:22Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -2934,8 +2934,8 @@
       "Arrange/execute: A successful publish.",
       "Assert: invokes the audit-writer service exactly once with entity_type reflecting the rule or template published."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T15:18:22Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -2949,8 +2949,8 @@
       "Execute the scenario described: Asset-class create/update validates that code is unique before insert.",
       "Assert the described outcome is observed."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T15:18:22Z",
     "failure_reason": null,
     "failure_layer": null
   },

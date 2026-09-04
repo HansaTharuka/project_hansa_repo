@@ -6,6 +6,16 @@ All validation happens here, before `domain.goals.repository` is ever touched
 — an invalid create/edit call never persists a partial or invalid row. Dates
 are compared as `YYYY-MM-DD` strings (data-models.md §2), which sort and
 compare correctly lexicographically without parsing into a `date` object.
+
+`recompute_customer_goal_progress` (E7-S3) is the goal-progress half of the
+advance-a-day flow: it snapshots every one of `customer_id`'s goals against
+their shared portfolio value for one simulated `price_date`. Idempotency for
+a repeated `price_date` relies on `GoalProgressSnapshot`'s
+`UNIQUE(goal_id, price_date)` index, not a check-then-act read — each insert
+runs inside its own `SAVEPOINT` (`session.begin_nested()`) so a duplicate's
+`IntegrityError` rolls back only that one insert, leaving the rest of the
+caller's in-flight transaction (e.g. `holdings.service.advance_day`'s NAV
+inserts) untouched (AC4).
 """
 
 from __future__ import annotations
@@ -13,10 +23,18 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from decimal import Decimal
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from src.domain.goals.repository import create_goal, get_goal, update_goal
-from src.types.entities import Goal
+from src.domain.goals.progress import compute_percent_complete
+from src.domain.goals.repository import (
+    create_goal,
+    get_goal,
+    insert_progress_snapshot,
+    list_goals_for_customer,
+    update_goal,
+)
+from src.types.entities import Goal, GoalProgressSnapshot
 from src.types.errors import NotFoundError, ValidationError
 
 
@@ -82,6 +100,40 @@ def update_customer_goal(
         target_date=target_date,
         priority=priority,
     )
+
+
+def recompute_customer_goal_progress(
+    session: Session,
+    *,
+    customer_id: int,
+    total_holdings_value: Decimal,
+    price_date: str,
+    snapshot_at: str,
+) -> list[GoalProgressSnapshot]:
+    """Snapshot `percent_complete` for every one of `customer_id`'s goals
+    against `total_holdings_value` for `price_date` (AC1, AC2, AC3).
+
+    A goal already snapshotted for `price_date` is silently skipped (AC4) —
+    the `IntegrityError` from `GoalProgressSnapshot`'s unique index is caught
+    per-goal via a nested `SAVEPOINT`, never by rolling back the whole call.
+    """
+    snapshots: list[GoalProgressSnapshot] = []
+    for goal in list_goals_for_customer(session, customer_id):
+        percent_complete = compute_percent_complete(total_holdings_value, goal.target_amount)
+        try:
+            with session.begin_nested():
+                snapshot = insert_progress_snapshot(
+                    session,
+                    goal_id=goal.id,
+                    current_value=total_holdings_value,
+                    percent_complete=percent_complete,
+                    snapshot_at=snapshot_at,
+                    price_date=price_date,
+                )
+            snapshots.append(snapshot)
+        except IntegrityError:
+            continue
+    return snapshots
 
 
 def _validate_target_amount(target_amount: Decimal) -> None:

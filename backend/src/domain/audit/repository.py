@@ -14,8 +14,9 @@ the ORM instance's mapped `str` column in place.
 from __future__ import annotations
 
 import json
+from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import Select, func, select
 from sqlalchemy.orm import Session
 
 from src.db.models import AuditLogEntry as AuditLogEntryRow
@@ -50,18 +51,66 @@ def insert_audit_entry(
 
 
 def query_audit_entries(
-    session: Session, *, entity_type: str, start: str, end: str
+    session: Session,
+    *,
+    entity_type: str | None = None,
+    actor_id: int | None = None,
+    start: str | None = None,
+    end: str | None = None,
+    limit: int | None = None,
+    offset: int = 0,
 ) -> list[AuditLogEntryEntity]:
-    """Entries for `entity_type` within `[start, end]`, ordered by timestamp ascending."""
-    statement = (
-        select(AuditLogEntryRow)
-        .where(AuditLogEntryRow.entity_type == entity_type)
-        .where(AuditLogEntryRow.timestamp >= start)
-        .where(AuditLogEntryRow.timestamp <= end)
-        .order_by(AuditLogEntryRow.timestamp.asc())
-    )
+    """Entries matching every given filter (all optional — E3-S3 AC1, AC4),
+    ordered by timestamp ascending. `limit`/`offset` page the result; omitting
+    `limit` returns every matching row, preserving this function's original
+    unpaginated call shape (E3-S1)."""
+    statement = _apply_filters(
+        select(AuditLogEntryRow), entity_type=entity_type, actor_id=actor_id, start=start, end=end
+    ).order_by(AuditLogEntryRow.timestamp.asc())
+    if limit is not None:
+        statement = statement.limit(limit).offset(offset)
     rows = session.execute(statement).scalars().all()
     return [_to_entity(row) for row in rows]
+
+
+def count_audit_entries(
+    session: Session,
+    *,
+    entity_type: str | None = None,
+    actor_id: int | None = None,
+    start: str | None = None,
+    end: str | None = None,
+) -> int:
+    """The total row count matching the same filters `query_audit_entries`
+    accepts, ignoring `limit`/`offset` — the `AuditPage.total` field (E3-S3 AC1)."""
+    statement = _apply_filters(
+        select(func.count()).select_from(AuditLogEntryRow),
+        entity_type=entity_type,
+        actor_id=actor_id,
+        start=start,
+        end=end,
+    )
+    count: int = session.execute(statement).scalar_one()
+    return count
+
+
+def _apply_filters(
+    statement: Select[Any],
+    *,
+    entity_type: str | None,
+    actor_id: int | None,
+    start: str | None,
+    end: str | None,
+) -> Select[Any]:
+    if entity_type is not None:
+        statement = statement.where(AuditLogEntryRow.entity_type == entity_type)
+    if actor_id is not None:
+        statement = statement.where(AuditLogEntryRow.actor_id == actor_id)
+    if start is not None:
+        statement = statement.where(AuditLogEntryRow.timestamp >= start)
+    if end is not None:
+        statement = statement.where(AuditLogEntryRow.timestamp <= end)
+    return statement
 
 
 def _to_entity(row: AuditLogEntryRow) -> AuditLogEntryEntity:

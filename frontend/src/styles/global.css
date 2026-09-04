@@ -1,0 +1,170 @@
+/* WealthWise global styles — neutral, dense, data-first (specs/design/mockups/E2-S3.html
+   aesthetic direction): dark charcoal chrome, off-white surfaces, minimal color used
+   only for state (error/success), monospace for machine-readable values. */
+
+:root {
+  --color-bg: #f4f4f5;
+  --color-surface: #ffffff;
+  --color-border: #d6d6da;
+  --color-text: #1b1b1f;
+  --color-text-muted: #5c5c66;
+  --color-chrome: #26262b;
+  --color-chrome-text: #f4f4f5;
+  --color-error: #8a2b2b;
+  --color-error-bg: #fbeeee;
+  --color-error-border: #d9b3b3;
+  --color-focus: #2b5d8a;
+  --radius: 4px;
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  background: var(--color-bg);
+  color: var(--color-text);
+  line-height: 1.45;
+  font-size: 15px;
+}
+
+main {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 48px 20px 64px;
+}
+
+.panel {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 20px;
+}
+
+.field {
+  margin-bottom: 16px;
+}
+
+.field label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.field input {
+  font: inherit;
+  font-size: 14px;
+  padding: 9px 10px;
+  min-height: 40px;
+  border: 1px solid #b9b9c0;
+  border-radius: 3px;
+  background: var(--color-surface);
+  width: 100%;
+}
+
+.field input[aria-invalid='true'] {
+  border-color: var(--color-error-border);
+  background: var(--color-error-bg);
+}
+
+input:focus-visible,
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 1px;
+}
+
+button {
+  font: inherit;
+  font-size: 14px;
+  min-height: 40px;
+  padding: 8px 16px;
+  border: 1px solid var(--color-chrome);
+  background: var(--color-chrome);
+  color: #fff;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.panel form button[type='submit'] {
+  width: 100%;
+}
+
+button[disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.error-message {
+  background: var(--color-error-bg);
+  border: 1px solid var(--color-error-border);
+  color: var(--color-error);
+  border-radius: 3px;
+  padding: 10px 12px;
+  font-size: 13px;
+  margin-bottom: 14px;
+  font-weight: 600;
+}
+
+header.app-header {
+  background: var(--color-chrome);
+  color: var(--color-chrome-text);
+  padding: 12px 20px;
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+header.app-header h1 {
+  font-size: 16px;
+  margin: 0;
+  font-weight: 600;
+}
+
+header.app-header nav {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  font-size: 13px;
+}
+
+header.app-header nav a {
+  color: var(--color-chrome-text);
+  text-decoration: none;
+}
+
+header.app-header nav a:hover {
+  text-decoration: underline;
+}
+
+header.app-header button {
+  min-height: 32px;
+  padding: 4px 10px;
+  background: transparent;
+  border-color: #55555c;
+  color: var(--color-chrome-text);
+}
+
+h2 {
+  font-size: 20px;
+  margin: 0 0 4px;
+}
+
+.sub {
+  color: var(--color-text-muted);
+  font-size: 13px;
+  margin: 0 0 20px;
+}
+
+@media (max-width: 480px) {
+  main {
+    padding: 24px 16px 48px;
+  }
+}

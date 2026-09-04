@@ -1,0 +1,379 @@
+{
+  "group": "E",
+  "stories": [
+    "E2-S3",
+    "E3-S3",
+    "E4-S2",
+    "E6-S4",
+    "E7-S3",
+    "E8-S2",
+    "E10-S2"
+  ],
+  "features": [
+    "F031", "F032", "F033", "F034", "F035",
+    "F046", "F047", "F048", "F049", "F050",
+    "F061", "F062", "F063", "F064", "F065", "F066",
+    "F112", "F113", "F114", "F115", "F116",
+    "F132", "F133", "F134", "F135", "F136",
+    "F152", "F153", "F154", "F155", "F156", "F157",
+    "F193", "F194", "F195", "F196", "F197"
+  ],
+  "runtime_expectations": {
+    "verification_mode": "hybrid",
+    "app_expected_running": true,
+    "health_check_required": true,
+    "reason": "This group is the first to add a frontend surface (E2-S3 stands up the entire Vite/React/TS scaffold). Backend-only AC coverage (E3-S3, E4-S2, E6-S4, E7-S3, E8-S2, E10-S2) is treated the same as Groups C/D: pytest's api/unit suites exercise the real `src.app.main.app` object through FastAPI's TestClient, which is judged live-equivalent and does not require a separately started uvicorn process to also be probed with curl. E2-S3's playwright_checks are different in kind: role-based redirect after login is an integration behavior spanning the real SPA (built and served, or `npm run dev`) talking to the real backend API (`uv run uvicorn src.app.main:app`) with a real JWT round-trip — vitest component tests (Login.test.tsx, AuthContext.test.tsx) cannot substitute for this because the redirect decision depends on the router wiring in App.tsx/router.tsx, which is not itself unit-testable in isolation. The evaluator MUST start both processes for the playwright_checks section; the api_checks and unit_test_checks sections may be satisfied by the pytest suite alone."
+  },
+  "api_checks": [
+    {
+      "id": "api-e-01",
+      "method": "GET",
+      "path": "/api/audit",
+      "headers": { "Authorization": "Bearer <compliance token>" },
+      "expected_status": 200,
+      "expected_body_keys": ["total", "limit", "offset", "entries"],
+      "description": "E3-S3 AC1; api-contracts.md §13.1. Compliance-role JWT gets a paginated audit page."
+    },
+    {
+      "id": "api-e-02",
+      "method": "GET",
+      "path": "/api/audit",
+      "headers": { "Authorization": "Bearer <customer token>" },
+      "expected_status": 403,
+      "description": "E3-S3 AC2. Same for advisor- and admin-role tokens against the same path."
+    },
+    {
+      "id": "api-e-03",
+      "method": "POST",
+      "path": "/api/audit",
+      "headers": { "Authorization": "Bearer <compliance token>" },
+      "body": {},
+      "expected_status": 405,
+      "description": "E3-S3 AC3. No write verb is registered on /api/audit; POST/PUT/PATCH/DELETE all return 405, not 404 or 403 — the route exists, the method does not."
+    },
+    {
+      "id": "api-e-04",
+      "method": "GET",
+      "path": "/api/audit?entity_type=RiskBandAssignment",
+      "headers": { "Authorization": "Bearer <compliance token>" },
+      "expected_status": 200,
+      "description": "E3-S3 AC4. Every returned entry has entity_type == 'RiskBandAssignment' exactly, none of the other 8 entity types leak in."
+    },
+    {
+      "id": "api-e-05",
+      "method": "GET",
+      "path": "/api/audit",
+      "headers": {},
+      "expected_status": 401,
+      "description": "E3-S3 AC5. No Authorization header."
+    },
+    {
+      "id": "api-e-06",
+      "method": "GET",
+      "path": "/api/holdings",
+      "headers": { "Authorization": "Bearer <customer token with holdings>" },
+      "expected_status": 200,
+      "expected_body_keys": ["as_of_date", "total_value", "threshold_bps", "threshold_percent", "holdings"],
+      "description": "E6-S4 AC1; api-contracts.md §8.1. Current holdings and drift per asset class."
+    },
+    {
+      "id": "api-e-07",
+      "method": "POST",
+      "path": "/api/admin/advance-day",
+      "headers": { "Authorization": "Bearer <admin token>" },
+      "expected_status": 200,
+      "expected_body_keys": ["price_date", "nav_snapshots_created", "holdings_revalued", "goal_snapshots_created", "rebalancing_recommendations_created"],
+      "description": "E6-S4 AC2; api-contracts.md §12.1. First call for a new simulated day succeeds and returns the response shape shared with E7-S3/E8-S2's counts."
+    },
+    {
+      "id": "api-e-08",
+      "method": "POST",
+      "path": "/api/admin/advance-day",
+      "headers": { "Authorization": "Bearer <customer token>" },
+      "expected_status": 403,
+      "description": "E6-S4 AC3. Same for an advisor-role token."
+    },
+    {
+      "id": "api-e-09",
+      "method": "POST",
+      "path": "/api/admin/advance-day",
+      "headers": { "Authorization": "Bearer <admin token>" },
+      "expected_status": 409,
+      "description": "E6-S4 AC4. Second immediate call for the same simulated day maps ConflictError(DAY_ALREADY_ADVANCED) to 409; no duplicate NavSnapshot rows are created either way."
+    },
+    {
+      "id": "api-e-10",
+      "method": "GET",
+      "path": "/api/holdings",
+      "headers": { "Authorization": "Bearer <customer token with zero holdings>" },
+      "expected_status": 200,
+      "expected_body": { "as_of_date": null, "total_value": "0.00", "holdings": [] },
+      "description": "E6-S4 AC5. Empty holdings is a 200 with an empty list, not an error."
+    }
+  ],
+  "playwright_checks": [
+    {
+      "id": "pw-e-01",
+      "description": "E2-S3 AC1 (customer). Valid customer credentials navigate to the customer dashboard.",
+      "url": "/login",
+      "steps": [
+        { "action": "fill", "selector": "#email", "value": "<seeded customer email>" },
+        { "action": "fill", "selector": "#password", "value": "<seeded customer password>" },
+        { "action": "click", "selector": "button[type=submit]" },
+        { "action": "wait_for", "assertion": "URL matches /customer/dashboard (or the route App.tsx/router.tsx assigns the customer role)" }
+      ]
+    },
+    {
+      "id": "pw-e-02",
+      "description": "E2-S3 AC1 (advisor). Valid advisor credentials navigate to the advisor customer list.",
+      "url": "/login",
+      "steps": [
+        { "action": "fill", "selector": "#email", "value": "<seeded advisor email>" },
+        { "action": "fill", "selector": "#password", "value": "<seeded advisor password>" },
+        { "action": "click", "selector": "button[type=submit]" },
+        { "action": "wait_for", "assertion": "URL matches the advisor customer-list route" }
+      ]
+    },
+    {
+      "id": "pw-e-03",
+      "description": "E2-S3 AC1 (admin and compliance). Valid admin credentials land on the admin console; valid compliance credentials land on the audit-log screen.",
+      "url": "/login",
+      "steps": [
+        { "action": "fill", "selector": "#email", "value": "<seeded admin email>" },
+        { "action": "fill", "selector": "#password", "value": "<seeded admin password>" },
+        { "action": "click", "selector": "button[type=submit]" },
+        { "action": "wait_for", "assertion": "URL matches the admin console route" },
+        { "action": "navigate", "value": "/login" },
+        { "action": "fill", "selector": "#email", "value": "<seeded compliance email>" },
+        { "action": "fill", "selector": "#password", "value": "<seeded compliance password>" },
+        { "action": "click", "selector": "button[type=submit]" },
+        { "action": "wait_for", "assertion": "URL matches the compliance audit-log route" }
+      ]
+    },
+    {
+      "id": "pw-e-04",
+      "description": "E2-S3 AC2. Invalid credentials show an inline error and do not navigate.",
+      "url": "/login",
+      "steps": [
+        { "action": "fill", "selector": "#email", "value": "<seeded customer email>" },
+        { "action": "fill", "selector": "#password", "value": "wrong-password" },
+        { "action": "click", "selector": "button[type=submit]" },
+        { "action": "assert_visible", "selector": "[role=alert]", "assertion": "Inline error is visible, e.g. containing INVALID_CREDENTIALS text" },
+        { "action": "assert_url", "assertion": "URL is still /login — no navigation occurred" }
+      ]
+    },
+    {
+      "id": "pw-e-05",
+      "description": "E2-S3 AC3. Email and password inputs are labeled elements associated via for/id.",
+      "url": "/login",
+      "steps": [
+        { "action": "snapshot", "assertion": "label[for=email] exists and points at input#email; label[for=password] exists and points at input#password" }
+      ]
+    },
+    {
+      "id": "pw-e-06",
+      "description": "E2-S3 AC4 + AC5. JWT is stored client-side, attached as a Bearer token on subsequent calls, and survives a page refresh without forcing re-login within the token's validity window.",
+      "url": "/login",
+      "steps": [
+        { "action": "fill", "selector": "#email", "value": "<seeded customer email>" },
+        { "action": "fill", "selector": "#password", "value": "<seeded customer password>" },
+        { "action": "click", "selector": "button[type=submit]" },
+        { "action": "wait_for", "assertion": "landing route reached" },
+        { "action": "assert_network_header", "assertion": "the next authenticated API request (e.g. GET /api/auth/me or GET /api/holdings) carries Authorization: Bearer <token>" },
+        { "action": "reload" },
+        { "action": "assert_url", "assertion": "still on an authenticated route, not redirected back to /login" }
+      ]
+    }
+  ],
+  "design_checks": {
+    "visual_hierarchy": { "required": true, "min_score": 6 },
+    "accessibility": { "required": true, "min_score": 7 },
+    "responsiveness": { "required": true, "min_score": 6 },
+    "interaction_feedback": { "required": true, "min_score": 6 },
+    "viewports": [1280, 375],
+    "mockup_reference": "specs/design/mockups/E2-S3.html",
+    "notes": "Login is the only UI surface this group ships (Dashboard/Questionnaire/etc. land in later groups and only need a stub route for the redirect target to resolve). At 1280px: centered single-column form, no dead whitespace sprawl. At 375px: form remains single-column, no horizontal scroll, tap targets (email/password/submit) at least 40px tall. accessibility carries the highest bar (7) because E2-S3 AC3 is an explicit, testable acceptance criterion (for/id label association), not just a design nicety — visible :focus outline on inputs and the submit button is part of that bar. The design-critic should score against the mockup's aesthetic direction, not against the mockup's literal markup — production code is not expected to reuse the mockup's inline <style> block verbatim."
+  },
+  "performance_checks": [],
+  "architecture_checks": {
+    "files_must_exist": [
+      "frontend/src/main.tsx",
+      "frontend/src/App.tsx",
+      "frontend/src/router.tsx",
+      "frontend/src/pages/Login.tsx",
+      "frontend/src/auth/AuthContext.tsx",
+      "frontend/src/auth/ProtectedRoute.tsx",
+      "frontend/src/auth/roleRedirect.ts",
+      "frontend/src/api/client.ts",
+      "frontend/src/api/auth.ts",
+      "frontend/src/components/Layout.tsx",
+      "frontend/src/components/NavBar.tsx",
+      "frontend/src/components/LabeledField.tsx",
+      "frontend/src/components/ErrorMessage.tsx",
+      "frontend/src/styles/global.css",
+      "frontend/index.html",
+      "frontend/package.json",
+      "frontend/vite.config.ts",
+      "frontend/tsconfig.json",
+      "frontend/eslint.config.js",
+      "frontend/src/test/setup.ts",
+      "frontend/src/pages/Login.test.tsx",
+      "frontend/src/auth/AuthContext.test.tsx",
+      "frontend/src/auth/roleRedirect.test.ts",
+      "frontend/src/api/client.test.ts",
+      "backend/src/app/routers/audit.py",
+      "backend/tests/api/test_audit_api.py",
+      "backend/src/domain/risk_profile/scoring.py",
+      "backend/src/domain/risk_profile/service.py",
+      "backend/tests/unit/test_risk_scoring.py",
+      "backend/tests/unit/test_risk_profile_service.py",
+      "backend/src/app/routers/holdings.py",
+      "backend/src/app/routers/admin.py",
+      "backend/tests/api/test_holdings_api.py",
+      "backend/tests/api/test_advance_day_api.py",
+      "backend/src/domain/goals/progress.py",
+      "backend/tests/unit/test_goal_progress.py",
+      "backend/src/domain/rebalancing/engine.py",
+      "backend/src/domain/rebalancing/service.py",
+      "backend/tests/unit/test_rebalancing_engine.py",
+      "backend/tests/unit/test_rebalancing_service.py",
+      "backend/src/domain/admin/service.py",
+      "backend/tests/unit/test_admin_publish_service.py"
+    ],
+    "typing": {
+      "required": true,
+      "traces": ["E3-S3 AC1-AC5", "E4-S2 AC1-AC6", "E6-S4 AC1-AC5", "E7-S3 AC1-AC5", "E8-S2 AC1-AC6", "E10-S2 AC1-AC5"],
+      "features": ["F046", "F061", "F112", "F132", "F152", "F193"],
+      "command": "cd backend && uv run mypy src/",
+      "description": "mypy exits 0 across src/ including this group's 6 new backend modules and 2 extended router-registration points in app/main.py."
+    },
+    "frontend_typing": {
+      "required": true,
+      "traces": ["E2-S3 AC1-AC5"],
+      "features": ["F031"],
+      "command": "cd frontend && npm run typecheck",
+      "description": "First frontend TypeScript check in the pipeline. tsc --noEmit (or the project's equivalent script) exits 0 with zero `any` per CLAUDE.md's static-typing rule; entities.ts from E1-S1 (Group A) is the only pre-existing frontend type source this group's new files may import from."
+    },
+    "frontend_lint": {
+      "required": true,
+      "traces": ["E2-S3 AC1-AC5"],
+      "features": ["F031"],
+      "command": "cd frontend && npm run lint",
+      "description": "ESLint clean on all new frontend/src files, using the eslint.config.js this story itself creates."
+    },
+    "layering": {
+      "required": true,
+      "traces": [
+        "system-design.md §2.1's directory-to-layer table",
+        "system-design.md D3 ('Routers may not import repositories')",
+        "folder-structure.md §4"
+      ],
+      "features": ["F046", "F112"],
+      "command": "rg -n \"^\\s*(from|import)\\s+(src\\.)?app\\b\" backend/src/domain backend/src/db ; rg -n \"^\\s*(from|import)\\s+(src\\.)?domain\\.[a-z_]+\\.(repository|threshold_repository)\\b\" backend/src/app ; rg -n \"^\\s*(from|import)\\s+(src\\.)?db\\.models\\b\" backend/src/app ; rg -n \"raise HTTPException\" backend/src/domain",
+      "description": "Same four static scans carried forward unchanged. This group's two new routers (audit.py, holdings.py) and the extended admin.py must call domain/*/service.py functions only, never a repository or db.models directly, and must never raise HTTPException from inside src/domain."
+    },
+    "no_float": {
+      "required": true,
+      "traces": ["NFR-01", "E4-S2 AC5", "E7-S3 AC2", "E8-S2 AC6", "data-models.md §2 rule 2"],
+      "features": ["F065", "F133", "F157"],
+      "command": "cd backend && uv run pytest tests/architecture/test_no_float_in_domain.py",
+      "description": "Extends the existing scan to this group's three new pure-computation modules: domain/risk_profile/scoring.py (point totals and band-threshold comparisons), domain/goals/progress.py (percent_complete = current_value * 10000 / target_amount, capped at 20000 bps), and domain/rebalancing/engine.py (BUY/SELL amount and unit proposals). No float literal, float() call, or -> float annotation may appear in any of the three, or in domain/admin/service.py."
+    },
+    "audit_writer_single_call": {
+      "required": true,
+      "traces": ["E4-S2 AC4", "E8-S2 AC5", "E10-S2 AC4"],
+      "features": ["F064", "F156", "F196"],
+      "command": "cd backend && uv run pytest tests/unit/test_risk_profile_service.py tests/unit/test_rebalancing_service.py tests/unit/test_admin_publish_service.py",
+      "description": "Each of the three new/extended services (risk_profile scoring, rebalancing evaluation, admin publish) calls domain.audit.service.write_audit_entry exactly once per successful write, verified via a spy/mock asserting assert_called_once() with the correct entity_type (RiskBandAssignment, RebalancingRecommendation, and RiskBandRule/AllocationTemplate/RebalancingThreshold respectively)."
+    },
+    "goal_progress_idempotent": {
+      "required": true,
+      "traces": ["E7-S3 AC4", "data-models.md §4.8"],
+      "features": ["F135"],
+      "command": "cd backend && uv run pytest tests/unit/test_goal_progress.py",
+      "description": "Idempotency for a given price_date relies on the UNIQUE(goal_id, price_date) constraint on GoalProgressSnapshot (already migrated in Group C), not a check-then-act read; a second recompute call for the same price_date must not create a second row for the same goal."
+    },
+    "kyc_gate": {
+      "required": true,
+      "traces": ["E8-S2 AC4", "BRD §5.1 kyc_verified gating rule"],
+      "features": ["F155"],
+      "command": "cd backend && uv run pytest tests/unit/test_rebalancing_service.py -k kyc",
+      "description": "A customer with kyc_verified = false produces no RebalancingRecommendation even when drift exceeds threshold — the one real gating branch for the Customer.kyc_verified stub flag."
+    },
+    "template_sum_and_questionnaire_length": {
+      "required": true,
+      "traces": ["E10-S2 AC1", "E10-S2 AC2", "AC-02", "NFR-08"],
+      "features": ["F193", "F194"],
+      "command": "cd backend && uv run pytest tests/unit/test_admin_publish_service.py",
+      "description": "domain/admin/service.py rejects (a) an AllocationTemplate whose percent_bps do not sum to exactly 10000 and (b) a RiskBandRule with fewer than 6 questions, in both cases before any row reaches the repository — this is the service-layer gate in front of E10-S1's repository-layer/architecture-test enforcement of the same rule, not a duplicate no-op."
+    },
+    "publish_version_race": {
+      "required": true,
+      "traces": ["E10-S2 AC3", "BRD §11"],
+      "features": ["F195"],
+      "command": "cd backend && uv run pytest tests/unit/test_admin_publish_service.py -k conflict",
+      "description": "Two concurrent publish calls for the same next version are serialized so exactly one succeeds; the loser's IntegrityError (from E10-S1's UNIQUE(version) / UNIQUE(risk_band, version) constraints) is translated to ConflictError, mapped to 409 at the router layer (already-registered VERSION_CONFLICT mapping from Group D's error_handlers.py)."
+    },
+    "migrations_unchanged": {
+      "required": true,
+      "traces": ["component-map.md note 1", "NFR-05"],
+      "features": ["F188"],
+      "command": "git diff --stat <last-group-D-tip-commit>..HEAD -- backend/alembic/versions/ backend/alembic.ini backend/alembic/env.py backend/alembic/script.py.mako",
+      "description": "Must produce empty output. This group adds no new table and needs no schema change — every entity these 7 stories touch (RiskBandRule, RiskBandAssignment, Holding, NavSnapshot, Goal, GoalProgressSnapshot, RebalancingRecommendation, RebalancingThreshold, AuditLogEntry) was already migrated by Group B/C's revision chain."
+    },
+    "env_vars": {
+      "required": true,
+      "traces": ["Synthetic-Data rule (CLAUDE.md)"],
+      "features": ["F023"],
+      "command": "cd backend && uv run detect-secrets scan src seed && cd ../frontend && npx detect-secrets scan src",
+      "description": "No new, unallowlisted finding. Extended to frontend/src this group since E2-S3 is the first story to write client-side token-handling code (frontend/src/api/client.ts, frontend/src/auth/AuthContext.tsx); the JWT itself is runtime data, not a hardcoded secret, so it must not trip this scan."
+    }
+  },
+  "unit_test_checks": [
+    { "id": "ut-121", "traces": "E2-S3 AC1", "features": ["F031"], "test_file": "frontend/src/pages/Login.test.tsx, frontend/src/auth/roleRedirect.test.ts", "assertion": "roleRedirect(role) returns the correct landing path for each of customer/advisor/admin/compliance; Login.tsx calls navigate() with that path immediately after a successful login response." },
+    { "id": "ut-122", "traces": "E2-S3 AC2", "features": ["F032"], "test_file": "frontend/src/pages/Login.test.tsx", "assertion": "Submitting the form with a mocked 401 INVALID_CREDENTIALS response renders an inline error message and does not call navigate()." },
+    { "id": "ut-123", "traces": "E2-S3 AC3", "features": ["F033"], "test_file": "frontend/src/pages/Login.test.tsx", "assertion": "The rendered DOM has label[for=email]/input#email and label[for=password]/input#password pairs (queried via getByLabelText, not getByTestId)." },
+    { "id": "ut-124", "traces": "E2-S3 AC4", "features": ["F034"], "test_file": "frontend/src/auth/AuthContext.test.tsx, frontend/src/api/client.test.ts", "assertion": "After a successful login, the token is persisted (localStorage or equivalent) and api/client.ts's request wrapper attaches Authorization: Bearer <token> to a subsequent call, verified by inspecting the mocked fetch/axios call's headers." },
+    { "id": "ut-125", "traces": "E2-S3 AC5", "features": ["F035"], "test_file": "frontend/src/auth/AuthContext.test.tsx", "assertion": "Re-initializing AuthContext with a token already present in storage restores the authenticated session (calls GET /api/auth/me) without redirecting to /login, so a page refresh mid-session does not force re-login." },
+    { "id": "ut-126", "traces": "E3-S3 AC1", "features": ["F046"], "test_file": "backend/tests/api/test_audit_api.py", "assertion": "GET /api/audit with a compliance token and actor_id/entity_type/from/to query params returns 200 with a body matching AuditPage's total/limit/offset/entries shape, entries filtered to the given params." },
+    { "id": "ut-127", "traces": "E3-S3 AC2", "features": ["F047"], "test_file": "backend/tests/api/test_audit_api.py", "assertion": "GET /api/audit with a customer-, advisor-, or admin-role token each return 403 ROLE_NOT_PERMITTED (parametrized over the three roles)." },
+    { "id": "ut-128", "traces": "E3-S3 AC3", "features": ["F048"], "test_file": "backend/tests/api/test_audit_api.py", "assertion": "POST, PUT, PATCH, and DELETE to /api/audit each return 405 (FastAPI's own method-not-allowed on a route with only GET registered), not 404 or 403." },
+    { "id": "ut-129", "traces": "E3-S3 AC4", "features": ["F049"], "test_file": "backend/tests/api/test_audit_api.py", "assertion": "GET /api/audit?entity_type=RiskBandAssignment against a seeded/audited fixture containing multiple entity_types returns only RiskBandAssignment rows; the other 8 entity_type values in AuditLogEntry's CHECK set are all present in the fixture and all excluded from this response." },
+    { "id": "ut-130", "traces": "E3-S3 AC5", "features": ["F050"], "test_file": "backend/tests/api/test_audit_api.py", "assertion": "GET /api/audit with no Authorization header returns 401 TOKEN_MISSING." },
+    { "id": "ut-131", "traces": "E4-S2 AC1", "features": ["F061"], "test_file": "backend/tests/unit/test_risk_scoring.py", "assertion": "score_answers(answers, rule) called twice with the identical answers dict returns the identical risk_band string both times." },
+    { "id": "ut-132", "traces": "E4-S2 AC2", "features": ["F062"], "test_file": "backend/tests/unit/test_risk_scoring.py, backend/tests/unit/test_risk_profile_service.py", "assertion": "Submitting fewer answers than the active questionnaire's question count raises ValidationError (INCOMPLETE_QUESTIONNAIRE); no RiskBandAssignment or RiskProfileAnswer row is persisted." },
+    { "id": "ut-133", "traces": "E4-S2 AC3", "features": ["F063"], "test_file": "backend/tests/unit/test_risk_profile_service.py", "assertion": "A successful submit_risk_profile call inserts one RiskBandAssignment row with customer_id, risk_band, rule_version, and assigned_at all correctly populated, readable back via the repository." },
+    { "id": "ut-134", "traces": "E4-S2 AC4", "features": ["F064"], "test_file": "backend/tests/unit/test_risk_profile_service.py", "assertion": "A successful call invokes the audit-writer exactly once with entity_type='RiskBandAssignment' (MagicMock spy, assert_called_once())." },
+    { "id": "ut-135", "traces": "E4-S2 AC5", "features": ["F065"], "test_file": "backend/tests/unit/test_risk_scoring.py", "assertion": "No float type appears anywhere in score_answers's point totals, thresholds, or return value; type() introspection confirms int/Decimal only." },
+    { "id": "ut-136", "traces": "E4-S2 AC6", "features": ["F066"], "test_file": "backend/tests/unit/test_risk_profile_service.py", "assertion": "Submitting a full answer set twice for the same customer inserts two distinct RiskBandAssignment rows (distinct ids, both queryable); the first row's fields are unchanged after the second submit." },
+    { "id": "ut-137", "traces": "E6-S4 AC1", "features": ["F112"], "test_file": "backend/tests/api/test_holdings_api.py", "assertion": "GET /api/holdings for a customer with seeded holdings returns 200 with holdings[] entries each containing current_value, current_percent, target_percent, drift_percent, exceeds_threshold matching drift.py's computation." },
+    { "id": "ut-138", "traces": "E6-S4 AC2", "features": ["F113"], "test_file": "backend/tests/api/test_advance_day_api.py", "assertion": "POST /api/admin/advance-day with an admin token returns 200 with price_date equal to the day after the previously latest NavSnapshot date." },
+    { "id": "ut-139", "traces": "E6-S4 AC3", "features": ["F114"], "test_file": "backend/tests/api/test_advance_day_api.py", "assertion": "POST /api/admin/advance-day with a customer-role token and, separately, an advisor-role token, both return 403 ROLE_NOT_PERMITTED." },
+    { "id": "ut-140", "traces": "E6-S4 AC4", "features": ["F115"], "test_file": "backend/tests/api/test_advance_day_api.py", "assertion": "Two POST /api/admin/advance-day calls in immediate succession: first returns 200, second returns 409 DAY_ALREADY_ADVANCED; the NavSnapshot table has no duplicate (asset_class_id, price_date) rows after both calls." },
+    { "id": "ut-141", "traces": "E6-S4 AC5", "features": ["F116"], "test_file": "backend/tests/api/test_holdings_api.py", "assertion": "GET /api/holdings for a customer with zero Holding rows returns 200 with holdings: [], total_value: '0.00', as_of_date: null — not a 404 or 500." },
+    { "id": "ut-142", "traces": "E7-S3 AC1", "features": ["F132"], "test_file": "backend/tests/unit/test_goal_progress.py", "assertion": "After one advance_day() call, every active Goal for a customer with holdings has exactly one new GoalProgressSnapshot, timestamped to the call's snapshot_at." },
+    { "id": "ut-143", "traces": "E7-S3 AC2", "features": ["F133"], "test_file": "backend/tests/unit/test_goal_progress.py", "assertion": "compute_percent_complete(current_value, target_amount) == round_half_up(current_value * 10000 / target_amount) bps, capped at 20000 (200.00%); a current_value far exceeding target_amount is capped, not left unbounded." },
+    { "id": "ut-144", "traces": "E7-S3 AC3", "features": ["F134"], "test_file": "backend/tests/unit/test_goal_progress.py", "assertion": "compute_percent_complete(0, target_amount) returns 0 without raising ZeroDivisionError or any other exception." },
+    { "id": "ut-145", "traces": "E7-S3 AC4", "features": ["F135"], "test_file": "backend/tests/unit/test_goal_progress.py", "assertion": "Calling the recompute step twice for the same price_date does not create a second GoalProgressSnapshot row for the same goal_id (relies on UNIQUE(goal_id, price_date))." },
+    { "id": "ut-146", "traces": "E7-S3 AC5", "features": ["F136"], "test_file": "backend/tests/unit/test_advance_day.py, backend/tests/unit/test_goal_progress.py", "assertion": "Calling holdings/service.py's advance_day() end-to-end asserts a new GoalProgressSnapshot exists for a seeded active goal immediately afterward, with no separate manual recompute call in the test." },
+    { "id": "ut-147", "traces": "E8-S2 AC1", "features": ["F152"], "test_file": "backend/tests/unit/test_rebalancing_engine.py, backend/tests/unit/test_rebalancing_service.py", "assertion": "A customer with at least one asset class's drift exceeding the active threshold gets one RebalancingRecommendation with proposed_actions_json containing BUY/SELL entries whose amounts move current_percent toward target_percent." },
+    { "id": "ut-148", "traces": "E8-S2 AC2", "features": ["F153"], "test_file": "backend/tests/unit/test_rebalancing_service.py", "assertion": "A customer whose drift is within threshold on every held asset class produces no RebalancingRecommendation row (no-op, not an empty-actions row)." },
+    { "id": "ut-149", "traces": "E8-S2 AC3", "features": ["F154"], "test_file": "backend/tests/unit/test_rebalancing_service.py", "assertion": "A customer with zero Holding rows is a documented no-op — the service returns without raising and without inserting a recommendation." },
+    { "id": "ut-150", "traces": "E8-S2 AC4", "features": ["F155"], "test_file": "backend/tests/unit/test_rebalancing_service.py", "assertion": "A customer with kyc_verified = false and drift exceeding threshold on every asset class still produces no RebalancingRecommendation." },
+    { "id": "ut-151", "traces": "E8-S2 AC5", "features": ["F156"], "test_file": "backend/tests/unit/test_rebalancing_service.py", "assertion": "A successful recommendation-creating call invokes the audit-writer exactly once with entity_type='RebalancingRecommendation' (spy, assert_called_once())." },
+    { "id": "ut-152", "traces": "E8-S2 AC6", "features": ["F157"], "test_file": "backend/tests/unit/test_rebalancing_engine.py", "assertion": "No float type appears in any proposed BUY/SELL amount, unit, or drift_percent value returned by engine.py; type() introspection confirms Decimal/int only." },
+    { "id": "ut-153", "traces": "E10-S2 AC1", "features": ["F193"], "test_file": "backend/tests/unit/test_admin_publish_service.py", "assertion": "publish_allocation_template with percent_bps summing to 9900 or 10100 raises ValidationError (TEMPLATE_SUM_INVALID) and no AllocationTemplate row is written." },
+    { "id": "ut-154", "traces": "E10-S2 AC2", "features": ["F194"], "test_file": "backend/tests/unit/test_admin_publish_service.py", "assertion": "publish_risk_band_rule with a questionnaire_json containing fewer than 6 questions raises ValidationError (QUESTIONNAIRE_TOO_SHORT) and no RiskBandRule row is written." },
+    { "id": "ut-155", "traces": "E10-S2 AC3", "features": ["F195"], "test_file": "backend/tests/unit/test_admin_publish_service.py", "assertion": "Two publish calls racing for the same risk_band's next version: the loser's repository-level IntegrityError is caught and re-raised as ConflictError; exactly one of the two calls succeeds." },
+    { "id": "ut-156", "traces": "E10-S2 AC4", "features": ["F196"], "test_file": "backend/tests/unit/test_admin_publish_service.py", "assertion": "Each of publish_risk_band_rule, publish_allocation_template, and publish_rebalancing_threshold invokes the audit-writer exactly once with entity_type matching the published entity (spy, assert_called_once())." },
+    { "id": "ut-157", "traces": "E10-S2 AC5", "features": ["F197"], "test_file": "backend/tests/unit/test_admin_publish_service.py", "assertion": "create_asset_class / update_asset_class with a code already used by another asset class raises a conflict (DUPLICATE_ASSET_CLASS_CODE) before any insert/update reaches the repository." }
+  ],
+  "notes": [
+    "1. E2-S3 is the pivot point of the whole build: every later UI group (F/G/H) depends on the scaffold this story creates (main.tsx, router.tsx, AuthContext, api/client.ts, Layout/NavBar/LabeledField/ErrorMessage). The generator should treat file ownership here as strict and singular — no other Group E story touches frontend/ at all, so there is no cross-teammate contention on any frontend file this group.",
+    "2. Backend file contention within this group: backend/src/domain/holdings/service.py's advance_day() function is extended by BOTH E7-S3 (invoke goal-progress recompute) and E8-S2 (invoke rebalancing evaluation) — component-map.md lists both as 'Modifies' on the same file. The generator's dependency handshake for this group should sequence these two (or designate one as integrator) rather than spawning both against advance_day() in parallel, to avoid a merge conflict inside one function body. E6-S4's routers/admin.py only calls advance_day(); it does not need to touch holdings/service.py itself.",
+    "3. E3-S3 and E6-S4 both modify backend/src/app/main.py (new router registration) and backend/src/app/error_handlers.py (E6-S4 needs DAY_ALREADY_ADVANCED -> 409, already partially scaffolded in Group D's error_handlers.py per D.json's file list). Treat main.py as an integration point: each router's registration is a one-line addition, low collision risk, but should still land in a single commit per the file-ownership discipline.",
+    "4. playwright_checks pw-e-01 through pw-e-03 assume specific route paths (e.g. /customer/dashboard) inferred from story text and component-map.md file names (Dashboard.tsx, CustomerList.tsx, AdminHome.tsx, AuditLog.tsx), none of which are finalized until E2-S3's router.tsx is actually written. The evaluator should treat the exact path string as flexible and verify the *persona-to-screen mapping*, not a hardcoded URL, unless the generator's router.tsx fixes a specific convention worth pinning down in a follow-up contract revision.",
+    "5. Landing screens for customer/advisor/admin/compliance beyond Login itself (Dashboard, CustomerList, AdminHome, AuditLog) do not have their own stories in this group — E4-S4, E9-S4, E10-S4, E3-S4 build the real versions later. E2-S3's router.tsx therefore only needs a placeholder/stub route at each landing path sufficient to prove the redirect lands correctly; a fully-featured dashboard is out of scope for this group's contract and must not be scored as missing functionality here.",
+    "6. No new Alembic migration and no new append-only architecture-test case is required this group — every table these 7 stories touch was migrated in Group B/C, and E10-S2 is a service-layer story sitting entirely on top of E10-S1's already-tested (Group D) append-only repository guarantees."
+  ]
+}

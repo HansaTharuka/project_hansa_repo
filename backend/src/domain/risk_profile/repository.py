@@ -89,6 +89,23 @@ def insert_answers(
     return [_answer_to_entity(row) for row in rows]
 
 
+def insert_assignment(
+    session: Session, *, customer_id: int, risk_band: str, rule_version: int, assigned_at: str
+) -> RiskBandAssignmentEntity:
+    """Insert one append-only `RiskBandAssignment` row (E4-S2 AC3, AC6). A
+    re-submission always inserts a new row; no `update_*` function for this
+    table exists anywhere in this module."""
+    row = RiskBandAssignmentRow(
+        customer_id=customer_id,
+        risk_band=risk_band,
+        rule_version=rule_version,
+        assigned_at=assigned_at,
+    )
+    session.add(row)
+    session.flush()
+    return _assignment_to_entity(row)
+
+
 def get_latest_assignment(session: Session, customer_id: int) -> RiskBandAssignmentEntity | None:
     """The customer's most recent `RiskBandAssignment`, or `None` if never assigned."""
     statement = (

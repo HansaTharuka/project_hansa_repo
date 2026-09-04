@@ -33,6 +33,13 @@ def get_customer_by_user_id(session: Session, user_id: int) -> Customer | None:
     return session.execute(statement).scalar_one_or_none()
 
 
+def get_customer_by_id(session: Session, customer_id: int) -> Customer | None:
+    """Look up a customer profile by its own primary key (e.g. the
+    `kyc_verified` gate `domain.rebalancing.service` checks, E8-S2 AC4)."""
+    statement = select(Customer).where(Customer.id == customer_id)
+    return session.execute(statement).scalar_one_or_none()
+
+
 def create_user(
     session: Session, *, email: str, password_hash: str, role: str, created_at: str
 ) -> User:
