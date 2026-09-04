@@ -53,7 +53,18 @@ class ConflictError(DomainError):
 
 
 class AuthenticationError(DomainError):
-    """Unknown email or wrong password — deliberately indistinguishable to the
-    caller (401). E2-S1 AC2: raised identically for both failure modes."""
+    """Unknown email or wrong password, or a missing/malformed/expired token
+    on a protected endpoint (401). E2-S1 AC2: an unknown email and a wrong
+    password are raised identically. `code` is narrowed per api-contracts.md
+    §1.4 by the raising call site: `INVALID_CREDENTIALS` (login),
+    `TOKEN_MISSING`, `TOKEN_EXPIRED`, `TOKEN_INVALID` (the `require_role`
+    dependency, E2-S2 AC5)."""
 
     default_code: ClassVar[str] = "INVALID_CREDENTIALS"
+
+
+class AuthorizationError(DomainError):
+    """Authenticated, but the caller's role is not permitted for this endpoint
+    (403) — system-design.md §9.2, the `require_role` dependency."""
+
+    default_code: ClassVar[str] = "ROLE_NOT_PERMITTED"

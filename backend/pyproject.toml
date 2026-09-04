@@ -62,5 +62,11 @@ select = ["E", "F", "I", "N", "UP", "B", "ANN"]
 [tool.ruff.lint.isort]
 known-first-party = ["src"]
 
+# FastAPI's `Depends(...)`/`require_role(...)` default-argument idiom is the
+# framework's sanctioned dependency-injection mechanism, not the mutable-default
+# footgun B008 exists to catch (E2-S2, `app/dependencies.py`).
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = ["fastapi.Depends", "src.app.dependencies.require_role"]
+
 [tool.coverage.run]
 source = ["src"]

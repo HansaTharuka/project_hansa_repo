@@ -88,6 +88,24 @@ def test_decode_access_token_rejects_a_token_past_its_expiry() -> None:
         decode_access_token(token, secret=TEST_SECRET)
 
 
+def test_create_access_token_includes_customer_id_claim_when_given() -> None:
+    token = create_access_token(
+        "3", "customer", expiry_minutes=60, secret=TEST_SECRET, customer_id=17
+    )
+
+    decoded = decode_access_token(token, secret=TEST_SECRET)
+
+    assert decoded["customer_id"] == 17
+
+
+def test_create_access_token_omits_customer_id_claim_when_not_given() -> None:
+    token = create_access_token("9", "admin", expiry_minutes=60, secret=TEST_SECRET)
+
+    decoded = decode_access_token(token, secret=TEST_SECRET)
+
+    assert "customer_id" not in decoded
+
+
 def test_decode_access_token_rejects_a_token_signed_with_a_different_secret() -> None:
     token = create_access_token("1", "customer", expiry_minutes=60, secret=TEST_SECRET)
 

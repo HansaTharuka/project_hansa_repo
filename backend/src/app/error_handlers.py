@@ -11,7 +11,14 @@ from __future__ import annotations
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
-from src.types.errors import ConflictError, DomainError, NotFoundError, ValidationError
+from src.types.errors import (
+    AuthenticationError,
+    AuthorizationError,
+    ConflictError,
+    DomainError,
+    NotFoundError,
+    ValidationError,
+)
 
 
 def register_error_handlers(app: FastAPI) -> None:
@@ -31,6 +38,20 @@ def register_error_handlers(app: FastAPI) -> None:
     async def _handle_conflict_error(request: Request, exc: ConflictError) -> JSONResponse:
         del request
         return _envelope(409, exc)
+
+    @app.exception_handler(AuthenticationError)
+    async def _handle_authentication_error(
+        request: Request, exc: AuthenticationError
+    ) -> JSONResponse:
+        del request
+        return _envelope(401, exc)
+
+    @app.exception_handler(AuthorizationError)
+    async def _handle_authorization_error(
+        request: Request, exc: AuthorizationError
+    ) -> JSONResponse:
+        del request
+        return _envelope(403, exc)
 
     @app.exception_handler(Exception)
     async def _handle_unexpected_error(request: Request, exc: Exception) -> JSONResponse:

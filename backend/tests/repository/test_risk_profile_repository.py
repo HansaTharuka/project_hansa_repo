@@ -8,6 +8,7 @@ from tests.factories import build_customer, build_user
 from src.domain.auth.repository import create_user
 from src.domain.risk_profile.repository import (
     get_active_rule,
+    get_latest_assignment,
     get_rule_by_version,
     insert_answers,
     publish_rule,
@@ -106,8 +107,7 @@ def test_get_active_rule_returns_exactly_one_row_the_newest(db_session: Session)
     assert active.is_active is True
 
 
-def test_repository_exposes_no_update_or_delete_function_for_risk_profile_answer(
-) -> None:
+def test_repository_exposes_no_update_or_delete_function_for_risk_profile_answer() -> None:
     import src.domain.risk_profile.repository as repository_module
 
     assert getattr(repository_module, "update_answer", None) is None
@@ -180,3 +180,38 @@ def test_each_risk_profile_answer_row_records_the_documented_fields(
     assert answers[0].question_id == "Q1"
     assert answers[0].answer_value == "low"
     assert answers[0].submitted_at == "2026-09-03T10:15:00Z"
+
+
+def test_get_latest_assignment_returns_none_when_never_assigned(db_session: Session) -> None:
+    customer_id = _seed_customer(db_session)
+
+    assert get_latest_assignment(db_session, customer_id) is None
+
+
+def test_get_latest_assignment_returns_the_most_recently_assigned_row(
+    db_session: Session,
+) -> None:
+    from sqlalchemy import text
+
+    customer_id = _seed_customer(db_session)
+    db_session.execute(
+        text(
+            "INSERT INTO risk_band_assignment (customer_id, risk_band, rule_version, assigned_at) "
+            "VALUES (:customer_id, 'CONSERVATIVE', 1, '2026-09-01T09:00:00Z')"
+        ),
+        {"customer_id": customer_id},
+    )
+    db_session.execute(
+        text(
+            "INSERT INTO risk_band_assignment (customer_id, risk_band, rule_version, assigned_at) "
+            "VALUES (:customer_id, 'AGGRESSIVE', 1, '2026-09-02T09:00:00Z')"
+        ),
+        {"customer_id": customer_id},
+    )
+    db_session.commit()
+
+    latest = get_latest_assignment(db_session, customer_id)
+
+    assert latest is not None
+    assert latest.risk_band == "AGGRESSIVE"
+    assert latest.assigned_at == "2026-09-02T09:00:00Z"

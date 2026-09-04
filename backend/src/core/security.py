@@ -29,8 +29,20 @@ def verify_password(plain: str, hashed: str) -> bool:
     return bcrypt.checkpw(plain.encode("utf-8"), hashed.encode("utf-8"))
 
 
-def create_access_token(subject: str, role: str, *, expiry_minutes: int, secret: str) -> str:
-    """Issue an HS256 JWT with `sub`, `role`, `iat` and `exp` claims."""
+def create_access_token(
+    subject: str,
+    role: str,
+    *,
+    expiry_minutes: int,
+    secret: str,
+    customer_id: int | None = None,
+) -> str:
+    """Issue an HS256 JWT with `sub`, `role`, `iat` and `exp` claims.
+
+    `customer_id` is included only when given (system-design.md §6.2: present
+    only for the `customer` role) so downstream endpoints can read it from the
+    token instead of looking it up on every request.
+    """
     issued_at = int(time.time())
     payload: dict[str, str | int] = {
         "sub": subject,
@@ -38,6 +50,8 @@ def create_access_token(subject: str, role: str, *, expiry_minutes: int, secret:
         "iat": issued_at,
         "exp": issued_at + expiry_minutes * 60,
     }
+    if customer_id is not None:
+        payload["customer_id"] = customer_id
     return jwt.encode(payload, secret, algorithm=JWT_ALGORITHM)
 
 

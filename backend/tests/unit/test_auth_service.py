@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from src.core.config import Settings
 from src.core.security import decode_access_token, hash_password
+from src.db.models import Customer
 from src.domain.auth.repository import create_user, get_user_by_email
 from src.domain.auth.service import authenticate
 from src.types.errors import AuthenticationError
@@ -57,6 +58,52 @@ def test_authenticate_with_correct_credentials_returns_a_jwt_with_sub_and_role(
     decoded = decode_access_token(result.token, secret=TEST_JWT_SECRET)
     assert decoded["sub"] == str(user_id)
     assert decoded["role"] == "advisor"
+
+
+def test_authenticate_for_a_customer_includes_customer_id_claim(db_session: Session) -> None:
+    user_id = _seed_user(db_session, email="customer.claim@wealthwise.test", role="customer")
+    customer = Customer(user_id=user_id, kyc_verified=True, created_at="2026-09-01T09:00:00Z")
+    db_session.add(customer)
+    db_session.commit()
+
+    result = authenticate(
+        db_session,
+        email="customer.claim@wealthwise.test",
+        password=KNOWN_PLAINTEXT_PASSWORD,
+        settings=_settings(),
+    )
+
+    decoded = decode_access_token(result.token, secret=TEST_JWT_SECRET)
+    assert decoded["customer_id"] == customer.id
+
+
+def test_authenticate_for_a_non_customer_role_has_no_customer_id_claim(
+    db_session: Session,
+) -> None:
+    _seed_user(db_session, email="advisor.claim@wealthwise.test", role="advisor")
+
+    result = authenticate(
+        db_session,
+        email="advisor.claim@wealthwise.test",
+        password=KNOWN_PLAINTEXT_PASSWORD,
+        settings=_settings(),
+    )
+
+    decoded = decode_access_token(result.token, secret=TEST_JWT_SECRET)
+    assert "customer_id" not in decoded
+
+
+def test_authenticate_matches_email_case_insensitively(db_session: Session) -> None:
+    _seed_user(db_session, email="mixedcase@wealthwise.test", role="advisor")
+
+    result = authenticate(
+        db_session,
+        email="MixedCase@WealthWise.Test",
+        password=KNOWN_PLAINTEXT_PASSWORD,
+        settings=_settings(),
+    )
+
+    assert result.role == "advisor"
 
 
 def test_authenticate_wrong_password_and_unknown_email_raise_the_identical_error(

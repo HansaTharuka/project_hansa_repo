@@ -1,9 +1,10 @@
 """FastAPI application factory (E1-S4).
 
-Registers the health router, the request-id/request-log middleware pair, and the
-domain error handlers. Started per project-manifest.json as
-`uv run uvicorn src.app.main:app --reload` — the module-level `app` below is that
-target. No other router is registered yet: the login endpoint is E2-S2 (group D).
+Registers the health and auth routers, the request-id/request-log middleware
+pair, and the domain error handlers. Started per project-manifest.json as
+`uv run uvicorn src.app.main:app --reload` — the module-level `app` below is
+that target. Every router beyond `/health` and `POST /api/auth/login` is
+added by its own group-E-and-later story, guarded by `app.dependencies.require_role`.
 
 `configure_logging()` runs from the ASGI lifespan's startup phase, not at
 construction time: `alembic/env.py` calls `logging.config.fileConfig()` on every
@@ -24,6 +25,7 @@ from fastapi import FastAPI
 from src.app.error_handlers import register_error_handlers
 from src.app.middleware.request_id import RequestIDMiddleware
 from src.app.middleware.request_log import RequestLogMiddleware
+from src.app.routers.auth import router as auth_router
 from src.app.routers.health import router as health_router
 from src.core.logging import configure_logging
 
@@ -39,6 +41,7 @@ def create_app() -> FastAPI:
     """Build and return the WealthWise FastAPI application."""
     app = FastAPI(title="WealthWise API", lifespan=_lifespan)
     app.include_router(health_router)
+    app.include_router(auth_router)
     # Registration order matters: Starlette wraps middleware in reverse of
     # registration order, so the LAST one added runs FIRST. RequestIDMiddleware
     # must run before RequestLogMiddleware so the request id it stamps onto
