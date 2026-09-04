@@ -1,13 +1,4 @@
-"""SQLAlchemy 2.x declarative models (data-models.md §4).
-
-This story maps only `User` and `Customer` — the two tables `domain/auth/repository.py`
-reads and writes. The full 15-table schema already exists after `alembic upgrade head`
-(the migration chain is authored in full by this story — component-map.md note 1);
-`backend/src/db/seed.py` writes its `AssetClass` and `RiskBandAssignment` rows through
-parameterized `text()` statements rather than an ORM class, because those tables'
-`Mapped`/`mapped_column` classes are added by the repository stories that own them
-(E6-S1, E4-S1 — component-map.md note 2: "modified by every repository story").
-"""
+"""User / Customer tables (data-models.md §4.1, §4.2)."""
 
 from __future__ import annotations
 

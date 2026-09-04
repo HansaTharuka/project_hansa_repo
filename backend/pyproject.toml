@@ -9,6 +9,9 @@ dependencies = [
     "sqlalchemy>=2.0",
     "alembic>=1.13",
     "bcrypt>=4.1",
+    "pyjwt>=2.13.0",
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
 ]
 
 [dependency-groups]
@@ -18,6 +21,7 @@ dev = [
     "pytest-cov>=5.0",
     "ruff>=0.6",
     "detect-secrets>=1.5",
+    "httpx>=0.27",
 ]
 
 # The project is imported as `src.<layer>.<module>` from the `backend/` root rather than

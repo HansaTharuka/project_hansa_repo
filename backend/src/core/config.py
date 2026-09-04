@@ -19,6 +19,13 @@ DEFAULT_DRIFT_THRESHOLD_PERCENT = 5
 DEFAULT_JWT_ACCESS_TOKEN_EXPIRY_MINUTES = 60
 DEFAULT_SEED_CSV_PATH = "seed"
 
+# `RebalancingThreshold.threshold_bps`'s valid range (data-models.md §4.15's CHECK
+# constraint, `threshold_bps BETWEEN 1 AND 10000`). Lives here, not in
+# `domain/rebalancing/threshold_repository.py`, so no threshold-named literal is
+# hardcoded outside config (E1-S2 AC4, test_no_drift_threshold_literal_outside_config).
+MIN_THRESHOLD_BPS = 1
+MAX_THRESHOLD_BPS = 10000
+
 
 class MissingEnvironmentVariableError(RuntimeError):
     """Raised at start-up when a required environment variable is absent or empty."""
