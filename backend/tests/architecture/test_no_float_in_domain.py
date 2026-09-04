@@ -1,8 +1,10 @@
 """NFR-01 / E1-S1 AC2 — no float anywhere in the fixed-point source trees.
 
-Scope grows with the codebase (component-map.md note 5): group A delivers
-`src/types/` and `src/core/`, so both are scanned here. E1-S3 and the domain
-stories extend SCANNED_PACKAGES to `src/db/` and `src/domain/`.
+Scope grows with the codebase (component-map.md note 5): group A delivered
+`src/types/` and `src/core/`. E1-S3 (group B) extends SCANNED_PACKAGES to `src/db/`
+and `src/domain/` — every money/percent column in `db/models.py` is an SQLAlchemy
+`Integer`/`Mapped[int]` (minor units / basis points), converted to/from `Decimal`
+only through `src/types/fixedpoint.py`, never through a Python `float` intermediate.
 """
 
 from __future__ import annotations
@@ -13,7 +15,7 @@ from pathlib import Path
 import pytest
 
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
-SCANNED_PACKAGES = ("src/types", "src/core")
+SCANNED_PACKAGES = ("src/types", "src/core", "src/db", "src/domain")
 
 
 def scanned_modules() -> list[Path]:
@@ -45,9 +47,10 @@ def test_module_contains_no_float(module: Path) -> None:
     assert float_offences(module) == []
 
 
-def test_the_scan_covers_both_group_a_source_trees() -> None:
+def test_the_scan_covers_group_a_and_group_b_source_trees() -> None:
     scanned = {path.parent.name for path in scanned_modules()}
-    assert {"types", "core"} <= scanned
+    # group A: src/types, src/core. group B (E1-S3): src/db, src/domain/auth.
+    assert {"types", "core", "db", "domain", "auth"} <= scanned
 
 
 def test_the_detector_recognises_a_float_annotation(tmp_path: Path) -> None:

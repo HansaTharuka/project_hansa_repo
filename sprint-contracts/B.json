@@ -1,0 +1,207 @@
+{
+  "group": "B",
+  "stories": ["E1-S3"],
+  "features": ["F011", "F012", "F013", "F014", "F015"],
+
+  "runtime_expectations": {
+    "verification_mode": "local",
+    "app_expected_running": false,
+    "health_check_required": false,
+    "reason": "Group B delivers the Alembic migration chain, backend/src/db (engine, session, base, models, seed) and backend/src/domain/auth/repository.py only. No FastAPI application exists until E1-S4 (group C) creates backend/src/app/main.py and GET /health. The evaluate skill's step-4 health probe MUST be skipped for this group — an unreachable http://localhost:8000/health is not a failure of this contract. Every check below runs offline: alembic against a local, disposable SQLite file, pytest against that same file or an in-memory equivalent, and mypy/ripgrep/detect-secrets against the filesystem. No network call and no running uvicorn process is required."
+  },
+
+  "api_checks": [],
+  "playwright_checks": [],
+  "design_checks": [],
+
+  "architecture_checks": {
+    "files_must_exist": [
+      "backend/alembic.ini",
+      "backend/alembic/env.py",
+      "backend/alembic/script.py.mako",
+      "backend/alembic/versions/0001_initial_users_customers.py",
+      "backend/alembic/versions/0002_audit_log.py",
+      "backend/alembic/versions/0003_risk_profile.py",
+      "backend/alembic/versions/0004_allocation_template.py",
+      "backend/alembic/versions/0005_asset_class_nav_holding.py",
+      "backend/alembic/versions/0006_goals.py",
+      "backend/alembic/versions/0007_rebalancing.py",
+      "backend/alembic/versions/0008_advisor_override.py",
+      "backend/src/db/base.py",
+      "backend/src/db/engine.py",
+      "backend/src/db/session.py",
+      "backend/src/db/models.py",
+      "backend/src/db/seed.py",
+      "backend/src/domain/auth/repository.py",
+      "backend/seed/demo_accounts.json",
+      "backend/pyproject.toml",
+      "backend/tests/conftest.py",
+      "backend/tests/factories.py",
+      "backend/tests/repository/test_migrations.py",
+      "backend/tests/repository/test_seed.py",
+      "backend/tests/repository/test_user_repository.py"
+    ],
+    "typing": {
+      "required": true,
+      "traces": ["E1-S3 AC1", "E1-S3 AC4"],
+      "features": ["F011", "F014"],
+      "command": "cd backend && uv run mypy src/db src/domain",
+      "description": "mypy exits 0 with zero errors against backend/src/db and backend/src/domain (the auth sub-package, the only domain module this group creates). Strictness comes from backend/pyproject.toml's [tool.mypy] block and may not be relaxed by per-module ignore_errors or a blanket type: ignore. SQLAlchemy 2.x declarative models must be typed via Mapped[...]/mapped_column(...), not bare/untyped Column(...) attributes, so mypy can resolve column types without a plugin beyond pydantic.mypy."
+    },
+    "layering": {
+      "required": true,
+      "traces": ["folder-structure.md §4 (Repository layer: 'May import from: types, core, db')", "NFR-08 (brd.md — architecture rules enforced as tests)"],
+      "features": ["F011", "F014"],
+      "command": "rg -n \"^\\s*(from|import)\\s+(src\\.)?app\\b\" backend/src/db backend/src/domain/auth ; rg -n \"^\\s*(from|import)\\s+(src\\.)?domain\\b\" backend/src/db",
+      "description": "Both ripgrep invocations must return no matches (exit 1). backend/src/db/ is shared repository infrastructure and may depend only on types and core, never on domain/ in any form (domain depends on db, not the reverse — a bare 'db must not import any domain submodule' scan is deliberately broader than 'db must not import a domain *service*', since even a repository-to-repository cross-import would be a layering violation not currently permitted by folder-structure.md §4). backend/src/domain/auth/ is itself a repository-layer module and may import types, core and db, but never app — no router exists yet and none of this group's code may anticipate one. The optional `src.` prefix in both patterns is load-bearing, carried forward from the import-path deviation recorded in Group A's contract (note 3a there): the delivered pyproject.toml resolves modules as `src.db.*` / `src.domain.*` from the backend/ root, not as top-level `db.*` / `domain.*` packages — a pattern anchored only on the bare package name, or only on the `src.`-prefixed name, would each miss half the real import forms and the gate would be blind. This check is a static import scan rather than a pytest run for the same reason recorded in Group A note 4: backend/tests/architecture/test_layering.py appears in folder-structure.md §2 but is attributed to no story in component-map.md."
+    },
+    "no_float": {
+      "required": true,
+      "traces": ["E1-S1 AC2 (NFR-01, extended per component-map.md note 5)", "data-models.md §2 rule 2"],
+      "features": ["F011", "F012"],
+      "command": "cd backend && uv run pytest tests/architecture/test_no_float_in_domain.py",
+      "description": "backend/tests/architecture/test_no_float_in_domain.py — authored in group A over backend/src/types and backend/src/core — gains new cases in this group covering backend/src/db and backend/src/domain (component-map.md note 5: 'each new append-only repository or new fixed-point module adds a case to the existing test module'). No float annotation, float() call or float literal appears anywhere in backend/src/db/ or backend/src/domain/auth/: every money and percent column in db/models.py is SQLAlchemy Integer/Mapped[int] (minor units / basis points per data-models.md §2), converted to/from Decimal only through backend/src/types/fixedpoint.py, never through a Python float intermediate. The module's self-check proving the detector flags a known-offending module (added at Group A sign-off) must still pass — a passing run is never vacuous."
+    },
+    "folder_structure": {
+      "required": true,
+      "traces": ["component-map.md E1-S3 row", "folder-structure.md §2"],
+      "features": ["F011", "F012", "F013", "F014", "F015"],
+      "description": "Every path in files_must_exist sits exactly where folder-structure.md §2 places it: the alembic chain under backend/alembic/versions/, shared repository infrastructure under backend/src/db/, the auth repository under backend/src/domain/auth/, and seed data under backend/seed/. No file in this group is created under backend/src/app/ or backend/src/core/ (E1-S4 and E1-S2 respectively), and backend/src/domain/ gains only the auth/ sub-package — risk_profile/, recommendation/, holdings/, rebalancing/, goals/, advisor/, admin/ and audit/ are not created here (component-map.md rows for groups C onward). backend/pyproject.toml is MODIFIED, not recreated: this group adds sqlalchemy (>=2.x) and alembic (>=1.13) as runtime dependencies to the [project.dependencies] table Group A authored (data-models.md: 'Schema managed by Alembic... ORM: SQLAlchemy 2.x'), without altering the [tool.uv] package = false / pythonpath = ['.'] import-path decision recorded in that file's own comment, and without regressing anything Group A already made pass (mypy on src/types, src/core; the env_vars scan)."
+    },
+    "migrations": {
+      "required": true,
+      "traces": ["E1-S3 AC1", "E1-S3 AC5", "data-models.md §6", "NFR-05"],
+      "features": ["F011", "F015"],
+      "command": "cd backend && uv run alembic heads && uv run alembic history --verbose",
+      "description": "`alembic heads` must print exactly one line — one head, no branch point — checkable directly from the output rather than inferred by parsing verbose history text. `alembic history --verbose` then parses the full revision chain — 0001_initial_users_customers through 0008_advisor_override — as a single linear history, exits 0, and lists all eight revisions in dependency order, matching data-models.md §6's revision-to-story table (revision id and provenance story; table creation is NOT asserted by this check, see below). 0001's down_revision is None (the root); each later revision's down_revision equals the previous revision's id. Behavioral verification — that upgrading a fresh SQLite file actually creates all 15 tables with correct PKs/FKs, and that a second upgrade is a no-op — is covered by tests/repository/test_migrations.py under unit_test_checks; this check gates only the chain's structural shape, which every later group's migrations (none exist yet — component-map.md note 1) depend on staying append-only and linear."
+    },
+    "parameterized_queries": {
+      "required": true,
+      "traces": ["E1-S3 AC4"],
+      "features": ["F014"],
+      "command": "rg -n \"f[\\\"']|%\\s*\\(|\\.format\\(\" backend/src/domain/auth/repository.py",
+      "description": "Must return no matches (exit 1). backend/src/domain/auth/repository.py contains no f-string, %-interpolation or .format() call anywhere — every query is built through SQLAlchemy ORM construction or `text()` with bound parameters, never string concatenation of a caller-supplied value into SQL text. This is a static, belt-and-suspenders complement to the runtime SQL-injection-as-literal-data tests (ut-039, ut-040), not a replacement for them: a file that passes this scan could still bind a value unsafely through a non-string-formatting path, which only the runtime tests catch."
+    },
+    "env_vars": {
+      "required": true,
+      "traces": ["E1-S2 AC4 (deployment.md §5.3), extended to this group's new files", "Synthetic-Data rule (CLAUDE.md)"],
+      "features": ["F011", "F012"],
+      "command": "cd backend && uv run detect-secrets scan src seed",
+      "description": "detect-secrets reports no finding across backend/src (now additionally covering src/db and src/domain/auth, which did not exist when Group A's scan ran) and backend/seed/ (backend/seed/demo_accounts.json is new in this group and was never in scope for Group A's `scan src .env.example`, which did not include a seed/ argument). Every seeded User.password_hash is a bcrypt hash of a synthetic placeholder password (Synthetic-Data rule) — the scan's purpose here is to catch a real-looking credential accidentally committed to demo_accounts.json or hardcoded into seed.py/engine.py, not to flag the bcrypt hashes themselves as a finding (if detect-secrets' hex/high-entropy heuristics do flag a bcrypt hash as a false positive, an inline `# pragma: allowlist secret` on that literal, consistent with detect-secrets' own suppression mechanism, is the fix — not disabling the scan)."
+    }
+  },
+
+  "unit_test_checks": [
+    {
+      "id": "ut-031",
+      "traces": "E1-S3 AC1",
+      "features": ["F011"],
+      "test_file": "backend/tests/repository/test_migrations.py",
+      "assertion": "Running `alembic upgrade head` against a fresh, empty SQLite file creates exactly one table per entity: the 14 BRD §9 entities (User, Customer, RiskProfileAnswer, RiskBandAssignment, RiskBandRule, AllocationTemplate, Goal, GoalProgressSnapshot, AssetClass, NavSnapshot, Holding, RebalancingRecommendation, AdvisorOverride, AuditLogEntry) plus RebalancingThreshold (data-models.md §4.15) — 15 tables total, introspected via SQLAlchemy's Inspector. No unexpected table (other than alembic_version) exists after upgrade."
+    },
+    {
+      "id": "ut-032",
+      "traces": "E1-S3 AC1",
+      "features": ["F011"],
+      "test_file": "backend/tests/repository/test_migrations.py",
+      "assertion": "Every foreign key in data-models.md §4 exists and targets the correct parent table/column, spot-checked exhaustively across all FK-bearing tables: Customer.user_id → User.id; RiskProfileAnswer.customer_id → Customer.id; RiskBandAssignment.customer_id → Customer.id; Goal.customer_id → Customer.id; GoalProgressSnapshot.goal_id → Goal.id; NavSnapshot.asset_class_id → AssetClass.id; Holding.customer_id → Customer.id and Holding.asset_class_id → AssetClass.id; RebalancingRecommendation.customer_id → Customer.id; AdvisorOverride.customer_id → Customer.id and AdvisorOverride.advisor_id → User.id; AuditLogEntry.actor_id → User.id. The test also asserts the two documented soft references carry NO database foreign key: AllocationTemplate has no FK to AssetClass (referenced only inside allocations_json, data-models.md §3) and RiskBandAssignment.rule_version has no FK to RiskBandRule.version — introducing either FK by mistake would break E10-S1 AC4's asset-class-rename independence and AC-10's version-pinning respectively, and would also break this group's own seed step (ut-036), which inserts rule_version = 1 before any RiskBandRule row exists."
+    },
+    {
+      "id": "ut-033",
+      "traces": "E1-S3 AC1",
+      "features": ["F011"],
+      "test_file": "backend/tests/repository/test_migrations.py",
+      "assertion": "All 15 tables have `id INTEGER PRIMARY KEY AUTOINCREMENT` (data-models.md §1) — the test introspects each table's primary-key column set and asserts it is exactly `{id}`, and that inserting two rows without specifying `id` yields distinct, increasing integer ids."
+    },
+    {
+      "id": "ut-034",
+      "traces": "E1-S3 AC1",
+      "features": ["F011"],
+      "test_file": "backend/tests/repository/test_migrations.py",
+      "assertion": "`PRAGMA foreign_keys = ON` is active on every connection opened via db/engine.py (data-models.md §1): inserting a Customer row whose user_id does not reference an existing User raises an IntegrityError rather than succeeding silently."
+    },
+    {
+      "id": "ut-035",
+      "traces": "E1-S3 AC2",
+      "features": ["F012"],
+      "test_file": "backend/tests/repository/test_seed.py",
+      "assertion": "Running the seed script against a freshly migrated database produces: 8–10 (inclusive) User rows with role='customer', each paired with exactly one Customer row (User.id == Customer.user_id, one-to-one per data-models.md §4.2, no orphan on either side); exactly 2 User rows with role='advisor'; exactly 1 with role='admin'; exactly 1 with role='compliance'; and 5–6 (inclusive) AssetClass rows, each with a distinct, non-empty `code` (data-models.md §4.9). This is baseline master-data seeding done directly by this story's seed.py; the CSV-driven loader (seed/asset_classes.csv, seed/nav_initial.csv) and per-asset-class NavSnapshot rows are added later by E6-S1 (component-map.md E6-S1 row), which this check does not require. Every seeded User.email is unique and lowercase (data-models.md §4.1)."
+    },
+    {
+      "id": "ut-036",
+      "traces": "E1-S3 AC2, data-models.md §7",
+      "features": ["F012"],
+      "test_file": "backend/tests/repository/test_seed.py",
+      "assertion": "Every seeded customer has exactly one RiskBandAssignment row — data-models.md §7's seed-volume table states `RiskBandAssignment | 1 per customer | rule_version = 1` explicitly, so a customer with zero or more than one assignment row fails the test. Each row carries `rule_version = 1` as a soft reference (data-models.md §4.4, no FK — see ut-032) — no RiskBandRule row is required to exist yet for this to hold, since RiskBandRule version 1 is seeded later by E4-S1. The union of `risk_band` values across all seeded customers' assignments is exactly {CONSERVATIVE, MODERATE, AGGRESSIVE} — each band is the current band (latest RiskBandAssignment by `assigned_at DESC, id DESC` per data-models.md §5) for at least one customer, satisfying E1-S3 AC2's 'spanning all three risk bands' text and BRD §9's identical seed-data-volume line. See note 2 for why this is a real database row rather than an intent tag in demo_accounts.json."
+    },
+    {
+      "id": "ut-037",
+      "traces": "E1-S3 AC3",
+      "features": ["F013"],
+      "test_file": "backend/tests/repository/test_migrations.py",
+      "assertion": "The Customer table's `kyc_verified` column has a schema-level DEFAULT of 1/true (data-models.md §4.2): inserting a Customer row without specifying `kyc_verified` yields `kyc_verified = true` on read-back."
+    },
+    {
+      "id": "ut-038",
+      "traces": "E1-S3 AC3",
+      "features": ["F013"],
+      "test_file": "backend/tests/repository/test_seed.py",
+      "assertion": "Every seeded Customer row has `kyc_verified = true` except at least one row explicitly seeded with `kyc_verified = false`, to support the AC-06 gating test in E8 (E8-S2 AC4). The test asserts both counts are non-zero: at least one true, at least one false, and every row is one or the other (no null)."
+    },
+    {
+      "id": "ut-039",
+      "traces": "E1-S3 AC4",
+      "features": ["F014"],
+      "test_file": "backend/tests/repository/test_user_repository.py",
+      "assertion": "`domain/auth/repository.py`'s user-lookup function, called with a SQL-injection-style input as the email argument (e.g. `\"attacker@test.com'; DROP TABLE users; --\"`), returns `None` (no matching row) without raising, and the users table still exists and its row count is unchanged afterward — proving the value was bound as literal query data via SQLAlchemy parameter binding, never interpolated into a SQL string."
+    },
+    {
+      "id": "ut-040",
+      "traces": "E1-S3 AC4",
+      "features": ["F014"],
+      "test_file": "backend/tests/repository/test_user_repository.py",
+      "assertion": "Inserting a User whose email contains SQL metacharacters (a single quote and a semicolon, e.g. `\"o'brien.customer@wealthwise.test\"`) via the repository's create/insert function, then reading it back by id, round-trips the value byte-for-byte and the users table is otherwise unaffected — the repository's write path is parameterized the same as its read path."
+    },
+    {
+      "id": "ut-041",
+      "traces": "E1-S3 AC5",
+      "features": ["F015"],
+      "test_file": "backend/tests/repository/test_migrations.py",
+      "assertion": "Running `alembic upgrade head` twice in sequence against the same SQLite file: the second run exits 0, raises no error, creates no duplicate table (the 15-table set from ut-031 is unchanged), and the `alembic_version` table still holds exactly one row, equal to the single head revision id from both before and after the second run."
+    },
+    {
+      "id": "ut-042",
+      "traces": "data-models.md §7 (seed-loader idempotency), E1-S3 AC2 (seed-script correctness under re-run)",
+      "features": ["F015"],
+      "test_file": "backend/tests/repository/test_seed.py",
+      "assertion": "Running the seed script twice against the same migrated database is idempotent (data-models.md §7: 'The seed loader is idempotent... creates no duplicate AssetClass rows... and no duplicate users'): the second run creates no duplicate AssetClass rows (unique `code`), no duplicate User rows (unique `email`), and no extra RiskBandAssignment rows beyond the one-per-customer set from ut-036 — the row counts from ut-035 and ut-036 are identical before and after the second run."
+    },
+    {
+      "id": "ut-043",
+      "traces": "E1-S3 (via component-map.md test-file list; testing SKILL.md 'factory functions, not inline object literals')",
+      "features": ["F011", "F012"],
+      "test_file": "backend/tests/conftest.py, backend/tests/factories.py",
+      "assertion": "conftest.py exposes a pytest fixture that yields a session bound to a freshly migrated (and, where a test requests it, seeded) SQLite database per test function, torn down afterward so tests do not share state. factories.py exposes at least a `build_user(...)` and `build_customer(...)` deterministic builder used by two or more of the repository tests above in place of inline SQLAlchemy object literals, proving the fixtures are load-bearing rather than dead scaffolding."
+    },
+    {
+      "id": "ut-044",
+      "traces": "folder-structure.md §2 (alembic/env.py: 'reads database_url from core.config')",
+      "features": ["F011"],
+      "test_file": "backend/tests/repository/test_migrations.py",
+      "assertion": "backend/alembic/env.py resolves its target database from core.config.Settings.database_url (via the DATABASE_URL environment variable), never a hardcoded path or a path independent of the app's own config: with DATABASE_URL monkeypatched to point at a second, distinct SQLite file, running `alembic upgrade head` creates the 15-table schema in that second file and leaves any other database file on disk untouched. This is the guarantee that the migration tool and the running application always target the same database."
+    }
+  ],
+
+  "notes": [
+    "1. Migrations are authored in full here. component-map.md note 1: E1-S3 AC1 requires the fresh-DB migration to create all 14 entities, so the complete revision chain 0001…0008 (plus RebalancingThreshold in 0007) is written now. data-models.md §6 attributes each revision to the story whose entity it *serves* — that is provenance for later repository work, not authorship; no later group edits a committed revision file (NFR-05). ut-031 through ut-034 and the migrations architecture check therefore cover the full schema, not just the User/Customer/AssetClass slice this story's repository code touches.",
+    "2. RESOLVED — RiskBandAssignment rows ARE inserted by this group's seed.py, as real, queryable database rows, not merely as an intent tag in demo_accounts.json. Two divergent generator drafts of this contract existed at review time: one (reflected in ut-036 below) inserted real RiskBandAssignment rows; the other required only that demo_accounts.json 'tag' each customer's intended band, deferring any actual RiskBandAssignment row to E4-S1, on the theory that inserting rule_version = 1 before a RiskBandRule with version = 1 exists would be 'seeding a soft-reference to nothing.' The evaluator rejects that theory and confirms the first reading, on three grounds: (a) a soft reference is explicitly defined by data-models.md §4.4/§3 to have NO foreign key precisely so a referencing row can be written before the referenced row exists — that is the documented purpose of the design, not an accident to route around; (b) E1-S3 AC2's own text ('A seed script inserts... customers spanning all three risk bands') requires a real, queryable outcome produced by THIS story's seed script, and Customer carries no risk_band column (data-models.md §4.2) — a JSON-only 'intent tag' with no corresponding RiskBandAssignment row leaves AC2 literally unsatisfied by E1-S3's own deliverable; (c) no later story's acceptance criteria ever creates one — E4-S1 (specs/stories/E4-S1.md) seeds RiskBandRule and RiskProfileAnswer only, and none of its five ACs assigns a customer to a band. BRD §9's seed-data-volumes line and data-models.md §7's seed-volume table ('RiskBandAssignment | 1 per customer | rule_version = 1') both corroborate this as an E1-S3-scoped requirement. ut-036 is written accordingly: exactly one RiskBandAssignment row per seeded customer, rule_version = 1, union of risk_band values across all rows equal to all three bands.",
+    "3. RiskBandRule itself is NOT seeded in this group. Only the RiskBandAssignment rows described in note 2 are written here; RiskBandRule version 1 (questionnaire + scoring rules) is seeded by E4-S1 per component-map.md's E4-S1 row ('backend/src/db/seed.py (rule version 1, ≥6 questions)'). ut-036 is written to hold regardless of RiskBandRule's absence, consistent with the soft-reference design.",
+    "4. AssetClass seeding is split across two stories by design. This group's seed.py inserts 5-6 baseline AssetClass rows directly (code, name only — ut-035), satisfying E1-S3 AC2's '5-6 asset classes' text. The CSV-driven loader (backend/seed/asset_classes.csv, backend/seed/nav_initial.csv, backend/src/domain/holdings/csv_loader.py) and the per-asset-class NavSnapshot rows are added later by E6-S1 (component-map.md E6-S1 row), which also modifies seed.py. ut-035 deliberately does not require NavSnapshot rows or CSV-file-driven loading in this group.",
+    "5. api_checks, playwright_checks and design_checks are empty by design, for the same reason as Group A note 5: this group creates no router, no endpoint and no page. performance_checks is omitted for the same reason.",
+    "6. Import-path convention carried forward unchanged from Group A (that contract's note 3a): backend/src/db and backend/src/domain resolve as `src.db.*` / `src.domain.*` from the backend/ root, not as top-level `db.*` / `domain.*` packages, because `[tool.uv] package = false` with `pythonpath = ['.']` is what Group A's pyproject.toml already sets. This group's layering command's optional `src.` prefix reflects that; no new deviation is introduced here.",
+    "7. backend/pyproject.toml is modified, not recreated (Group A note 3: Group A authored it; 'E1-S3 then MODIFIES it — alembic, SQLAlchemy'). This group adds sqlalchemy (>=2.x) and alembic (>=1.13) to [project.dependencies], matching data-models.md's 'Schema managed by Alembic... ORM: SQLAlchemy 2.x' statement. No dev-dependency addition is needed beyond what Group A already declared (mypy, pytest, pytest-cov, ruff, detect-secrets) since this group runs no new dev tool.",
+    "8. test_layering.py remains unowned. Group A note 4 recorded that backend/tests/architecture/test_layering.py appears in folder-structure.md §2 but is attributed to no story in component-map.md. This group's layering gate is therefore a static ripgrep scan, matching Group A's pattern, extended to cover backend/src/db and backend/src/domain/auth. Still a spec gap for the lead to route; still not a blocker for this group.",
+    "9. detect-secrets IS re-run here, on a wider surface than Group A's scan (architecture_checks.env_vars): backend/seed/demo_accounts.json is new content in this group and was never covered by Group A's `scan src .env.example`, and backend/src/db and backend/src/domain/auth are new source trees under src/ that did not exist when Group A's scan ran. An earlier draft of this note argued the re-scan would be redundant; that was incorrect — the seed/ directory in particular was never in scope before this group, so the check is additive, not duplicative.",
+    "10. Evaluator changes at sign-off (this revision, 2026-09-04), after which the contract is immutable: RESOLVED note 2's scope question — CONFIRMED, against a competing draft's contrary resolution, that this group's seed.py inserts real RiskBandAssignment rows (see note 2 for the full reasoning and the rejected alternative). TIGHTENED ut-036 to require exactly one RiskBandAssignment row per seeded customer (data-models.md §7's literal '1 per customer'), not merely 'at least one customer per band.' ADDED ut-044, a previously-missing check tracing to folder-structure.md §2's comment on alembic/env.py ('reads database_url from core.config'): proves by monkeypatched DATABASE_URL that the migration tool and the application always target the same database rather than env.py hardcoding a path. RETRACED ut-042 from the migration-only text of E1-S3 AC5 to data-models.md §7's explicit seed-loader-idempotency line, with E1-S3 AC2 retained as a secondary trace, and extended its assertion to also require no duplicate RiskBandAssignment rows on a second seed run. TIGHTENED the migrations architecture check to run `alembic heads` before `alembic history --verbose` as an executable command (a competing draft replaced this with a bare test_file reference and no command, which is not independently runnable as an architecture-level gate and duplicates unit_test_check content — rejected), making 'exactly one head, no branch point' a direct single-line-output assertion. ADDED architecture_checks.parameterized_queries, a static complement to ut-039/ut-040, adapted from a competing draft. ADDED architecture_checks.env_vars, re-running detect-secrets over src and the new seed/ directory (see note 9), also adapted from a competing draft after confirming the earlier no-rescan reasoning was wrong. REJECTED a competing draft's narrower layering pattern (which matched only `src.`-prefixed imports and only `domain.*.service` submodule imports from db/) in favor of the broader dual-form, whole-of-domain pattern already in this contract, which the narrower pattern would have silently regressed. AC coverage was audited in both directions: all 5 acceptance criteria have at least one check (AC1: ut-031–034 plus the migrations architecture check; AC2: ut-035, ut-036; AC3: ut-037, ut-038; AC4: ut-039, ut-040, plus the parameterized_queries static check; AC5: ut-041, ut-042), and every check traces to an AC, an NFR, or a normative design-doc requirement (folder-structure.md, data-models.md, component-map.md, NFR-01/05/08). No check was removed. runtime_expectations, the empty api_checks/playwright_checks/design_checks, and the files_must_exist list were all confirmed correct as drafted, and every architecture_checks command was confirmed runnable against backend/pyproject.toml's actual configured tools (uv, mypy strict mode, pytest, ripgrep, detect-secrets, and alembic once added as a dependency per note 7 — no tool referenced here is undeclared)."
+  ]
+}

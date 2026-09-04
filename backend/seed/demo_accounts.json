@@ -1,0 +1,31 @@
+{
+  "customers": [
+    { "email": "alice.reyes@wealthwise.test", "kyc_verified": true, "risk_band": "CONSERVATIVE" },
+    { "email": "bob.nakamura@wealthwise.test", "kyc_verified": true, "risk_band": "CONSERVATIVE" },
+    { "email": "heidi.okafor@wealthwise.test", "kyc_verified": true, "risk_band": "CONSERVATIVE" },
+    { "email": "carol.singh@wealthwise.test", "kyc_verified": true, "risk_band": "MODERATE" },
+    { "email": "dave.kowalski@wealthwise.test", "kyc_verified": true, "risk_band": "MODERATE" },
+    { "email": "erin.pending-kyc@wealthwise.test", "kyc_verified": false, "risk_band": "MODERATE" },
+    { "email": "frank.dubois@wealthwise.test", "kyc_verified": true, "risk_band": "AGGRESSIVE" },
+    { "email": "grace.morales@wealthwise.test", "kyc_verified": true, "risk_band": "AGGRESSIVE" },
+    { "email": "ivan.petrov@wealthwise.test", "kyc_verified": true, "risk_band": "AGGRESSIVE" }
+  ],
+  "advisors": [
+    { "email": "advisor.jane.whitfield@wealthwise.test" },
+    { "email": "advisor.mike.tanaka@wealthwise.test" }
+  ],
+  "admins": [
+    { "email": "admin.olivia.brandt@wealthwise.test" }
+  ],
+  "compliance": [
+    { "email": "compliance.priya.chandra@wealthwise.test" }
+  ],
+  "asset_classes": [
+    { "code": "EQ_DM", "name": "Developed-Market Equity" },
+    { "code": "EQ_EM", "name": "Emerging-Market Equity" },
+    { "code": "FI_GOV", "name": "Government Fixed Income" },
+    { "code": "FI_CORP", "name": "Corporate Fixed Income" },
+    { "code": "CASH", "name": "Cash and Equivalents" },
+    { "code": "RE", "name": "Real Estate" }
+  ]
+}

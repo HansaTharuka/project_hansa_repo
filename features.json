@@ -159,8 +159,8 @@
       "Arrange/execute: Running the migration command against a fresh SQLite file.",
       "Assert: creates tables for all 14 entities defined in E1-S1, with primary keys and foreign keys matching the BRD data model."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T04:14:04Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -174,8 +174,8 @@
       "Arrange/execute: A seed script inserts 8-10 customers spanning all three risk bands (CONSERVATIVE.",
       "Assert: MODERATE, AGGRESSIVE), 5-6 asset classes, 2 advisors, 1 admin, and 1 compliance user, matching BRD section 9 seed-data volumes."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T04:14:04Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -189,8 +189,8 @@
       "Arrange/execute: Every seeded Customer row has kyc_verified = true by default.",
       "Assert: with at least one seeded customer set to kyc_verified = false to support the AC-06 gating test in E8."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T04:14:04Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -204,8 +204,8 @@
       "Arrange/execute: Repository functions for User and Customer expose only parameterized queries; a repository unit test asserts a SQL-injection-style input is treated as literal data.",
       "Assert: not executed."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T04:14:04Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -219,8 +219,8 @@
       "Arrange/execute: Re-running the migration command on an already-migrated database is idempotent (no duplicate tables.",
       "Assert: no error)."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-04T04:14:04Z",
     "failure_reason": null,
     "failure_layer": null
   },
