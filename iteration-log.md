@@ -23,6 +23,17 @@ Evaluator iteration history per group, appended after each ratchet-gate verdict.
 - **Gate results:** 278 tests pass, 100% coverage (matches 100% baseline, well above 80% floor), ruff clean, mypy clean on src/db + src/domain (and no regression on src/types + src/core), layering/no-float/parameterized-query/secrets scans clean, alembic chain verified linear with one head. Evaluator independently re-ran every check (not generator self-report) and returned PASS. api/playwright/design checks empty by design (repository-layer-only group, no app yet).
 - **Commit:** 19a53a6 "feat: implement group B (E1-S3 DB engine, migrations, seed repository)"
 - **Features:** F011-F015 passing (15/207 cumulative)
+
+## Group C — 2026-09-04
+
+- **Verdict:** PASS
+- **Stories:** E1-S4 (health + structured logging), E2-S1 (auth service), E3-S1 (audit repo), E4-S1 (risk-profile repo), E5-S1 (allocation-template repo), E6-S1 (asset-class/NAV repo), E7-S1 (goal repo), E8-S1 (rebalancing-recommendation + threshold repo), E9-S1 (advisor-override repo)
+- **Sprint contract:** sprint-contracts/C.json
+- **Summary:** First runnable FastAPI app (GET /health, structured logging with request-id correlation, PII/financial-value redaction), the JWT-issuing auth service, and 7 repository-layer packages covering audit, risk-profile, allocation-template, holdings/NAV, goals, rebalancing-recommendation + threshold, and advisor-override. The contract's most consequential judgment call: `folder-structure.md` §4's layering table, read in isolation, could be misread as forbidding GET /health's own DB connectivity probe from touching `db/` at all — `system-design.md` §2.1's more precise table was followed instead (API layer may import `db/session.py`/`db/engine.py` directly for connection plumbing, never `db/models.py`, never any `domain/*/repository.py` module), corroborated by Group B's own `db/session.py` docstring already committing `app/dependencies.py` to that pattern one group later. Also found and fixed a real coverage gap: `RebalancingThreshold`/`threshold_repository.py` was required to exist but had zero behavioral checks in the generator's draft (no E8-S1 AC text names it) — added 3 new unit checks covering the no-update/delete guarantee, the versioned-publish pattern, and the seeded default (threshold_bps = 500).
+- **Gate results:** 380 tests pass, 100% coverage, ruff clean, mypy clean (`src/app src/core src/domain src/db`), 4 layering scans clean (including the new db/models.py scan), no_float/append_only/allocation_sum architecture suites all passing, parameterized-queries scan clean across all 9 new/extended repository modules, detect-secrets clean, migrations unchanged. Health-check retry/backoff succeeded; GET /health returned 200 under 1000ms with correct X-Request-ID correlation in structured logs.
+- **Commit:** 9ac99c5 "feat: implement group C remainder (E3-S9 repository-layer stories)"
+- **Features:** F016-F025, F036-F040, F056-F060, F077-F081, F097-F101, F122-F126, F147-F151, F168-F172 passing (60/207 cumulative)
+
 ## Group D — 2026-09-04
 
 - **Verdict:** PASS (after one fix cycle)
