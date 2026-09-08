@@ -28,12 +28,20 @@ from src.domain.holdings.repository import (
     list_holdings_for_customer,
 )
 from src.domain.rebalancing.engine import AssetClassInfo, propose_rebalancing_actions
-from src.domain.rebalancing.repository import insert_recommendation
+from src.domain.rebalancing.repository import (
+    AlreadyResolvedError,
+    accept,
+    dismiss,
+    get_by_recommendation_id,
+    get_pending,
+    insert_recommendation,
+)
 from src.domain.rebalancing.threshold_repository import get_active_threshold
 from src.domain.recommendation.repository import get_active_template
 from src.domain.risk_profile.repository import get_latest_assignment
 from src.types.entities import ProposedAction, ProposedActions
 from src.types.entities import RebalancingRecommendation as RebalancingRecommendationEntity
+from src.types.errors import ConflictError, NotFoundError
 
 
 @dataclass(frozen=True)
@@ -161,6 +169,66 @@ def _build_asset_class_lookup(
             asset_class_id=asset_class.id, code=asset_class.code, nav_value=nav_value
         )
     return lookup
+
+
+def list_customer_pending_recommendations(
+    session: Session, customer_id: int
+) -> list[RebalancingRecommendationEntity]:
+    """The caller's `pending` recommendations only (E8-S3 AC1; api-contracts.md
+    §10.1's default, no-`status`-param behaviour)."""
+    return get_pending(session, customer_id)
+
+
+def resolve_customer_recommendation(
+    session: Session,
+    *,
+    recommendation_id: str,
+    customer_id: int,
+    resolution: str,
+    actor_id: int,
+    actor_role: str,
+) -> RebalancingRecommendationEntity:
+    """Transition one of `customer_id`'s recommendations to `accepted` or
+    `dismissed`, auditing the event exactly once (E8-S3 AC2, AC3).
+
+    Raises `NotFoundError` (`RECOMMENDATION_NOT_FOUND`) for an unknown id or
+    one owned by a different customer — never `AuthorizationError`, so a
+    non-owner cannot infer the id exists (AC5, system-design.md D12). Raises
+    `ConflictError` (`ALREADY_RESOLVED`) for a second transition attempt on an
+    already-resolved row, leaving `resolved_at` unchanged (AC4).
+    """
+    recommendation = get_by_recommendation_id(session, recommendation_id)
+    if recommendation is None or recommendation.customer_id != customer_id:
+        raise NotFoundError(
+            f"RebalancingRecommendation {recommendation_id!r} does not exist.",
+            code="RECOMMENDATION_NOT_FOUND",
+        )
+
+    resolved_at = _now_iso()
+    try:
+        if resolution == "accept":
+            resolved = accept(
+                session, recommendation_id=recommendation_id, resolved_at=resolved_at
+            )
+            action = "ACCEPT_REBALANCING_RECOMMENDATION"
+        else:
+            resolved = dismiss(
+                session, recommendation_id=recommendation_id, resolved_at=resolved_at
+            )
+            action = "DISMISS_REBALANCING_RECOMMENDATION"
+    except AlreadyResolvedError as exc:
+        raise ConflictError(str(exc), code="ALREADY_RESOLVED") from exc
+
+    write_audit_entry(
+        session,
+        entity_type="RebalancingRecommendation",
+        entity_id=recommendation_id,
+        actor_id=actor_id,
+        actor_role=actor_role,
+        action=action,
+        details={"customer_id": customer_id, "recommendation_id": recommendation_id},
+    )
+    return resolved
 
 
 def _now_iso() -> str:

@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from src.domain.holdings.drift import compute_drift
+from src.domain.holdings.drift import AssetClassDrift, compute_drift
 from src.domain.rebalancing.engine import AssetClassInfo, propose_rebalancing_actions
 from src.types.enums import TradeAction
 
@@ -67,6 +67,30 @@ def test_units_are_computed_from_the_asset_class_nav_value() -> None:
     assert sell_eq_dm.action == TradeAction.SELL
     assert sell_eq_dm.amount == Decimal("4000.00")
     assert sell_eq_dm.units == Decimal("40.0000")  # 4000.00 / 100.00 nav
+
+
+def test_an_asset_class_already_exactly_at_target_value_produces_no_action() -> None:
+    """An asset class whose drift crosses the threshold in percentage terms can
+    still land at `amount == 0` once quantized back to money — `_propose_single_
+    action` returns `None` for that asset class rather than a zero-value
+    ProposedAction (engine.py line 68-69's documented no-op)."""
+    drifts = [
+        AssetClassDrift(
+            asset_class_id=1,
+            current_percent=Decimal("50.00"),
+            target_percent=Decimal("50.00"),
+            drift_percent=Decimal("50.00"),  # exceeds threshold in isolation
+        )
+    ]
+
+    actions = propose_rebalancing_actions(
+        drifts=drifts,
+        total_value=Decimal("10000.00"),
+        threshold_bps=0,
+        asset_classes_by_id=ASSET_CLASSES,
+    )
+
+    assert actions == []
 
 
 def test_no_float_appears_in_any_proposed_action_field() -> None:

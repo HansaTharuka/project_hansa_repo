@@ -19,6 +19,11 @@ DEFAULT_DRIFT_THRESHOLD_PERCENT = 5
 DEFAULT_JWT_ACCESS_TOKEN_EXPIRY_MINUTES = 60
 DEFAULT_SEED_CSV_PATH = "seed"
 
+# The only environment is local dev (deployment.md §1.1): the Vite dev server at
+# this origin is the sole browser client, and deployment.md §1.1 states the
+# backend allows it "only" — no staging/production origin exists to add here.
+DEFAULT_CORS_ALLOWED_ORIGINS = "http://localhost:5173"
+
 # `RebalancingThreshold.threshold_bps`'s valid range (data-models.md §4.15's CHECK
 # constraint, `threshold_bps BETWEEN 1 AND 10000`). Lives here, not in
 # `domain/rebalancing/threshold_repository.py`, so no threshold-named literal is
@@ -59,6 +64,19 @@ class Settings(BaseSettings):
     jwt_access_token_expiry_minutes: int = DEFAULT_JWT_ACCESS_TOKEN_EXPIRY_MINUTES
     default_drift_threshold_percent: int = DEFAULT_DRIFT_THRESHOLD_PERCENT
     seed_csv_path: str = DEFAULT_SEED_CSV_PATH
+    cors_allowed_origins: str = DEFAULT_CORS_ALLOWED_ORIGINS
+
+    @property
+    def cors_allowed_origins_list(self) -> list[str]:
+        """`cors_allowed_origins` split on commas for `CORSMiddleware(allow_origins=...)`.
+
+        A single comma-separated env var (matching every other `Settings` field's
+        shape) rather than a list-typed field, which `pydantic-settings` would
+        otherwise expect as JSON in the environment (deployment.md §1.1 names one
+        origin today; comma-splitting costs nothing and needs no future migration
+        if that ever changes).
+        """
+        return [origin.strip() for origin in self.cors_allowed_origins.split(",") if origin.strip()]
 
     @model_validator(mode="before")
     @classmethod

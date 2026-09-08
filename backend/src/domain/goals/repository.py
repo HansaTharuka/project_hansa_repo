@@ -115,6 +115,18 @@ def insert_progress_snapshot(
     return _progress_to_entity(row)
 
 
+def list_progress_snapshots(session: Session, goal_id: int) -> list[GoalProgressSnapshotEntity]:
+    """The full `GoalProgressSnapshot` history for `goal_id`, oldest first
+    (`snapshot_at ASC`) — api-contracts.md §9.4."""
+    statement = (
+        select(GoalProgressSnapshotRow)
+        .where(GoalProgressSnapshotRow.goal_id == goal_id)
+        .order_by(GoalProgressSnapshotRow.snapshot_at.asc())
+    )
+    rows = session.execute(statement).scalars().all()
+    return [_progress_to_entity(row) for row in rows]
+
+
 def get_latest_progress(session: Session, goal_id: int) -> GoalProgressSnapshotEntity | None:
     """The `GoalProgressSnapshot` with the most recent `snapshot_at` for `goal_id`."""
     statement = (

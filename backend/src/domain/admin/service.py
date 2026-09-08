@@ -26,7 +26,7 @@ from src.domain.admin.repository import update_asset_class as _update_asset_clas
 from src.domain.audit.service import write_audit_entry
 from src.domain.holdings.repository import get_asset_class_by_code, insert_asset_class
 from src.domain.rebalancing.threshold_repository import publish_threshold
-from src.domain.recommendation.repository import publish_template
+from src.domain.recommendation.repository import list_templates, publish_template
 from src.domain.risk_profile.repository import publish_rule
 from src.types.entities import (
     AllocationSet,
@@ -95,7 +95,7 @@ def publish_allocation_template(
             f"Allocation percentages must sum to exactly {ALLOCATION_TOTAL_BPS} bps, "
             f"got {total_bps}.",
             code="TEMPLATE_SUM_INVALID",
-            details={"total_bps": total_bps},
+            details={"sum_bps": total_bps},
         )
     template = _publish_with_conflict_translation(
         lambda: publish_template(
@@ -133,6 +133,14 @@ def publish_rebalancing_threshold(
         details={"version": threshold.version},
     )
     return threshold
+
+
+def list_allocation_templates_for_admin(
+    session: Session, *, risk_band: str | None = None
+) -> list[AllocationTemplate]:
+    """Every `AllocationTemplate` version, active and superseded, optionally
+    scoped to one `risk_band` (E10-S3 AC5). A read, so no audit entry."""
+    return list_templates(session, risk_band=risk_band)
 
 
 def create_asset_class_with_audit(

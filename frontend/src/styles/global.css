@@ -168,3 +168,172 @@ h2 {
     padding: 24px 16px 48px;
   }
 }
+
+/* ---- Wide-screen pages (audit log, holdings — E3-S4, E6-S5) ---- */
+main:has(table),
+main:has(.filters) {
+  max-width: 1080px;
+}
+
+.filters {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+
+.filters .field {
+  min-width: 170px;
+  flex: 1 1 170px;
+  margin-bottom: 0;
+}
+
+/* Every table (audit log, holdings) scrolls horizontally within its own
+   wrapper rather than letting overflow escape to the page (E3-S4). */
+.tablewrap {
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+th,
+td {
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid #e4e4e7;
+  vertical-align: top;
+}
+
+th {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+  background: #fafafa;
+  white-space: nowrap;
+}
+
+td.num,
+th.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono);
+}
+
+tr[data-breach='true'] {
+  background: #fdf5f0;
+}
+
+tr[data-breach='true'] td.num.drift {
+  color: #8a4a1e;
+  font-weight: 700;
+}
+
+.summary {
+  display: flex;
+  gap: 26px;
+  flex-wrap: wrap;
+  margin: 0;
+}
+
+.summary div {
+  min-width: 140px;
+}
+
+.summary dt {
+  color: var(--color-text-muted);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 2px;
+}
+
+.summary dd {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 17px;
+}
+
+.empty {
+  padding: 34px 18px;
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: 14px;
+}
+
+.pager {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-top: 14px;
+  font-size: 13px;
+  color: var(--color-text-muted);
+  flex-wrap: wrap;
+}
+
+.count {
+  font-size: 13px;
+  color: var(--color-text-muted);
+  margin: 0 0 10px;
+}
+
+.cards {
+  display: none;
+}
+
+.card {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  margin-bottom: 12px;
+  background: var(--color-surface);
+}
+
+.card[data-breach='true'] {
+  border-color: #d1a97f;
+  background: #fdf5f0;
+}
+
+.card h4 {
+  margin: 0 0 2px;
+  font-size: 15px;
+}
+
+.card dl {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 12px;
+  margin: 10px 0 0;
+}
+
+.card dt {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+}
+
+.card dd {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 14px;
+}
+
+/* Responsive breakpoint required by BRD §5.3 for the holdings view (E6-S5).
+   Scoped to `.holdings-page` only — AuditLog.tsx shares `.tablewrap` (via
+   DataTable.tsx) but renders no `.cards` fallback, so a generic rule here
+   would hide its table with nothing to replace it (E3-S4). */
+@media (max-width: 768px) {
+  .holdings-page .tablewrap {
+    display: none;
+  }
+
+  .holdings-page .cards {
+    display: block;
+  }
+}

@@ -66,6 +66,21 @@ def get_active_template(session: Session, risk_band: str) -> AllocationTemplateE
     return _to_entity(row) if row is not None else None
 
 
+def list_templates(
+    session: Session, *, risk_band: str | None = None
+) -> list[AllocationTemplateEntity]:
+    """Every `AllocationTemplate` version, active and superseded, optionally
+    scoped to one `risk_band` (E10-S3 AC5; api-contracts.md §12.4). Ordered
+    `risk_band ASC, version ASC`."""
+    statement = select(AllocationTemplateRow).order_by(
+        AllocationTemplateRow.risk_band.asc(), AllocationTemplateRow.version.asc()
+    )
+    if risk_band is not None:
+        statement = statement.where(AllocationTemplateRow.risk_band == risk_band)
+    rows = session.execute(statement).scalars().all()
+    return [_to_entity(row) for row in rows]
+
+
 def get_template_by_version(
     session: Session, *, risk_band: str, version: int
 ) -> AllocationTemplateEntity | None:

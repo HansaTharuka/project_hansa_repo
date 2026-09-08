@@ -22,7 +22,7 @@ BACKEND_ENV_EXAMPLE = BACKEND_ROOT / ".env.example"
 FRONTEND_ENV_EXAMPLE = REPO_ROOT / "frontend" / ".env.example"
 GITIGNORE = REPO_ROOT / ".gitignore"
 
-# deployment.md §5.1.
+# deployment.md §5.1, §1.1 (CORS_ALLOWED_ORIGINS).
 DOCUMENTED_BACKEND_VARS = {
     "DATABASE_URL",
     "JWT_SECRET",
@@ -30,6 +30,7 @@ DOCUMENTED_BACKEND_VARS = {
     "DEFAULT_DRIFT_THRESHOLD_PERCENT",
     "SEED_CSV_PATH",
     "LOG_LEVEL",
+    "CORS_ALLOWED_ORIGINS",
 }
 REQUIRED_SETTINGS = {
     "database_url",
@@ -247,7 +248,7 @@ class TestNoHardcodedSecretsOrThresholds:
 class TestEnvExampleFiles:
     """ut-022 – ut-024 — the documented environment surface."""
 
-    def test_backend_env_example_documents_exactly_the_six_variables(self) -> None:
+    def test_backend_env_example_documents_exactly_the_seven_variables(self) -> None:
         assert set(parse_env_file(BACKEND_ENV_EXAMPLE)) == DOCUMENTED_BACKEND_VARS
 
     def test_every_variable_settings_reads_is_documented(self) -> None:

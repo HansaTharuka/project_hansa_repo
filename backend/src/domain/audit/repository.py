@@ -14,6 +14,7 @@ the ORM instance's mapped `str` column in place.
 from __future__ import annotations
 
 import json
+import re
 from typing import Any
 
 from sqlalchemy import Select, func, select
@@ -22,6 +23,8 @@ from sqlalchemy.orm import Session
 from src.db.models import AuditLogEntry as AuditLogEntryRow
 from src.types.entities import AuditDetailValue
 from src.types.entities import AuditLogEntry as AuditLogEntryEntity
+
+_BARE_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 
 def insert_audit_entry(
@@ -109,8 +112,19 @@ def _apply_filters(
     if start is not None:
         statement = statement.where(AuditLogEntryRow.timestamp >= start)
     if end is not None:
-        statement = statement.where(AuditLogEntryRow.timestamp <= end)
+        statement = statement.where(AuditLogEntryRow.timestamp <= _end_of_day(end))
     return statement
+
+
+def _end_of_day(end: str) -> str:
+    """Expand a bare `YYYY-MM-DD` `end` boundary (as sent by the UI's
+    `<input type="date">` filter, E3-S4 AC3) to the last instant of that day,
+    so `end=<date>` includes every entry timestamped anywhere on that date
+    rather than excluding everything after midnight. A value that already
+    carries a time component is returned unchanged — never double-expanded."""
+    if _BARE_DATE.fullmatch(end):
+        return f"{end}T23:59:59Z"
+    return end
 
 
 def _to_entity(row: AuditLogEntryRow) -> AuditLogEntryEntity:

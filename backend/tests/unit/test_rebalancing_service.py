@@ -186,6 +186,66 @@ def test_a_customer_with_no_risk_band_assignment_produces_no_recommendation(
     assert recommendation is None
 
 
+def test_a_customer_with_a_risk_band_but_no_published_template_produces_no_recommendation(
+    db_session: Session,
+) -> None:
+    """`_load_evaluation_context` line 112's no-op: the customer has a
+    risk-band assignment but no `AllocationTemplate` has ever been published
+    for that band (AC2)."""
+    load_seed_csvs(db_session)
+    customer_id = _seed_customer(db_session, "rebal.customer9@wealthwise.test")
+    eq_dm = get_asset_class_by_code(db_session, "EQ_DM")
+    assert eq_dm is not None
+    insert_holding(
+        db_session, customer_id=customer_id, asset_class_id=eq_dm.id,
+        current_value=Decimal("1000.00"), as_of_date="2026-09-01",
+    )
+    _assign_band(db_session, customer_id=customer_id, risk_band="AGGRESSIVE")
+    publish_threshold(db_session, threshold_bps=500, published_at="2026-09-01T09:00:00Z")
+    db_session.commit()
+
+    recommendation = evaluate_customer_rebalancing(db_session, customer_id=customer_id, **ACTOR)
+
+    assert recommendation is None
+
+
+def test_a_customer_with_a_template_but_no_published_threshold_produces_no_recommendation(
+    db_session: Session,
+) -> None:
+    """`_load_evaluation_context` line 115's no-op: the customer has an active
+    template but no `RebalancingThreshold` has ever been published (AC4)."""
+    load_seed_csvs(db_session)
+    customer_id = _seed_customer(db_session, "rebal.customer10@wealthwise.test")
+    eq_dm = get_asset_class_by_code(db_session, "EQ_DM")
+    fi_gov = get_asset_class_by_code(db_session, "FI_GOV")
+    assert eq_dm is not None and fi_gov is not None
+    insert_holding(
+        db_session, customer_id=customer_id, asset_class_id=eq_dm.id,
+        current_value=Decimal("9000.00"), as_of_date="2026-09-01",
+    )
+    insert_holding(
+        db_session, customer_id=customer_id, asset_class_id=fi_gov.id,
+        current_value=Decimal("1000.00"), as_of_date="2026-09-01",
+    )
+    _assign_band(db_session, customer_id=customer_id, risk_band="MODERATE")
+    publish_template(
+        db_session, risk_band="MODERATE",
+        allocations=AllocationSet(
+            allocations=[
+                AllocationEntry(asset_class_id=eq_dm.id, percent_bps=5000),
+                AllocationEntry(asset_class_id=fi_gov.id, percent_bps=5000),
+            ]
+        ),
+        published_at="2026-09-01T09:00:00Z",
+    )
+    # No publish_threshold call — no RebalancingThreshold has ever been published.
+    db_session.commit()
+
+    recommendation = evaluate_customer_rebalancing(db_session, customer_id=customer_id, **ACTOR)
+
+    assert recommendation is None
+
+
 def test_advance_day_creates_a_rebalancing_recommendation_when_an_actor_is_supplied(
     db_session: Session,
 ) -> None:

@@ -30,8 +30,10 @@ from src.domain.goals.progress import compute_percent_complete
 from src.domain.goals.repository import (
     create_goal,
     get_goal,
+    get_latest_progress,
     insert_progress_snapshot,
     list_goals_for_customer,
+    list_progress_snapshots,
     update_goal,
 )
 from src.types.entities import Goal, GoalProgressSnapshot
@@ -100,6 +102,42 @@ def update_customer_goal(
         target_date=target_date,
         priority=priority,
     )
+
+
+def list_customer_goals_with_progress(
+    session: Session, customer_id: int
+) -> list[tuple[Goal, Decimal | None]]:
+    """Every goal owned by `customer_id`, each paired with its latest
+    `percent_complete` (or `None` if no snapshot exists yet), ordered
+    `priority ASC, target_date ASC` (E7-S4 AC3, api-contracts.md §9.2).
+
+    Scoping to `customer_id` happens once here — the API layer never accepts
+    a `customer_id` from the request, only from the caller's JWT.
+    """
+    goals = list_goals_for_customer(session, customer_id)
+    paired = [
+        (goal, get_latest_percent_complete(session, goal.id))
+        for goal in goals
+    ]
+    return sorted(paired, key=lambda pair: (pair[0].priority, pair[0].target_date))
+
+
+def get_goal_progress(
+    session: Session, *, goal_id: int, customer_id: int
+) -> tuple[Goal, list[GoalProgressSnapshot]]:
+    """A goal's full snapshot history, oldest first, enforcing ownership
+    (E7-S4 AC4; api-contracts.md §9.4)."""
+    goal = get_goal(session, goal_id)
+    if goal is None or goal.customer_id != customer_id:
+        raise NotFoundError(f"Goal {goal_id} does not exist.", code="GOAL_NOT_FOUND")
+    return goal, list_progress_snapshots(session, goal_id)
+
+
+def get_latest_percent_complete(session: Session, goal_id: int) -> Decimal | None:
+    """The most recent `percent_complete` for `goal_id`, or `None` if the
+    goal has never been snapshotted yet."""
+    latest = get_latest_progress(session, goal_id)
+    return latest.percent_complete if latest is not None else None
 
 
 def recompute_customer_goal_progress(

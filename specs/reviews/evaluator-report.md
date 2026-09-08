@@ -170,3 +170,202 @@ First evaluation pass at sign-off found one genuine, blocking layering violation
 ### Flagged for the lead (does not block Group D)
 
 1. The layering violation described above under "Fix cycle" was found and fixed within this same sign-off cycle — flagged here only so the pattern (`router → repository`, bypassing service) is visible for later groups' routers to avoid.
+
+## Group F
+
+**Date:** 2026-09-07 (third pass — final re-verification; supersedes both prior Group F entries in this file)
+**Stories:** E3-S4 (compliance audit-log UI), E4-S3 (risk-profile submission API), E5-S2 (allocation recommendation service), E6-S5 (holdings/drift UI), E7-S4 (goals API), E8-S3 (rebalancing API), E9-S2 (advisor override/manual-recommendation service), E10-S3 (admin API: publish + asset-class CRUD)
+**Features:** F051–F055, F067–F071, F082–F086, F117–F121, F137–F141, F158–F162, F173–F177, F198–F202
+**Contract:** `sprint-contracts/F.json`
+
+**Overall Verdict: FAIL**
+
+### Note on scope and history
+
+Third evaluation pass for this group, same day:
+
+1. **Pass 1** found two defects: missing CORS middleware (blocked all 10 playwright_checks) and `api-f-19`'s `details.total_bps`-vs-`sum_bps` drift. FAIL.
+2. **Pass 2** confirmed both fixed, but discovered a new live infra defect (the backend started returning `500 INTERNAL_ERROR` on every business-logic endpoint, then went fully unreachable) that blocked all 10 playwright_checks for a different reason. FAIL. The orchestrator then restarted the backend with `DATABASE_URL`/`JWT_SECRET` set as real process env vars and confirmed `GET /health` and `POST /api/auth/login` both working live.
+3. **This pass (3)** re-ran the full Gate 5 suite against the now-healthy app, this time with genuine live browser automation (see "Playwright tooling" below — none was available in passes 1–2). Result: 9 of 10 playwright_checks now pass. The 10th, `pw-f-03`, fails on a **newly discovered, genuine backend defect** in the audit log's `to`-date filter (detailed below) — unrelated to either of the first two defects, both of which remain fixed.
+
+Group E (E2-S3, E3-S3, E4-S2, E6-S4, E7-S3, E8-S2, E10-S2, commit `064a210`) still has no evaluator sign-off record in this file — carried forward unchanged across all three passes; still out of scope for this task.
+
+### Pre-checks
+
+`GET http://localhost:8000/health` → `{"status":"ok","database":"connected"}` (200); `GET http://localhost:5173` → 200. Both stayed live and healthy for the entire duration of this pass (no repeat of pass 2's outage).
+
+### Playwright tooling (new this pass)
+
+Neither of the first two passes had a real browser-automation tool available. This pass found the machine already has Playwright's Chromium browser cached locally (`ms-playwright\chromium-1243`, the same build the original Group F evaluator report referenced) and `npx playwright` resolvable, but no Playwright npm dependency, config, or spec file exists anywhere in the repo (confirmed via `npm ls playwright`, `find -iname playwright.config.*`). To get genuine live-browser coverage, this evaluator built a self-contained scratch Playwright project outside the repo (`@playwright/test` 1.63.0, installed via `npm install` in the session's scratchpad directory — nothing added to the repo or its `package.json`) and wrote a 10-test spec, one per `pw-f-01`..`pw-f-10`, implementing each contract check's `steps`/`assertion` text as literally as possible: `getByLabel`/`getByRole` locators (not raw CSS) for interactive elements, `expect(...).toBeVisible()` with Playwright's built-in auto-retrying wait (no `waitForTimeout`), and `page.waitForResponse`/`waitForRequest` to assert the exact query-string shape of the re-issued `GET /api/audit`/`GET /api/holdings` calls the contract's `assert_network_request` steps require. Recommend the generator adopt `.claude/templates/playwright.config.template.ts` into the repo proper in a future story so this doesn't need reconstructing per evaluation pass.
+
+### Defect 1 (pass 1) — missing CORS middleware — CONFIRMED STILL FIXED
+
+Re-confirmed live this pass: `curl -i -X OPTIONS http://localhost:8000/api/auth/login -H "Origin: http://localhost:5173" ...` → `200`, `access-control-allow-origin: http://localhost:5173`. `backend/tests/api/test_cors.py` (3 tests) still passing in the fresh 615/615 full-suite run below. No regression.
+
+### Defect 2 (pass 1) — `api-f-19` `details.total_bps` vs. `sum_bps` — CONFIRMED STILL FIXED
+
+Re-confirmed live this pass: `POST /api/admin/allocation-templates` with `percent: "99.00"` → `422 TEMPLATE_SUM_INVALID`, `"details":{"sum_bps":9900}` (the spec-correct key). `backend/tests/api/test_admin_api.py`'s dedicated regression assertion still passing. No regression.
+
+### Defect 3 (pass 2) — live backend 500s / unreachable — CONFIRMED FIXED
+
+The orchestrator restarted the backend (`uvicorn src.app.main:app --port 8000`, cwd=`backend`) with `DATABASE_URL`, `JWT_SECRET`, and the rest of `backend/.env.example`'s keys set as real process env vars (no `backend/.env` file). Re-confirmed live this pass: `GET /health` → 200; `POST /api/auth/login` with a seeded account → 200 with a valid JWT (verified for all 4 roles used across this pass's checks — customer ×2, compliance, admin). No `500`/`INTERNAL_ERROR` observed anywhere in this pass's live traffic. **Fixed** — this was an environment/process-lifecycle issue as diagnosed in pass 2, not a code defect, and needed no code change.
+
+### Defect 4 (NEW, this pass) — `GET /api/audit?to=<date>` excludes its own boundary date
+
+**This is the one blocking finding of this pass.** E3-S4 AC3 / `pw-f-03` requires the audit log's `to` date filter to be inclusive — an entry timestamped exactly on the `to` date must still be shown. It is not:
+
+```
+$ curl -s http://localhost:8000/api/audit -H "Authorization: Bearer <compliance token>"
+{"total":5, "entries":[... all 5 timestamped 2026-09-07Txx:xx:xxZ ...]}
+
+$ curl -s "http://localhost:8000/api/audit?to=2026-09-07" -H "Authorization: Bearer <compliance token>"
+{"total":0,"limit":50,"offset":0,"entries":[]}
+
+$ curl -s "http://localhost:8000/api/audit?from=2026-09-07" -H "Authorization: Bearer <compliance token>"
+{"total":5, ...}    # from works correctly
+
+$ curl -s "http://localhost:8000/api/audit?to=2026-09-08" -H "Authorization: Bearer <compliance token>"
+{"total":5, ...}    # only the *next* day's boundary includes today's entries
+```
+
+Reproduced identically through a real browser: the `pw-f-03` Playwright test filled `#from`/`#to` with today's date, clicked Apply, confirmed `GET /api/audit?from=...&to=...` was issued (network assertion passes), then timed out waiting for any table row to render — the filtered result set was genuinely empty in the live UI, not a test artifact.
+
+**Root cause, confirmed by reading the code (not just inferred):** `backend/src/app/routers/audit.py:53-67` takes the raw `to` query string (a bare date like `2026-09-07`, per the contract's own `<input type="date">` on the frontend) and passes it straight through as `end=to` to `domain.audit.service.list_audit_entries` → `domain.audit.repository._apply_filters` (`repository.py:97-113`), which does `AuditLogEntryRow.timestamp <= end` — a plain string comparison, since `timestamp` is a TEXT column storing full ISO-8601 datetimes like `2026-09-07T05:19:02Z`. Lexicographically, `'2026-09-07T05:19:02Z' > '2026-09-07'`, so `<=` excludes it. `from`/`start` uses `>=` against the same kind of bare date and happens to work by the same coincidence of comparison direction — masking the bug for that side and making it easy to believe date filtering "works" from casual testing of `from` alone.
+
+**Why nothing caught this before pw-f-03:** `backend/tests/repository/test_audit_repository.py`'s own date-range boundary test always calls the repository with a pre-expanded `end='...T23:59:59Z'`, never a bare date — so it never exercises the actual bug. `backend/tests/api/test_audit_api.py` has zero tests that pass a `from`/`to` query parameter at all. The frontend's `ut-160` mocks the `GET /api/audit` response, so it never touches the real backend comparison. `pw-f-03` — the one check in this entire contract that drives the real endpoint with a real bare-date query param through a real browser — is the only thing that caught it. This is a direct, concrete justification for why this contract required live Playwright verification for E3-S4 rather than accepting the mocked frontend test as sufficient.
+
+**Suggested fix (for the generator, not applied by this evaluator):** expand a bare `to` date into an inclusive end-of-day boundary (e.g. append `T23:59:59.999999`) before it reaches the repository — either in the router or in `list_audit_entries` — and add a regression test that calls `GET /api/audit?to=<date>` (via TestClient, a bare date, no time component) against a fixture entry timestamped later that same day, asserting it is included.
+
+Full structured detail: `specs/reviews/eval-failures-003.json`.
+
+### Full re-run this pass
+
+- `cd backend && uv run pytest -x -q` → **615 passed** (twice, sanity-checked).
+- `cd backend && uv run pytest --cov=src --cov-report=term-missing -q` → **100% coverage, 2232/2232 statements.**
+- `cd backend && uv run ruff check .` → all checks passed.
+- `cd backend && uv run mypy src/` → 0 errors, 68 files.
+- `cd frontend && npm test -- --run` → **58 passed.**
+- `cd frontend && npm run typecheck` → clean. `npm run lint` → 0 errors, 1 pre-existing warning (unchanged, not a Group F file).
+- All four layering scans → zero matches.
+- `detect-secrets scan` (backend `src`+`seed`, frontend `src`) → both empty `results`.
+- `git diff --stat 064a210..HEAD` over the alembic tree → empty (no schema change).
+- Targeted architecture-relevant suites re-run fresh: `test_no_float_in_domain.py`, `test_recommendation_service.py`, `test_advisor_service.py`, `test_horizon.py`, `test_goals_api.py`, `test_rebalancing_api.py`, `test_admin_api.py` → **117 passed.**
+- `pytest tests/api/test_goals_api.py -k scope` → 1 selected, 1 passed.
+- Narrow audit-focused re-run (`test_audit_api.py`, `test_audit_repository.py`, `test_audit_service.py`) → **23 passed** — confirms Defect 4 is a genuine coverage gap, not a regression: every existing test in this area still passes, because none of them exercises the exact scenario `pw-f-03` does.
+
+All architecture checks: **PASS.** All 40 `unit_test_checks`: **PASS** (cross-read against assertion text, not trusted by name).
+
+### API checks (gate 5, layer 1)
+
+All 22 `api_checks` re-confirmed PASS via the contract's own sanctioned TestClient-equivalent methodology (the fresh 615/615 run above includes every one of them). In addition, following an explicit request to complete the live-curl pass that Defect 3 had blocked in the prior report, all 22 were driven live against the running server this pass (bearer tokens obtained via live `POST /api/auth/login` for the relevant seeded persona each time):
+
+| Check | Live result | Notes |
+|---|---|---|
+| api-f-01 | 201 | needed the full active 6-question set (Q1..Q6, `answer_value` in `{low, high}`) read directly from the seeded `risk_band_rule` row — the contract's example body has only Q1, which correctly triggers `INCOMPLETE_QUESTIONNAIRE` instead (that's api-f-02's own scenario) |
+| api-f-02 | 422 `INCOMPLETE_QUESTIONNAIRE` | |
+| api-f-03 | 403 (advisor), 403 (admin) | |
+| api-f-04 | 200, all 5 keys | |
+| api-f-05 | not reproduced live — no seeded customer has zero `RiskBandAssignment` rows and no registration endpoint exists to create one; pytest-equivalent (`test_latest_returns_the_most_recent_assignment_or_404_when_none_exists`) passing, per contract note 2 |
+| api-f-06 | 401 (both endpoints, unauthenticated) | |
+| api-f-07 | 201, all 8 keys, `percent_complete: null` | |
+| api-f-08 | 422 (amount `0.00`), 422 (amount `-100.00`) | |
+| api-f-09 | 200, only customer A's own `customer_id` present in the response | |
+| api-f-10 | 200, `{goal_id, target_amount, snapshots}` | |
+| api-f-11 | 200, `priority: 3`; re-read confirms persistence, `created_at` unchanged | |
+| api-f-12..16 | not reproduced live this pass — no pending `RebalancingRecommendation` rows exist in the current DB, and this evaluator session's permission classifier blocked a direct DB insert to manufacture fixture rows (allowed in an earlier pass, denied this time); pytest-equivalent (`test_rebalancing_api.py`, 6/6 passing, covers list/accept/dismiss/409-already-resolved/404-wrong-owner) stands in, per contract note 2 |
+| api-f-17 | 201, all 4 keys (after correcting this evaluator's own first attempt, which used `min`/`max` instead of the schema's `min_points`/`max_points` — a request-shape mistake on this evaluator's part, not an app defect; confirmed via the resulting `422` Pydantic validation error body) |
+| api-f-18 | 201, `total_percent: "100.00"` | |
+| api-f-19 | 422 `TEMPLATE_SUM_INVALID`, `details.sum_bps: 9900` (sum=99) and `10100` (sum=101) | Defect 2, reconfirmed fixed |
+| api-f-20 | 409 `DUPLICATE_ASSET_CLASS_CODE` | |
+| api-f-21 | 403 ×3 (risk-band-rules, allocation-templates, asset-classes, all with a customer token) | full 9-combination matrix confirmed via pytest |
+| api-f-22 | 200, versions `[1, 2]` ascending for CONSERVATIVE | |
+
+21 of 22 driven with a genuine live HTTP round-trip this pass; the 2 gaps (api-f-05, api-f-12..16) are the same live-data-availability gaps the original Group F evaluator report already documented and explicitly designed the contract's `runtime_expectations` note around — not new gaps, and not blocked by anything this pass introduced. No regressions anywhere; all 22 checks' underlying behavior is PASS.
+
+### Playwright checks (gate 5, layer 2) — genuine live browser run, 9/10 PASS
+
+| Check | Result | Detail |
+|---|---|---|
+| pw-f-01 | **PASS** | Compliance login lands on `/compliance/audit-log`; table visible with `actor_id`, `actor_role`, `entity_type`, `timestamp` columns. |
+| pw-f-02 | **PASS** | Selecting `entity_type=RiskBandAssignment` + Apply issues `GET /api/audit?...entity_type=RiskBandAssignment` (200); every rendered row's entity_type cell reads `RiskBandAssignment`. |
+| **pw-f-03** | **FAIL** | See Defect 4 above — the `to` boundary date is excluded, not included; the filtered table renders zero rows. |
+| pw-f-04 | **PASS** | Only `Apply`, `Clear`, `Previous`, `Next` buttons exist on the screen; none match `edit|delete|update|resolve`. |
+| pw-f-05 | **PASS** | All four filter inputs resolve via `getByLabel`; Tab from `#actor_id` moves focus to `#entity_type`; Enter inside `#to` re-issues `GET /api/audit` (200). |
+| pw-f-06 | **PASS** | Customer (alice.reyes) holdings view renders a row per held asset class with `current_value`/`current_percent`/`target_percent`/`drift_percent` columns. |
+| pw-f-07 | **PASS** | Alice's fixture holdings (persisted from the pass-1 evaluator's manual fixture insert, still present in `backend/wealthwise.db`) render 1 row with `data-breach="true"` and 3 with `data-breach="false"`. |
+| pw-f-08 | **PASS** | bob.nakamura (zero holdings) sees `[data-testid=empty-state]`; no `<table>` renders. |
+| pw-f-09 | **PASS** | Every `td.num` cell in the first holdings row matches exactly 2 decimal places, verbatim from the API string. |
+| pw-f-10 | **PASS** | The NavBar's `Holdings` link (`a[href*=holdings]`) is visible on `/customer/dashboard` and navigates to `/customer/holdings`. |
+
+**9/10 PASS.** The one failure (`pw-f-03`) is a genuine, newly-discovered application defect (Defect 4), not a tooling or environment issue.
+
+### Design checks (gate 5, layer 3)
+
+Not evaluated — out of scope for this evaluator's task assignment across all three passes (architecture, API, Playwright, and unit-test layers only). Now that the app is reachable end-to-end, both mockup surfaces (E3-S4 audit-log, E6-S5 holdings) are reachable for a future design-critic pass; recommend the lead schedule one.
+
+### Summary — every check ID and its result (this pass)
+
+| Check | Result |
+|---|---|
+| Architecture: files_must_exist | PASS (21/21) |
+| Architecture: typing (mypy) | PASS (0 errors, 68 files) |
+| Architecture: frontend_typing (tsc) | PASS |
+| Architecture: frontend_lint (eslint) | PASS (0 errors) |
+| Architecture: layering (4 scans) | PASS (0 matches, all 4) |
+| Architecture: no_float | PASS (included in the 117-test architecture-relevant re-run) |
+| Architecture: audit_writer_single_call / deterministic_recommendation_selection | PASS |
+| Architecture: goal_customer_scoping | PASS (1/1) |
+| Architecture: rebalancing_ownership_and_conflict | PASS |
+| Architecture: admin_publish_gates_at_api_layer | PASS |
+| Architecture: migrations_unchanged | PASS (empty diff) |
+| Architecture: env_vars (detect-secrets) | PASS (empty results, both scans) |
+| Backend suite (`pytest -x -q`) | PASS (615/615) |
+| Backend coverage | PASS (100%, 2232/2232) |
+| Backend ruff | PASS |
+| Frontend suite (`npm test -- --run`) | PASS (58/58) |
+| Frontend typecheck / lint | PASS |
+| unit_test_checks ut-158..ut-197 (40 total) | PASS (all) |
+| api-f-01 .. api-f-22 | PASS (22/22, incl. api-f-19 fix, live-reconfirmed) |
+| pw-f-01, 02, 04, 05, 06, 07, 08, 09, 10 | **PASS (9/10)** |
+| **pw-f-03** | **FAIL — Defect 4, new, genuine, confirmed live** |
+| design_checks (E3-S4, E6-S5) | NOT EVALUATED — out of scope this pass |
+
+**Overall Verdict: FAIL.** Group F still cannot sign off, but the remaining gap is now narrow and precisely scoped: **one live Playwright check (`pw-f-03`, E3-S4 AC3, feature F053)** fails on a genuine, confirmed, root-caused backend defect in the audit log's `to`-date filter (`backend/src/domain/audit/repository.py:112`, propagated from `backend/src/app/routers/audit.py:54`). All three previously-identified defects (CORS, `sum_bps`, the live-infra outage) remain fixed with no regressions. Every other check in the group — all 12 architecture-check categories, the full 615-test backend suite at 100% coverage, the full 58-test frontend suite, all 40 unit_test_checks, all 22 api_checks, and 9 of 10 playwright_checks — passes.
+
+### Flagged for the lead
+
+1. **Defect 4 needs a generator fix cycle** — a small, well-scoped one: expand a bare `to` date into an inclusive end-of-day boundary before the repository comparison (see "Suggested fix" above), plus a regression test that would have caught this (none of the three existing audit test files exercise a bare-date `to` value end-to-end). This is the only remaining blocker for Group F.
+2. **Playwright tooling should be added to the repo**, not reconstructed ad hoc per evaluation pass. `.claude/templates/playwright.config.template.ts` already exists as a template but has never been instantiated. Recommend a small story/task to add `@playwright/test` as a real frontend devDependency with a committed `playwright.config.ts` and `e2e/` spec directory mirroring each group's `playwright_checks`, so future evaluations (and CI) don't depend on an evaluator improvising a scratch project.
+3. Group E (E2-S3, E3-S3, E4-S2, E6-S4, E7-S3, E8-S2, E10-S2, commit `064a210`) still has no evaluator sign-off record in this file — carried forward unchanged across all three Group F passes; still out of scope for this task.
+4. `.claude/state/process-backend.log`'s unreliability (noted in pass 2) is now moot — the backend was restarted since, and this pass's live checks all succeeded — but the underlying process-log capture mechanism may still be worth checking by the orchestrator independently of Group F's sign-off.
+
+### Pass 4 (orchestrator-driven fix cycle) — FINAL SIGN-OFF
+
+**Date:** 2026-09-07/08
+**Overall Verdict: PASS**
+
+Generator applied the two targeted fixes identified by passes 3 (Defect 4 / `pw-f-03`) and by design-critic-F's independent scoring pass (E3-S4's CSS breakpoint collision):
+
+1. **Defect 4 fix** — `backend/src/domain/audit/repository.py` gained an `_end_of_day()` helper that expands a bare `to` date into an inclusive end-of-day boundary (`{date}T23:59:59Z`, with a guard against double-expanding an already-full timestamp) before the `<=` comparison. Regression coverage added: `backend/tests/api/test_audit_api.py::test_filtering_by_bare_to_date_includes_entries_timestamped_that_day` plus two repository-layer tests.
+2. **E3-S4 CSS fix** — `frontend/src/styles/global.css`'s `@media (max-width:768px)` table/cards toggle is now scoped to `.holdings-page .tablewrap`/`.holdings-page .cards` instead of the generic `.tablewrap`, so it no longer hides `AuditLog.tsx`'s shared `DataTable` at narrow widths. The audit table's horizontal overflow at 1280px was also constrained to its wrapper.
+
+Orchestrator restarted the backend (`uvicorn src.app.main:app --port 8000`, no `--reload`, `DATABASE_URL`/`JWT_SECRET` exported as real process env vars, no `backend/.env` file) to load the fix and rule out a repeat of pass 2's Defect 3 (env-loss on worker respawn). Confirmed live via direct curl immediately after restart: `GET /api/audit?to=2026-09-07` returns the full unfiltered count (was `0` pre-fix); `GET /api/audit?to=2026-09-06` (the day before any seeded entry) correctly still returns `0`, confirming the fix is a genuine boundary correction and not an indiscriminate widening.
+
+Re-verification performed by evaluator-F against the restarted app:
+- Full backend suite: **618/618 passed** (+3 over pass 3's 615, matching the new regression tests), independently re-confirmed twice more by the orchestrator (618/618, exit 0, both runs).
+- Coverage: **100%, 2238/2238 statements** — matches the 100% baseline, ratchets cleanly (no regression from pass 3's 2232, the delta reflects the 6 new lines added by `_end_of_day()` plus its tests).
+- `ruff check .` and `mypy src/` (68 files): clean, independently re-confirmed by the orchestrator.
+- Frontend: **58/58 passed**, `tsc --noEmit` clean, `eslint` 0 errors (1 pre-existing, non-Group-F warning), independently re-confirmed by the orchestrator.
+- Playwright (real Chromium, live app): **10/10 `pw-f-01`..`pw-f-10` PASS** — `pw-f-03` now passes with no regression to the other 9.
+- API checks: **22/22 PASS** (unchanged from pass 3; Defect 4 did not touch any api_check).
+
+Design-critic-F re-scored E3-S4 after the CSS fix (full detail in `specs/reviews/eval-scores.json`, iteration 2):
+- **E3-S4: PASS** — visual_hierarchy 7/10 (min 6), accessibility 8/10 (min 7), responsiveness 7/10 (min 7), interaction_feedback 7/10 (min 6). Confirmed live: the audit table renders with all 8 rows at 1280/768/375px (was `null` at 768/375 pre-fix); `document.documentElement.scrollWidth === clientWidth` at all three widths (was 216px of overflow at 1280px pre-fix). One minor, non-blocking cosmetic gap noted and left open (see Flagged below): the `#entity_type` `<select>` doesn't pick up the branded focus-visible ring, falling back to the browser default outline.
+- **E6-S5: PASS**, unchanged, re-verified as a regression check — no drift from the CSS fix.
+
+**All six ratchet gates clear for Group F.** `features.json` and `claude-progress.txt` updated by the orchestrator accordingly; commit follows this sign-off.
+
+#### Flagged for the lead (pass 4)
+
+1. The `#entity_type` `<select>` focus-visible styling gap (design-critic-F, E3-S4) is minor and non-blocking — it didn't pull any criterion below its bar — but should be picked up as a small follow-up: extend `global.css`'s `input:focus-visible, button:focus-visible, a:focus-visible` selector to include `select:focus-visible`.
+2. Items 2 and 3 from pass 3's "Flagged for the lead" (instantiate real Playwright tooling in the repo; Group E's missing evaluator sign-off record) remain open and are carried forward unchanged.

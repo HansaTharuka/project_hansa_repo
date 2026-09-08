@@ -10,6 +10,8 @@ import { useAuth } from './auth/AuthContext';
 import { roleRedirect } from './auth/roleRedirect';
 import { Layout } from './components/Layout';
 import { Login } from './pages/Login';
+import { AuditLog } from './pages/compliance/AuditLog';
+import { Holdings } from './pages/customer/Holdings';
 
 function RootRedirect() {
   const { user, isLoading } = useAuth();
@@ -31,10 +33,6 @@ function AdminHomeStub() {
   return <p>Admin console — built by a later story.</p>;
 }
 
-function ComplianceAuditLogStub() {
-  return <p>Compliance audit log — built by a later story.</p>;
-}
-
 export function AppRouter() {
   return (
     <Routes>
@@ -46,6 +44,16 @@ export function AppRouter() {
           <ProtectedRoute allowedRoles={['customer']}>
             <Layout>
               <CustomerDashboardStub />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/customer/holdings"
+        element={
+          <ProtectedRoute allowedRoles={['customer']}>
+            <Layout>
+              <Holdings />
             </Layout>
           </ProtectedRoute>
         }
@@ -75,7 +83,7 @@ export function AppRouter() {
         element={
           <ProtectedRoute allowedRoles={['compliance']}>
             <Layout>
-              <ComplianceAuditLogStub />
+              <AuditLog />
             </Layout>
           </ProtectedRoute>
         }

@@ -1,0 +1,1209 @@
+{
+  "group": "F",
+  "stories": [
+    "E3-S4",
+    "E4-S3",
+    "E5-S2",
+    "E6-S5",
+    "E7-S4",
+    "E8-S3",
+    "E9-S2",
+    "E10-S3"
+  ],
+  "features": [
+    "F051",
+    "F052",
+    "F053",
+    "F054",
+    "F055",
+    "F067",
+    "F068",
+    "F069",
+    "F070",
+    "F071",
+    "F082",
+    "F083",
+    "F084",
+    "F085",
+    "F086",
+    "F117",
+    "F118",
+    "F119",
+    "F120",
+    "F121",
+    "F137",
+    "F138",
+    "F139",
+    "F140",
+    "F141",
+    "F158",
+    "F159",
+    "F160",
+    "F161",
+    "F162",
+    "F173",
+    "F174",
+    "F175",
+    "F176",
+    "F177",
+    "F198",
+    "F199",
+    "F200",
+    "F201",
+    "F202"
+  ],
+  "runtime_expectations": {
+    "verification_mode": "hybrid",
+    "app_expected_running": true,
+    "health_check_required": true,
+    "reason": "This group mixes API-layer stories (E4-S3, E7-S4, E8-S3, E10-S3), two Service-layer stories with no new HTTP surface (E5-S2, E9-S2), and two UI stories (E3-S4, E6-S5). Consistent with Groups D and E's precedent: api_checks are satisfied live-equivalent by pytest's api-client suite exercising the real src.app.main.app object through FastAPI's TestClient (real ASGI app, real dependency graph, real error handlers) — no separate live-uvicorn-plus-curl pass is required for those. E5-S2 and E9-S2 carry no api_checks at all, matching how E4-S2/E7-S3/E8-S2/E10-S2 (Service-layer, Group E) and E3-S2/E6-S2/E6-S3/E7-S2 (Service-layer, Group D) were scoped — their AC coverage is entirely unit_test_checks plus architecture_checks (audit-writer call count, no-float, deterministic selection). The two UI stories' playwright_checks genuinely need both the built/served SPA and the real backend API running together — filtering the compliance audit log and rendering per-asset-class drift depend on real query-string round-trips and real response shapes that a component test cannot substitute for. The evaluator MUST start both processes for the playwright_checks section; api_checks and unit_test_checks may be satisfied by the pytest suite alone."
+  },
+  "api_checks": [
+    {
+      "id": "api-f-01",
+      "method": "POST",
+      "path": "/api/risk-profile/submit",
+      "headers": {
+        "Authorization": "Bearer <customer token>"
+      },
+      "body": {
+        "answers": [
+          {
+            "question_id": "Q1",
+            "answer_value": "gt_7y"
+          }
+        ]
+      },
+      "expected_status": 201,
+      "expected_body_keys": [
+        "assignment_id",
+        "risk_band",
+        "rule_version",
+        "assigned_at"
+      ],
+      "description": "E4-S3 AC1; api-contracts.md §6.2. A complete, valid answer set for the active questionnaire (all question_ids present, one answer each) returns 201 with the assigned risk_band."
+    },
+    {
+      "id": "api-f-02",
+      "method": "POST",
+      "path": "/api/risk-profile/submit",
+      "headers": {
+        "Authorization": "Bearer <customer token>"
+      },
+      "body": {
+        "answers": [
+          {
+            "question_id": "Q1",
+            "answer_value": "gt_7y"
+          }
+        ]
+      },
+      "expected_status": 422,
+      "description": "E4-S3 AC2. An answer set missing one or more question_ids from the active questionnaire returns 422 INCOMPLETE_QUESTIONNAIRE; no RiskBandAssignment or RiskProfileAnswer row is inserted, verified by a follow-up GET /api/risk-profile/latest still returning 404 (or the pre-existing latest, unchanged) for this customer."
+    },
+    {
+      "id": "api-f-03",
+      "method": "POST",
+      "path": "/api/risk-profile/submit",
+      "headers": {
+        "Authorization": "Bearer <advisor token>"
+      },
+      "body": {
+        "answers": []
+      },
+      "expected_status": 403,
+      "description": "E4-S3 AC3. Customer-only action; same for an admin-role token against the same path (parametrized over the two roles)."
+    },
+    {
+      "id": "api-f-04",
+      "method": "GET",
+      "path": "/api/risk-profile/latest",
+      "headers": {
+        "Authorization": "Bearer <customer token with an assignment>"
+      },
+      "expected_status": 200,
+      "expected_body_keys": [
+        "assignment_id",
+        "customer_id",
+        "risk_band",
+        "rule_version",
+        "assigned_at"
+      ],
+      "description": "E4-S3 AC4 (positive path); api-contracts.md §6.3."
+    },
+    {
+      "id": "api-f-05",
+      "method": "GET",
+      "path": "/api/risk-profile/latest",
+      "headers": {
+        "Authorization": "Bearer <customer token with no assignment>"
+      },
+      "expected_status": 404,
+      "description": "E4-S3 AC4 (negative path). A customer who has never submitted the questionnaire gets 404 NO_RISK_BAND_ASSIGNMENT, not an empty 200."
+    },
+    {
+      "id": "api-f-06",
+      "method": "GET",
+      "path": "/api/risk-profile/latest",
+      "headers": {},
+      "expected_status": 401,
+      "description": "E4-S3 AC5. No Authorization header; same for POST /api/risk-profile/submit unauthenticated."
+    },
+    {
+      "id": "api-f-07",
+      "method": "POST",
+      "path": "/api/goals",
+      "headers": {
+        "Authorization": "Bearer <customer token>"
+      },
+      "body": {
+        "target_amount": "250000.00",
+        "target_date": "2032-06-30",
+        "priority": 1
+      },
+      "expected_status": 201,
+      "expected_body_keys": [
+        "id",
+        "customer_id",
+        "target_amount",
+        "target_date",
+        "priority",
+        "created_at",
+        "updated_at",
+        "percent_complete"
+      ],
+      "description": "E7-S4 AC1; api-contracts.md §9.1. Valid target_amount/target_date/priority returns 201 with the created goal's id; percent_complete is null until a snapshot exists."
+    },
+    {
+      "id": "api-f-08",
+      "method": "POST",
+      "path": "/api/goals",
+      "headers": {
+        "Authorization": "Bearer <customer token>"
+      },
+      "body": {
+        "target_amount": "0.00",
+        "target_date": "2032-06-30",
+        "priority": 1
+      },
+      "expected_status": 422,
+      "description": "E7-S4 AC2. target_amount <= 0 (zero and a negative value, parametrized) returns 422 VALIDATION_ERROR and creates no Goal row."
+    },
+    {
+      "id": "api-f-09",
+      "method": "GET",
+      "path": "/api/goals",
+      "headers": {
+        "Authorization": "Bearer <customer A token>"
+      },
+      "expected_status": 200,
+      "description": "E7-S4 AC3. Against a fixture with goals seeded for two distinct customers, every returned goal's customer_id equals customer A's own id — none of customer B's goals appear, and there is no query parameter capable of widening the scope."
+    },
+    {
+      "id": "api-f-10",
+      "method": "GET",
+      "path": "/api/goals/{goal_id}/progress",
+      "headers": {
+        "Authorization": "Bearer <customer token owning the goal>"
+      },
+      "expected_status": 200,
+      "expected_body_keys": [
+        "goal_id",
+        "target_amount",
+        "snapshots"
+      ],
+      "description": "E7-S4 AC4; api-contracts.md §9.4. Against a goal with multiple GoalProgressSnapshot rows, snapshots is ordered oldest-first (snapshot_at ASC)."
+    },
+    {
+      "id": "api-f-11",
+      "method": "PATCH",
+      "path": "/api/goals/{goal_id}",
+      "headers": {
+        "Authorization": "Bearer <customer token owning the goal>"
+      },
+      "body": {
+        "priority": 3
+      },
+      "expected_status": 200,
+      "description": "E7-S4 AC5. Updating priority returns 200 with priority: 3 in the response, and a subsequent GET /api/goals/{goal_id} (or GET /api/goals filtered to this id) reflects priority: 3; created_at is unchanged, updated_at moves forward."
+    },
+    {
+      "id": "api-f-12",
+      "method": "GET",
+      "path": "/api/rebalancing",
+      "headers": {
+        "Authorization": "Bearer <customer token with pending recommendations>"
+      },
+      "expected_status": 200,
+      "description": "E8-S3 AC1; api-contracts.md §10.1. Default (no status query param) returns this customer's pending recommendations as an array, each with recommendation_id, status, proposed_actions."
+    },
+    {
+      "id": "api-f-13",
+      "method": "POST",
+      "path": "/api/rebalancing/{recommendation_id}/accept",
+      "headers": {
+        "Authorization": "Bearer <owning customer token>"
+      },
+      "expected_status": 200,
+      "expected_body_keys": [
+        "recommendation_id",
+        "status",
+        "resolved_at"
+      ],
+      "description": "E8-S3 AC2. Transitions status to accepted, returns 200 with resolved_at populated, and writes exactly one AuditLogEntry (action = ACCEPT_REBALANCING_RECOMMENDATION)."
+    },
+    {
+      "id": "api-f-14",
+      "method": "POST",
+      "path": "/api/rebalancing/{recommendation_id}/dismiss",
+      "headers": {
+        "Authorization": "Bearer <owning customer token>"
+      },
+      "expected_status": 200,
+      "expected_body_keys": [
+        "recommendation_id",
+        "status",
+        "resolved_at"
+      ],
+      "description": "E8-S3 AC3. Called against a different pending recommendation_id than api-f-13, transitions status to dismissed and writes exactly one AuditLogEntry (action = DISMISS_REBALANCING_RECOMMENDATION)."
+    },
+    {
+      "id": "api-f-15",
+      "method": "POST",
+      "path": "/api/rebalancing/{already-resolved recommendation_id}/accept",
+      "headers": {
+        "Authorization": "Bearer <owning customer token>"
+      },
+      "expected_status": 409,
+      "description": "E8-S3 AC4. Calling accept (and, separately, dismiss) on the recommendation already resolved by api-f-13/api-f-14 returns 409 ALREADY_RESOLVED; resolved_at is unchanged from its first-resolution value, confirmed by re-reading the row."
+    },
+    {
+      "id": "api-f-16",
+      "method": "POST",
+      "path": "/api/rebalancing/{another customer's recommendation_id}/accept",
+      "headers": {
+        "Authorization": "Bearer <different customer token>"
+      },
+      "expected_status": 404,
+      "description": "E8-S3 AC5. A customer cannot accept/dismiss another customer's recommendation; per api-contracts.md §1.2/D12 the endpoint returns 404 RECOMMENDATION_NOT_FOUND (not 403, so as to not confirm the id exists) for a mismatched owner."
+    },
+    {
+      "id": "api-f-17",
+      "method": "POST",
+      "path": "/api/admin/risk-band-rules",
+      "headers": {
+        "Authorization": "Bearer <admin token>"
+      },
+      "body": {
+        "questionnaire_json": {
+          "questions": []
+        },
+        "scoring_rules_json": {
+          "bands": []
+        }
+      },
+      "expected_status": 201,
+      "expected_body_keys": [
+        "id",
+        "version",
+        "published_at",
+        "is_active"
+      ],
+      "description": "E10-S3 AC1; api-contracts.md §12.3. A questionnaire with >= 6 questions and valid scoring rules returns 201 with the server-assigned new version number (max(version) + 1)."
+    },
+    {
+      "id": "api-f-18",
+      "method": "POST",
+      "path": "/api/admin/allocation-templates",
+      "headers": {
+        "Authorization": "Bearer <admin token>"
+      },
+      "body": {
+        "risk_band": "MODERATE",
+        "allocations": [
+          {
+            "asset_class_id": 1,
+            "percent": "100.00"
+          }
+        ]
+      },
+      "expected_status": 201,
+      "expected_body_keys": [
+        "id",
+        "version",
+        "risk_band",
+        "total_percent",
+        "published_at",
+        "is_active"
+      ],
+      "description": "E10-S3 AC2 (positive path). Percentages summing to exactly 100 return 201 with total_percent: \"100.00\"."
+    },
+    {
+      "id": "api-f-19",
+      "method": "POST",
+      "path": "/api/admin/allocation-templates",
+      "headers": {
+        "Authorization": "Bearer <admin token>"
+      },
+      "body": {
+        "risk_band": "MODERATE",
+        "allocations": [
+          {
+            "asset_class_id": 1,
+            "percent": "99.00"
+          }
+        ]
+      },
+      "expected_status": 422,
+      "description": "E10-S3 AC2 (negative path). Percentages summing to 99 return 422 TEMPLATE_SUM_INVALID with details.sum_bps: 9900; the same call with allocations summing to 101 also returns 422 with details.sum_bps: 10100. Neither call writes an AllocationTemplate row."
+    },
+    {
+      "id": "api-f-20",
+      "method": "POST",
+      "path": "/api/admin/asset-classes",
+      "headers": {
+        "Authorization": "Bearer <admin token>"
+      },
+      "body": {
+        "code": "EQ_DM",
+        "name": "Duplicate of an existing code"
+      },
+      "expected_status": 409,
+      "description": "E10-S3 AC3. A code already used by an existing AssetClass returns 409 DUPLICATE_ASSET_CLASS_CODE; no row is inserted or mutated."
+    },
+    {
+      "id": "api-f-21",
+      "method": "POST",
+      "path": "/api/admin/risk-band-rules",
+      "headers": {
+        "Authorization": "Bearer <customer token>"
+      },
+      "body": {
+        "questionnaire_json": {
+          "questions": []
+        },
+        "scoring_rules_json": {
+          "bands": []
+        }
+      },
+      "expected_status": 403,
+      "description": "E10-S3 AC4. Parametrized over all three of POST /api/admin/risk-band-rules, POST /api/admin/allocation-templates and POST /api/admin/asset-classes, each called with a customer-, advisor- and compliance-role JWT (9 combinations) — every one returns 403 ROLE_NOT_PERMITTED."
+    },
+    {
+      "id": "api-f-22",
+      "method": "GET",
+      "path": "/api/admin/allocation-templates?risk_band=CONSERVATIVE",
+      "headers": {
+        "Authorization": "Bearer <admin token>"
+      },
+      "expected_status": 200,
+      "description": "E10-S3 AC5; api-contracts.md §12.4. Returns all versions (active and superseded) for CONSERVATIVE, ordered by version ASC — the superseded version from Group C's seed data and any newly published version both appear."
+    }
+  ],
+  "playwright_checks": [
+    {
+      "id": "pw-f-01",
+      "description": "E3-S4 AC1. Logging in as the seeded compliance user lands on the audit-log screen with a table of entries.",
+      "url": "/login",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#email",
+          "value": "<seeded compliance email>"
+        },
+        {
+          "action": "fill",
+          "selector": "#password",
+          "value": "<seeded compliance password>"
+        },
+        {
+          "action": "click",
+          "selector": "button[type=submit]"
+        },
+        {
+          "action": "wait_for",
+          "assertion": "URL matches the compliance audit-log route"
+        },
+        {
+          "action": "snapshot",
+          "assertion": "A table is visible with column headers including actor (actor_id/actor_role), entity_type, action, and timestamp"
+        }
+      ]
+    },
+    {
+      "id": "pw-f-02",
+      "description": "E3-S4 AC2. Selecting an entity-type filter and applying it re-queries the API and shows only matching entries.",
+      "url": "/compliance/audit-log",
+      "steps": [
+        {
+          "action": "select",
+          "selector": "#entity_type",
+          "value": "RiskBandAssignment"
+        },
+        {
+          "action": "click",
+          "selector": "button[type=submit]"
+        },
+        {
+          "action": "assert_network_request",
+          "assertion": "GET /api/audit?entity_type=RiskBandAssignment is issued"
+        },
+        {
+          "action": "snapshot",
+          "assertion": "Every rendered row's entity_type column reads RiskBandAssignment; no other entity_type value appears"
+        }
+      ]
+    },
+    {
+      "id": "pw-f-03",
+      "description": "E3-S4 AC3. Selecting a date range filter and applying it displays only entries with timestamp within the range, inclusive of both endpoints.",
+      "url": "/compliance/audit-log",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#from",
+          "value": "<a date with at least one known entry on that exact day>"
+        },
+        {
+          "action": "fill",
+          "selector": "#to",
+          "value": "<the same or a later date>"
+        },
+        {
+          "action": "click",
+          "selector": "button[type=submit]"
+        },
+        {
+          "action": "assert_network_request",
+          "assertion": "GET /api/audit?from=...&to=... is issued with both bounds"
+        },
+        {
+          "action": "snapshot",
+          "assertion": "Every rendered row's timestamp falls on or between the from/to dates; a row dated exactly on the from or to boundary date is included, not excluded"
+        }
+      ]
+    },
+    {
+      "id": "pw-f-04",
+      "description": "E3-S4 AC4. No UI control allows editing or deleting an audit entry; the screen has zero action buttons beyond filter/apply/clear.",
+      "url": "/compliance/audit-log",
+      "steps": [
+        {
+          "action": "snapshot",
+          "assertion": "The rendered DOM contains no edit, delete, update, or resolve control anywhere on the page; the only <button> elements present are Apply, Clear, and pagination (Previous/Next)"
+        }
+      ]
+    },
+    {
+      "id": "pw-f-05",
+      "description": "E3-S4 AC5. All filter inputs are labeled and keyboard-operable: tab-focusable, and submit via Enter key.",
+      "url": "/compliance/audit-log",
+      "steps": [
+        {
+          "action": "snapshot",
+          "assertion": "label[for] exists for each filter input (actor_id, entity_type, from, to) pointing at a matching id"
+        },
+        {
+          "action": "press_key",
+          "selector": "#actor_id",
+          "value": "Tab",
+          "assertion": "focus moves to the next filter input in document order"
+        },
+        {
+          "action": "press_key",
+          "selector": "#to",
+          "value": "Enter",
+          "assertion": "pressing Enter inside a filter input submits the filter form (same effect as clicking Apply), re-issuing the GET /api/audit request"
+        }
+      ]
+    },
+    {
+      "id": "pw-f-06",
+      "description": "E6-S5 AC1. The view lists each held asset class with current_value, current_percent, target_percent, and drift_percent.",
+      "url": "/customer/holdings",
+      "steps": [
+        {
+          "action": "wait_for",
+          "assertion": "GET /api/holdings resolves and the holdings table/cards render"
+        },
+        {
+          "action": "snapshot",
+          "assertion": "Each held asset class row shows current_value, current_percent, target_percent, and drift_percent"
+        }
+      ]
+    },
+    {
+      "id": "pw-f-07",
+      "description": "E6-S5 AC2. An asset class whose drift exceeds the configured threshold is visually distinguished from those within tolerance.",
+      "url": "/customer/holdings",
+      "steps": [
+        {
+          "action": "wait_for",
+          "assertion": "holdings render for a customer fixture with at least one exceeds_threshold: true and at least one exceeds_threshold: false row"
+        },
+        {
+          "action": "snapshot",
+          "assertion": "A row with exceeds_threshold: true carries a distinguishing visual treatment (e.g. data-breach=\"true\" attribute, distinct background/flag) absent from exceeds_threshold: false rows"
+        }
+      ]
+    },
+    {
+      "id": "pw-f-08",
+      "description": "E6-S5 AC3. A customer with zero holdings sees an explicit empty-state message rather than a blank or broken table.",
+      "url": "/customer/holdings",
+      "steps": [
+        {
+          "action": "wait_for",
+          "assertion": "GET /api/holdings for a customer fixture with holdings: [] resolves"
+        },
+        {
+          "action": "assert_visible",
+          "selector": "[data-testid=empty-state], .empty",
+          "assertion": "An explicit empty-state message is visible; no empty <table> or broken layout is rendered"
+        }
+      ]
+    },
+    {
+      "id": "pw-f-09",
+      "description": "E6-S5 AC4. All numeric values are rendered with a fixed number of decimal places consistent with the backend's fixed-point representation.",
+      "url": "/customer/holdings",
+      "steps": [
+        {
+          "action": "snapshot",
+          "assertion": "current_value is rendered with exactly 2 decimal places, current_percent/target_percent/drift_percent each with exactly 2 decimal places — matching the API's string representation verbatim, never re-formatted via parseFloat/toFixed on a JS number (NFR-01)"
+        }
+      ]
+    },
+    {
+      "id": "pw-f-10",
+      "description": "E6-S5 AC5. The view is reachable via a persistent navigation link from the customer dashboard.",
+      "url": "/customer/dashboard",
+      "steps": [
+        {
+          "action": "snapshot",
+          "assertion": "A persistent nav link (e.g. 'Holdings') is present in the NavBar"
+        },
+        {
+          "action": "click",
+          "selector": "a[href*=holdings]"
+        },
+        {
+          "action": "wait_for",
+          "assertion": "URL matches the customer holdings route"
+        }
+      ]
+    }
+  ],
+  "design_checks": {
+    "visual_hierarchy": {
+      "required": true,
+      "min_score": 6
+    },
+    "accessibility": {
+      "required": true,
+      "min_score": 7
+    },
+    "responsiveness": {
+      "required": true,
+      "min_score": 7
+    },
+    "interaction_feedback": {
+      "required": true,
+      "min_score": 6
+    },
+    "viewports": [
+      1280,
+      768,
+      375
+    ],
+    "mockup_reference": [
+      "specs/design/mockups/E3-S4.html",
+      "specs/design/mockups/E6-S5.html"
+    ],
+    "notes": "Two UI surfaces this group. E3-S4's audit-log screen: accessibility carries the highest bar (7) because E3-S4 AC5 is an explicit, testable acceptance criterion (labeled, tab-focusable, Enter-submits filter inputs) — visible :focus outline on every filter input and both buttons is part of that bar. E6-S5's holdings view is the mockup's own designated responsive-breakpoint screen (BRD §5.3): the table layout must be used at 1280px and 768px+, collapsing to a stacked card list at viewports <= 768px — hence 768 is included as its own viewport alongside the project's standard 1280/375 pair, and responsiveness carries a raised bar (7, not the usual 6) specifically for this story. The design-critic should score against each mockup's aesthetic direction, not its literal markup — production code is not expected to reuse the mockups' inline <style> blocks verbatim."
+  },
+  "performance_checks": [],
+  "architecture_checks": {
+    "files_must_exist": [
+      "frontend/src/pages/compliance/AuditLog.tsx",
+      "frontend/src/api/audit.ts",
+      "frontend/src/components/DataTable.tsx",
+      "frontend/src/pages/compliance/AuditLog.test.tsx",
+      "frontend/src/components/DataTable.test.tsx",
+      "frontend/src/pages/customer/Holdings.tsx",
+      "frontend/src/api/holdings.ts",
+      "frontend/src/components/EmptyState.tsx",
+      "frontend/src/pages/customer/Holdings.test.tsx",
+      "backend/src/app/routers/risk_profile.py",
+      "backend/tests/api/test_risk_profile_api.py",
+      "backend/src/domain/recommendation/horizon.py",
+      "backend/src/domain/recommendation/service.py",
+      "backend/tests/unit/test_horizon.py",
+      "backend/tests/unit/test_recommendation_service.py",
+      "backend/src/app/routers/goals.py",
+      "backend/tests/api/test_goals_api.py",
+      "backend/src/app/routers/rebalancing.py",
+      "backend/tests/api/test_rebalancing_api.py",
+      "backend/src/domain/advisor/service.py",
+      "backend/tests/unit/test_advisor_service.py",
+      "backend/tests/api/test_admin_api.py"
+    ],
+    "typing": {
+      "required": true,
+      "traces": [
+        "E4-S3 AC1-AC5",
+        "E5-S2 AC1-AC5",
+        "E7-S4 AC1-AC5",
+        "E8-S3 AC1-AC5",
+        "E9-S2 AC1-AC5",
+        "E10-S3 AC1-AC5"
+      ],
+      "features": [
+        "F067",
+        "F082",
+        "F137",
+        "F158",
+        "F173",
+        "F198"
+      ],
+      "command": "cd backend && uv run mypy src/",
+      "description": "mypy exits 0 across src/ including this group's 5 new backend modules (routers/risk_profile.py, recommendation/horizon.py, recommendation/service.py, routers/goals.py, routers/rebalancing.py, advisor/service.py) and the extended routers/admin.py."
+    },
+    "frontend_typing": {
+      "required": true,
+      "traces": [
+        "E3-S4 AC1-AC5",
+        "E6-S5 AC1-AC5"
+      ],
+      "features": [
+        "F051",
+        "F117"
+      ],
+      "command": "cd frontend && npm run typecheck",
+      "description": "tsc --noEmit exits 0 with zero `any` per CLAUDE.md's static-typing rule across the new AuditLog.tsx, DataTable.tsx, api/audit.ts, Holdings.tsx, EmptyState.tsx, api/holdings.ts."
+    },
+    "frontend_lint": {
+      "required": true,
+      "traces": [
+        "E3-S4 AC1-AC5",
+        "E6-S5 AC1-AC5"
+      ],
+      "features": [
+        "F051",
+        "F117"
+      ],
+      "command": "cd frontend && npm run lint",
+      "description": "ESLint clean on all new frontend/src files this group adds or modifies."
+    },
+    "layering": {
+      "required": true,
+      "traces": [
+        "system-design.md §2.1's directory-to-layer table",
+        "system-design.md D3 ('Routers may not import repositories')",
+        "folder-structure.md §4"
+      ],
+      "features": [
+        "F067",
+        "F137",
+        "F158",
+        "F198"
+      ],
+      "command": "rg -n \"^\\s*(from|import)\\s+(src\\.)?app\\b\" backend/src/domain backend/src/db ; rg -n \"^\\s*(from|import)\\s+(src\\.)?domain\\.[a-z_]+\\.(repository|threshold_repository)\\b\" backend/src/app ; rg -n \"^\\s*(from|import)\\s+(src\\.)?db\\.models\\b\" backend/src/app ; rg -n \"raise HTTPException\" backend/src/domain",
+      "description": "Same four static scans carried forward unchanged. This group's four new/extended routers (risk_profile.py, goals.py, rebalancing.py, admin.py) must call domain/*/service.py functions only, never a repository or db.models directly, and must never raise HTTPException from inside src/domain."
+    },
+    "no_float": {
+      "required": true,
+      "traces": [
+        "NFR-01",
+        "E5-S2 AC5",
+        "data-models.md §2 rule 2"
+      ],
+      "features": [
+        "F086"
+      ],
+      "command": "cd backend && uv run pytest tests/architecture/test_no_float_in_domain.py",
+      "description": "Extends the existing scan to this group's new pure-computation modules: domain/recommendation/horizon.py (horizon-bucket derivation from target_date) and domain/recommendation/service.py (allocation percentage selection/return). No float literal, float() call, or -> float annotation may appear in either, or in domain/advisor/service.py."
+    },
+    "audit_writer_single_call": {
+      "required": true,
+      "traces": [
+        "E5-S2 AC3",
+        "E9-S2 AC3",
+        "E9-S2 AC4"
+      ],
+      "features": [
+        "F084",
+        "F175",
+        "F176"
+      ],
+      "command": "cd backend && uv run pytest tests/unit/test_recommendation_service.py tests/unit/test_advisor_service.py",
+      "description": "A successful recommendation call invokes domain.audit.service.write_audit_entry exactly once with entity_type reflecting the recommendation event (AllocationRecommendation); a successful override invokes it exactly once with entity_type=AdvisorOverride; logging a manual recommendation invokes it (entity_type=ManualRecommendation) against the correct customer_id/advisor_id. All three verified via spy/mock assert_called_once()."
+    },
+    "deterministic_recommendation_selection": {
+      "required": true,
+      "traces": [
+        "E5-S2 AC1",
+        "E5-S2 AC2",
+        "E5-S2 AC4"
+      ],
+      "features": [
+        "F082",
+        "F083",
+        "F085"
+      ],
+      "command": "cd backend && uv run pytest tests/unit/test_recommendation_service.py tests/unit/test_horizon.py",
+      "description": "A CONSERVATIVE-band customer's recommendation is the active AllocationTemplate for CONSERVATIVE whose percentages sum to exactly 100; a customer with no RiskBandAssignment raises an error rather than returning any default/fallback allocation; the same (risk_band, horizon) pair always selects the identical template version across repeated calls."
+    },
+    "override_creates_new_assignment": {
+      "required": true,
+      "traces": [
+        "E9-S2 AC1",
+        "E9-S2 AC2",
+        "E9-S2 AC5",
+        "AC-09"
+      ],
+      "features": [
+        "F173",
+        "F174",
+        "F177"
+      ],
+      "command": "cd backend && uv run pytest tests/unit/test_advisor_service.py",
+      "description": "A valid override creates one AdvisorOverride row and one new RiskBandAssignment row reflecting new_band, so a subsequent recommendation lookup uses the overridden band; an override missing reason is rejected and writes neither row; overriding a nonexistent customer raises a not-found error rather than silently no-op-ing."
+    },
+    "goal_customer_scoping": {
+      "required": true,
+      "traces": [
+        "E7-S4 AC3",
+        "system-design.md D12"
+      ],
+      "features": [
+        "F139"
+      ],
+      "command": "cd backend && uv run pytest tests/api/test_goals_api.py -k scope",
+      "description": "GET /api/goals never returns another customer's goal regardless of query parameters; customer_id is taken from the JWT only, never accepted from the request."
+    },
+    "rebalancing_ownership_and_conflict": {
+      "required": true,
+      "traces": [
+        "E8-S3 AC4",
+        "E8-S3 AC5",
+        "system-design.md D12"
+      ],
+      "features": [
+        "F161",
+        "F162"
+      ],
+      "command": "cd backend && uv run pytest tests/api/test_rebalancing_api.py",
+      "description": "accept/dismiss on an already-resolved recommendation returns 409 ALREADY_RESOLVED without mutating resolved_at; accept/dismiss on another customer's recommendation returns 404 (per api-contracts.md §1.2/D12, not 403, so as to not confirm the id exists to a non-owner)."
+    },
+    "admin_publish_gates_at_api_layer": {
+      "required": true,
+      "traces": [
+        "E10-S3 AC1",
+        "E10-S3 AC2",
+        "E10-S3 AC3",
+        "AC-02",
+        "NFR-08"
+      ],
+      "features": [
+        "F198",
+        "F199",
+        "F200"
+      ],
+      "command": "cd backend && uv run pytest tests/api/test_admin_api.py",
+      "description": "The admin API translates domain.admin.service's ValidationError/ConflictError into the correct status codes: TEMPLATE_SUM_INVALID/QUESTIONNAIRE_TOO_SHORT to 422, DUPLICATE_ASSET_CLASS_CODE to 409 — this is the router-layer mapping in front of E10-S2's (Group E) already-tested service-layer gate, not a duplicate re-implementation of the sum/length checks."
+    },
+    "migrations_unchanged": {
+      "required": true,
+      "traces": [
+        "component-map.md note 1",
+        "NFR-05"
+      ],
+      "features": [
+        "F188"
+      ],
+      "command": "git diff --stat <last-group-E-tip-commit>..HEAD -- backend/alembic/versions/ backend/alembic.ini backend/alembic/env.py backend/alembic/script.py.mako",
+      "description": "Must produce empty output. This group adds no new table and needs no schema change — every entity these 8 stories touch (RiskBandAssignment, AllocationTemplate, Goal, GoalProgressSnapshot, RebalancingRecommendation, AdvisorOverride, RiskBandRule, AssetClass, AuditLogEntry) was already migrated by Group B/C's revision chain."
+    },
+    "env_vars": {
+      "required": true,
+      "traces": [
+        "Synthetic-Data rule (CLAUDE.md)"
+      ],
+      "features": [
+        "F023"
+      ],
+      "command": "cd backend && uv run detect-secrets scan src seed && cd ../frontend && npx detect-secrets scan src",
+      "description": "No new, unallowlisted finding across backend/src, backend/seed, and frontend/src (the compliance filter query params and holdings fixtures are runtime/test data, not secrets)."
+    }
+  },
+  "unit_test_checks": [
+    {
+      "id": "ut-158",
+      "traces": "E3-S4 AC1",
+      "features": [
+        "F051"
+      ],
+      "test_file": "frontend/src/pages/compliance/AuditLog.test.tsx",
+      "assertion": "Rendering AuditLog.tsx with a mocked GET /api/audit response shows a table with a row per entry and columns for actor, entity_type, action, and timestamp."
+    },
+    {
+      "id": "ut-159",
+      "traces": "E3-S4 AC2",
+      "features": [
+        "F052"
+      ],
+      "test_file": "frontend/src/pages/compliance/AuditLog.test.tsx",
+      "assertion": "Selecting an entity_type option and clicking Apply calls the mocked audit API with entity_type in the query string, and only entries matching that entity_type are rendered."
+    },
+    {
+      "id": "ut-160",
+      "traces": "E3-S4 AC3",
+      "features": [
+        "F053"
+      ],
+      "test_file": "frontend/src/pages/compliance/AuditLog.test.tsx",
+      "assertion": "Filling from/to date inputs and clicking Apply calls the mocked audit API with both bounds in the query string; a fixture entry dated exactly on the from or to boundary is included in the rendered rows, not excluded."
+    },
+    {
+      "id": "ut-161",
+      "traces": "E3-S4 AC4",
+      "features": [
+        "F054"
+      ],
+      "test_file": "frontend/src/pages/compliance/AuditLog.test.tsx",
+      "assertion": "The rendered component tree contains no edit/delete/update button anywhere; querying all <button> elements returns only Apply, Clear, and pagination controls."
+    },
+    {
+      "id": "ut-162",
+      "traces": "E3-S4 AC5",
+      "features": [
+        "F055"
+      ],
+      "test_file": "frontend/src/pages/compliance/AuditLog.test.tsx, frontend/src/components/DataTable.test.tsx",
+      "assertion": "Every filter input is queryable via getByLabelText (label/for-id association); pressing Enter inside a filter input triggers the same submit handler as clicking Apply."
+    },
+    {
+      "id": "ut-163",
+      "traces": "E4-S3 AC1",
+      "features": [
+        "F067"
+      ],
+      "test_file": "backend/tests/api/test_risk_profile_api.py",
+      "assertion": "POST /api/risk-profile/submit with a complete answer set and a customer-role token returns 201 with risk_band present and non-null in the body."
+    },
+    {
+      "id": "ut-164",
+      "traces": "E4-S3 AC2",
+      "features": [
+        "F068"
+      ],
+      "test_file": "backend/tests/api/test_risk_profile_api.py",
+      "assertion": "An incomplete answer set returns 422 INCOMPLETE_QUESTIONNAIRE; a repository-level count of RiskBandAssignment rows for the customer is unchanged before/after the call."
+    },
+    {
+      "id": "ut-165",
+      "traces": "E4-S3 AC3",
+      "features": [
+        "F069"
+      ],
+      "test_file": "backend/tests/api/test_risk_profile_api.py",
+      "assertion": "POST /api/risk-profile/submit with an advisor-role token, and separately an admin-role token, both return 403 ROLE_NOT_PERMITTED (parametrized)."
+    },
+    {
+      "id": "ut-166",
+      "traces": "E4-S3 AC4",
+      "features": [
+        "F070"
+      ],
+      "test_file": "backend/tests/api/test_risk_profile_api.py",
+      "assertion": "GET /api/risk-profile/latest returns the caller's most recent RiskBandAssignment (ORDER BY assigned_at DESC, id DESC LIMIT 1) when one exists, and 404 NO_RISK_BAND_ASSIGNMENT when none does."
+    },
+    {
+      "id": "ut-167",
+      "traces": "E4-S3 AC5",
+      "features": [
+        "F071"
+      ],
+      "test_file": "backend/tests/api/test_risk_profile_api.py",
+      "assertion": "Both POST /api/risk-profile/submit and GET /api/risk-profile/latest with no Authorization header return 401 TOKEN_MISSING."
+    },
+    {
+      "id": "ut-168",
+      "traces": "E5-S2 AC1",
+      "features": [
+        "F082"
+      ],
+      "test_file": "backend/tests/unit/test_recommendation_service.py",
+      "assertion": "get_recommendation for a CONSERVATIVE-band customer returns the active AllocationTemplate for CONSERVATIVE whose allocations' percent values sum to exactly Decimal('100.00')."
+    },
+    {
+      "id": "ut-169",
+      "traces": "E5-S2 AC2",
+      "features": [
+        "F083"
+      ],
+      "test_file": "backend/tests/unit/test_recommendation_service.py",
+      "assertion": "A customer with no RiskBandAssignment raises NotFoundError (NO_RISK_BAND_ASSIGNMENT); no template is returned, default or otherwise."
+    },
+    {
+      "id": "ut-170",
+      "traces": "E5-S2 AC3",
+      "features": [
+        "F084"
+      ],
+      "test_file": "backend/tests/unit/test_recommendation_service.py",
+      "assertion": "A successful call invokes the audit-writer exactly once with entity_type='AllocationRecommendation' (spy, assert_called_once())."
+    },
+    {
+      "id": "ut-171",
+      "traces": "E5-S2 AC4",
+      "features": [
+        "F085"
+      ],
+      "test_file": "backend/tests/unit/test_horizon.py, backend/tests/unit/test_recommendation_service.py",
+      "assertion": "Calling the selection logic twice with the identical (risk_band, horizon) pair returns the identical template_version both times."
+    },
+    {
+      "id": "ut-172",
+      "traces": "E5-S2 AC5",
+      "features": [
+        "F086"
+      ],
+      "test_file": "backend/tests/unit/test_recommendation_service.py",
+      "assertion": "Every returned allocation percent value is a Decimal/fixed-point string, never a float; type() introspection confirms no float appears in the response, and the percentages sum to exactly 100."
+    },
+    {
+      "id": "ut-173",
+      "traces": "E6-S5 AC1",
+      "features": [
+        "F117"
+      ],
+      "test_file": "frontend/src/pages/customer/Holdings.test.tsx",
+      "assertion": "Rendering Holdings.tsx with a mocked GET /api/holdings response shows, for each held asset class, current_value, current_percent, target_percent, and drift_percent."
+    },
+    {
+      "id": "ut-174",
+      "traces": "E6-S5 AC2",
+      "features": [
+        "F118"
+      ],
+      "test_file": "frontend/src/pages/customer/Holdings.test.tsx",
+      "assertion": "A row with exceeds_threshold: true is rendered with a distinguishing class/attribute (e.g. data-breach) that a row with exceeds_threshold: false does not receive."
+    },
+    {
+      "id": "ut-175",
+      "traces": "E6-S5 AC3",
+      "features": [
+        "F119"
+      ],
+      "test_file": "frontend/src/pages/customer/Holdings.test.tsx",
+      "assertion": "A mocked response with holdings: [] renders EmptyState.tsx's message, not an empty <table> or a rendering error."
+    },
+    {
+      "id": "ut-176",
+      "traces": "E6-S5 AC4",
+      "features": [
+        "F120"
+      ],
+      "test_file": "frontend/src/pages/customer/Holdings.test.tsx",
+      "assertion": "Every rendered money and percent value has exactly the number of decimal places the API returned (2), reproduced verbatim from the response string rather than reformatted via a JS number/parseFloat round-trip (NFR-01)."
+    },
+    {
+      "id": "ut-177",
+      "traces": "E6-S5 AC5",
+      "features": [
+        "F121"
+      ],
+      "test_file": "frontend/src/pages/customer/Holdings.test.tsx",
+      "assertion": "NavBar.tsx renders a link to the holdings route on every customer-role page, including the dashboard."
+    },
+    {
+      "id": "ut-178",
+      "traces": "E7-S4 AC1",
+      "features": [
+        "F137"
+      ],
+      "test_file": "backend/tests/api/test_goals_api.py",
+      "assertion": "POST /api/goals with valid target_amount, target_date, and priority returns 201 with a non-null id in the body."
+    },
+    {
+      "id": "ut-179",
+      "traces": "E7-S4 AC2",
+      "features": [
+        "F138"
+      ],
+      "test_file": "backend/tests/api/test_goals_api.py",
+      "assertion": "POST /api/goals with target_amount '0.00' or a negative value returns 422 VALIDATION_ERROR (parametrized) and inserts no Goal row."
+    },
+    {
+      "id": "ut-180",
+      "traces": "E7-S4 AC3",
+      "features": [
+        "F139"
+      ],
+      "test_file": "backend/tests/api/test_goals_api.py",
+      "assertion": "Against a fixture with goals for two customers, GET /api/goals for customer A returns only customer A's goal ids; none of customer B's goal ids appear."
+    },
+    {
+      "id": "ut-181",
+      "traces": "E7-S4 AC4",
+      "features": [
+        "F140"
+      ],
+      "test_file": "backend/tests/api/test_goals_api.py",
+      "assertion": "GET /api/goals/{id}/progress against a goal with 3 seeded GoalProgressSnapshot rows returns them ordered snapshot_at ASC; a goal with none returns snapshots: []."
+    },
+    {
+      "id": "ut-182",
+      "traces": "E7-S4 AC5",
+      "features": [
+        "F141"
+      ],
+      "test_file": "backend/tests/api/test_goals_api.py",
+      "assertion": "PATCH /api/goals/{id} with {\"priority\": 3} returns 200 with priority: 3; a follow-up GET for the same goal id also returns priority: 3, confirming persistence, not just an echoed request body."
+    },
+    {
+      "id": "ut-183",
+      "traces": "E8-S3 AC1",
+      "features": [
+        "F158"
+      ],
+      "test_file": "backend/tests/api/test_rebalancing_api.py",
+      "assertion": "GET /api/rebalancing with no status query param returns only the caller's pending recommendations; a seeded accepted/dismissed recommendation for the same customer is excluded by default."
+    },
+    {
+      "id": "ut-184",
+      "traces": "E8-S3 AC2",
+      "features": [
+        "F159"
+      ],
+      "test_file": "backend/tests/api/test_rebalancing_api.py",
+      "assertion": "POST /api/rebalancing/{id}/accept on a pending, owned recommendation returns 200 with status: 'accepted' and a non-null resolved_at, and writes exactly one AuditLogEntry (action=ACCEPT_REBALANCING_RECOMMENDATION)."
+    },
+    {
+      "id": "ut-185",
+      "traces": "E8-S3 AC3",
+      "features": [
+        "F160"
+      ],
+      "test_file": "backend/tests/api/test_rebalancing_api.py",
+      "assertion": "POST /api/rebalancing/{id}/dismiss on a different pending, owned recommendation returns 200 with status: 'dismissed' and writes exactly one AuditLogEntry (action=DISMISS_REBALANCING_RECOMMENDATION)."
+    },
+    {
+      "id": "ut-186",
+      "traces": "E8-S3 AC4",
+      "features": [
+        "F161"
+      ],
+      "test_file": "backend/tests/api/test_rebalancing_api.py",
+      "assertion": "Calling accept a second time on an already-accepted recommendation, and dismiss on an already-dismissed one, both return 409 ALREADY_RESOLVED; resolved_at read back afterward equals its value immediately after the first resolution."
+    },
+    {
+      "id": "ut-187",
+      "traces": "E8-S3 AC5",
+      "features": [
+        "F162"
+      ],
+      "test_file": "backend/tests/api/test_rebalancing_api.py",
+      "assertion": "A customer token calling accept/dismiss on a recommendation_id owned by a different customer returns 404 RECOMMENDATION_NOT_FOUND (per api-contracts.md §10.2/§10.3's documented D12 convention — not 403, so as to not confirm the id exists to a non-owner), and the target recommendation's status is left unchanged."
+    },
+    {
+      "id": "ut-188",
+      "traces": "E9-S2 AC1",
+      "features": [
+        "F173"
+      ],
+      "test_file": "backend/tests/unit/test_advisor_service.py",
+      "assertion": "A valid override_risk_band call inserts one AdvisorOverride row and one new RiskBandAssignment row with risk_band == new_band; a subsequent get_active_recommendation-style lookup for that customer reads the new band."
+    },
+    {
+      "id": "ut-189",
+      "traces": "E9-S2 AC2",
+      "features": [
+        "F174"
+      ],
+      "test_file": "backend/tests/unit/test_advisor_service.py",
+      "assertion": "An override call with reason missing, empty, or whitespace-only (parametrized) raises ValidationError (REASON_REQUIRED) and inserts neither an AdvisorOverride nor a RiskBandAssignment row."
+    },
+    {
+      "id": "ut-190",
+      "traces": "E9-S2 AC3",
+      "features": [
+        "F175"
+      ],
+      "test_file": "backend/tests/unit/test_advisor_service.py",
+      "assertion": "A successful override invokes the audit-writer exactly once with entity_type='AdvisorOverride' (spy, assert_called_once())."
+    },
+    {
+      "id": "ut-191",
+      "traces": "E9-S2 AC4",
+      "features": [
+        "F176"
+      ],
+      "test_file": "backend/tests/unit/test_advisor_service.py",
+      "assertion": "log_manual_recommendation records the note against the given customer_id and advisor_id and invokes the audit-writer once with entity_type='ManualRecommendation', details_json containing the note."
+    },
+    {
+      "id": "ut-192",
+      "traces": "E9-S2 AC5",
+      "features": [
+        "F177"
+      ],
+      "test_file": "backend/tests/unit/test_advisor_service.py",
+      "assertion": "override_risk_band called with a customer_id that does not exist raises NotFoundError (CUSTOMER_NOT_FOUND) before any row is written."
+    },
+    {
+      "id": "ut-193",
+      "traces": "E10-S3 AC1",
+      "features": [
+        "F198"
+      ],
+      "test_file": "backend/tests/api/test_admin_api.py",
+      "assertion": "POST /api/admin/risk-band-rules with a questionnaire of >= 6 questions and valid scoring_rules_json returns 201 with the new server-assigned version number, equal to the prior max version + 1."
+    },
+    {
+      "id": "ut-194",
+      "traces": "E10-S3 AC2",
+      "features": [
+        "F199"
+      ],
+      "test_file": "backend/tests/api/test_admin_api.py",
+      "assertion": "POST /api/admin/allocation-templates with percentages summing to 100 returns 201; the identical call with the last percent value adjusted so the sum is 99, and separately 101, both return 422 TEMPLATE_SUM_INVALID (parametrized), and neither writes an AllocationTemplate row."
+    },
+    {
+      "id": "ut-195",
+      "traces": "E10-S3 AC3",
+      "features": [
+        "F200"
+      ],
+      "test_file": "backend/tests/api/test_admin_api.py",
+      "assertion": "POST /api/admin/asset-classes with a code matching an existing AssetClass's code returns 409 DUPLICATE_ASSET_CLASS_CODE; the existing row's name is unchanged on re-read."
+    },
+    {
+      "id": "ut-196",
+      "traces": "E10-S3 AC4",
+      "features": [
+        "F201"
+      ],
+      "test_file": "backend/tests/api/test_admin_api.py",
+      "assertion": "Each of the three admin publish endpoints (risk-band-rules, allocation-templates, asset-classes), called with a customer-, advisor-, and compliance-role token (9 combinations, parametrized), returns 403 ROLE_NOT_PERMITTED."
+    },
+    {
+      "id": "ut-197",
+      "traces": "E10-S3 AC5",
+      "features": [
+        "F202"
+      ],
+      "test_file": "backend/tests/api/test_admin_api.py",
+      "assertion": "GET /api/admin/allocation-templates?risk_band=CONSERVATIVE returns every CONSERVATIVE version (both the seeded active one and any superseded ones from prior publishes in the fixture), ordered by version ASC; no MODERATE or AGGRESSIVE row appears."
+    }
+  ],
+  "notes": [
+    "1. No feature-coverage gap found: all 40 features (F051-F055, F067-F071, F082-F086, F117-F121, F137-F141, F158-F162, F173-F177, F198-F202) already exist in features.json for this group's 8 stories, one per acceptance criterion. This contract's `features` list references them as-is; no new feature IDs were invented.",
+    "2. E5-S2 and E9-S2 are Service-layer stories with no new HTTP surface — consistent with how Group D (E3-S2, E6-S2, E6-S3, E7-S2) and Group E (E4-S2, E7-S3, E8-S2, E10-S2) scoped prior Service-layer stories, they carry no api_checks entries. Their five ACs each are covered entirely by unit_test_checks (ut-168 through ut-172 for E5-S2, ut-188 through ut-192 for E9-S2) plus the audit_writer_single_call, deterministic_recommendation_selection, override_creates_new_assignment, and no_float architecture_checks.",
+    "3. File contention within this group, for the generator's dependency handshake: backend/src/types/requests.py and backend/src/types/responses.py are each modified by four of this group's stories (E4-S3, E7-S4, E8-S3, E10-S3) — each adds its own new request/response models, low collision risk since additions are appended, but should still land as coordinated single commits per file-ownership discipline rather than four teammates racing on the same file in parallel. frontend/src/router.tsx is modified by both E3-S4 and E6-S5 (new route registration for AuditLog and Holdings respectively) — same low-risk-but-coordinate pattern. backend/src/app/routers/admin.py is modified only by E10-S3 this group (created in E6-S4, Group E) — no contention. backend/src/app/error_handlers.py needs new mappings this group (ALREADY_RESOLVED -> 409 for E8-S3; VERSION_CONFLICT, TEMPLATE_SUM_INVALID, DUPLICATE_ASSET_CLASS_CODE -> the appropriate statuses for E10-S3, some already partially present per Group D/E's contracts) — another shared-file integration point.",
+    "4. E8-S3 AC5's status code for a mismatched customer_id is 404 RECOMMENDATION_NOT_FOUND, not 403 — api-contracts.md §10.2 and §10.3 both state this explicitly and unambiguously as the D12 convention (avoids confirming the resource exists to a non-owner). api-f-16, ut-187, and the rebalancing_ownership_and_conflict architecture check all enforce 404; the story text's looser '403 or 404' wording is superseded by the design-layer spec per CLAUDE.md's Spec-Is-Truth rule. The evaluator must treat 403 as a failure on this check, not an acceptable alternative.",
+    "5. design_checks' 768px viewport is specific to E6-S5, the mockup's designated single responsive-breakpoint screen (BRD §5.3) — E3-S4 has no responsive requirement in its ACs and is scored only at 1280/375 in practice, though the same viewport list is declared at the contract level for simplicity, consistent with how E.json declared one shared viewport list across Login (which also had no explicit breakpoint requirement)."
+  ]
+}

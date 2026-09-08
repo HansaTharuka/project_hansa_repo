@@ -136,6 +136,29 @@ def test_filtering_by_entity_type_returns_only_exact_matches(
     assert all(entry["entity_type"] == "RiskBandAssignment" for entry in body["entries"])
 
 
+def test_filtering_by_bare_to_date_includes_entries_timestamped_that_day(
+    client: TestClient, db_session: Session
+) -> None:
+    """`to=<date>` (no time component, as the UI's `<input type="date">` sends
+    it) must include every entry timestamped anywhere on that date, not just
+    ones at exactly midnight (E3-S4 AC3; api-contracts.md §13.1)."""
+    token = _seed_user_and_login(
+        client, db_session, email="audit.compliance5@wealthwise.test", role="compliance"
+    )
+    _seed_audited_fixture(db_session, actor_id=1)
+
+    response = client.get(
+        "/api/audit?to=2026-09-05",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    timestamps = [entry["timestamp"] for entry in body["entries"]]
+    assert "2026-09-05T09:00:00Z" in timestamps
+    assert all(timestamp <= "2026-09-05T23:59:59Z" for timestamp in timestamps)
+
+
 def test_unauthenticated_request_returns_401(client: TestClient, migrated_engine: Engine) -> None:
     del migrated_engine
     response = client.get("/api/audit")

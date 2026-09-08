@@ -1,0 +1,71 @@
+{
+  "groups": {
+    "F": {
+      "group": "F",
+      "iteration": 2,
+      "timestamp": "2026-09-07T15:20:00Z",
+      "method": "Playwright (chromium, headless), real logged-in sessions against live app (backend :8000, frontend :5173), screenshots + DOM/network inspection at 1280/768/375px",
+      "pages": [
+        {
+          "story_id": "E3-S4",
+          "page": "Compliance audit-log screen",
+          "route": "/compliance/audit-log",
+          "mockup_reference": "specs/design/mockups/E3-S4.html",
+          "contract_criteria": {
+            "visual_hierarchy": { "score": 7, "min_score": 6, "pass": true },
+            "accessibility": { "score": 8, "min_score": 7, "pass": true },
+            "responsiveness": { "score": 7, "min_score": 7, "pass": true },
+            "interaction_feedback": { "score": 7, "min_score": 6, "pass": true }
+          },
+          "contract_verdict": "PASS",
+          "calibration_scores": {
+            "design_quality": 7,
+            "originality": 5,
+            "craft": 7,
+            "functionality": 8
+          },
+          "calibration_weighted_average": 7.15,
+          "calibration_threshold": 6,
+          "calibration_per_criterion_minimum": 4,
+          "calibration_verdict": "PASS",
+          "verdict": "PASS",
+          "fix_verified": "frontend/src/styles/global.css:327-339 now scopes the <=768px hide/show rule to `.holdings-page .tablewrap` / `.holdings-page .cards` instead of the generic `.tablewrap`, and `.tablewrap` (line 193-196) now carries `overflow-x: auto; max-width: 100%` unconditionally. Both root causes from iteration 1 are confirmed fixed live: (1) document.querySelector('table') now returns a real element with all 8 rows at 1280px, 768px AND 375px (previously null at 768/375); (2) document.documentElement.scrollWidth === clientWidth at all three widths (1280/768/375) -- the previous 216px page-level horizontal-overflow bleed at 1280px is gone, and the table now scrolls only within its own `.tablewrap` container.",
+          "critique": "All four contract criteria now pass. The table survives at every viewport (no more content loss), and interacting with it still works correctly post-fix: selecting entity_type=RiskBandAssignment and clicking Apply correctly re-queried and narrowed 8 entries down to 2 matching rows (screenshot-verified), matching pre-fix filtering behavior.\n\nvisual_hierarchy (7/10, was 5/10): h2 'Audit log' > h3 'Filters'/'Entries' panels > uppercase th labels > row data holds up consistently now across all three widths -- the Entries panel always has real, organized data to show. Not scored higher because at 768px/375px the table requires horizontal scrolling to reach the ACTION/DETAILS_JSON columns (visible cut off at the right edge of the screenshot) rather than a purpose-built narrow-viewport layout like Holdings' card fallback -- functional and legible, but denser/less elegant than the sibling screen.\n\naccessibility (8/10, was 5/10): the critical regression is resolved -- the table's semantic markup (scope=col headers, etc.) is present in the DOM at every viewport, so a keyboard/screen-reader user on a narrow viewport can now reach every audit entry via the table's horizontal scroll instead of finding nothing. Labels, tab order (#actor_id -> #entity_type), and Enter-submits-the-form all remain correct, and #actor_id/Apply/Clear still show the branded blue focus-visible outline. One pre-existing minor gap is unchanged and not re-scored down for it: the #entity_type <select> still isn't covered by global.css's `input:focus-visible, button:focus-visible, a:focus-visible` selector (line ~76-81), so it still falls back to the browser's default outline instead of the branded ring -- worth a follow-up but no longer blocking, since it's cosmetic-inconsistency rather than content-loss.\n\nresponsiveness (7/10, was 3/10, meets the 7 bar for this criterion): both bugs are fixed -- confirmed via document.documentElement.scrollWidth (1280/768/375) exactly equal to clientWidth at every width, i.e. zero page-level horizontal overflow anywhere, and the table itself remains visible and usable (via its own internal horizontal scrollbar) rather than vanishing. Not scored higher than 7 because E3-S4 has no purpose-built narrow-viewport layout (unlike Holdings' card list) -- a horizontally-scrollable dense table is an acceptable, functional fallback for a compliance-tool screen but not as polished a mobile experience as the sibling page.\n\ninteraction_feedback (7/10, was 6/10): filtering (entity_type=RiskBandAssignment: 8 -> 2 matching entries, count text and rows both updated correctly), Previous/Next disabled-state logic, and Enter-key submission all continue to work exactly as before at 1280px -- and now that consistency extends to 768px/375px too, since the table (and therefore visible feedback about filter results) no longer disappears at those widths."
+        },
+        {
+          "story_id": "E6-S5",
+          "page": "Customer holdings/drift view",
+          "route": "/customer/holdings",
+          "mockup_reference": "specs/design/mockups/E6-S5.html",
+          "contract_criteria": {
+            "visual_hierarchy": { "score": 7, "min_score": 6, "pass": true },
+            "accessibility": { "score": 8, "min_score": 7, "pass": true },
+            "responsiveness": { "score": 9, "min_score": 7, "pass": true },
+            "interaction_feedback": { "score": 7, "min_score": 6, "pass": true }
+          },
+          "contract_verdict": "PASS",
+          "calibration_scores": {
+            "design_quality": 7,
+            "originality": 6,
+            "craft": 8,
+            "functionality": 8
+          },
+          "calibration_weighted_average": 7.46,
+          "calibration_threshold": 6,
+          "calibration_per_criterion_minimum": 4,
+          "calibration_verdict": "PASS",
+          "verdict": "PASS",
+          "note": "Unchanged since iteration 1 -- global.css's Holdings-specific rule (now scoped to `.holdings-page .tablewrap`/`.holdings-page .cards`) is the exact same behavior Holdings had before the fix, just explicitly scoped instead of implicitly generic. Re-verified live post-fix as a regression check: table visible at 1280px (tableVisible:true, cardsVisible:false), cards visible at 768px and 375px (tableVisible:false, cardsVisible:true), zero horizontal overflow at any width, screenshots pixel-equivalent to iteration 1. No re-score needed; scores carried forward unchanged.",
+          "critique": "This is the strongest of the two Group F screens and is genuinely well executed. visual_hierarchy (7/10): clear h2 'Holdings & drift' + sub-copy, two well-separated panels ('Portfolio summary' dl and 'By asset class' table/cards), right-aligned tabular-nums monospace numbers for scannability, and the out-of-tolerance row/card (FI_GOV, drift -6.66 vs 5.00 threshold) is unmistakably flagged with a peach background and border matching the mockup's intent. Deductions: the table shows only asset_class_code ('FI_GOV') and never asset_class_name ('Government Fixed Income') even though the API response and mockup both carry it -- a retail customer sees jargon codes instead of plain-language labels; and exceeds_threshold is rendered as bare text 'true'/'false' rather than the mockup's rounded pill/badge ('true - out of tolerance' / 'false'), so the flag relies more on background-tint alone than the mockup's redundant text+shape+color treatment.\n\naccessibility (8/10): semantic table with scope=col headers, tabular-nums for alignment, data-breach=\"true\" attribute on both the <tr> and the mobile <article class=\"card\"> for reliable programmatic/CSS targeting, comfortable text contrast throughout (#5c5c66 muted labels on white/#f4f4f5), and the same data survives intact into the card layout at narrow widths (every dt/dl pair is preserved, nothing is dropped). The exceeds_threshold state is conveyed by both a color/background cue and the literal word 'true'/'false' in text, so it doesn't rely on color alone.\n\nresponsiveness (9/10, required >=7, the raised bar for this story): this is the mockup's designated single responsive-breakpoint screen (BRD §5.3) and it delivers exactly as specified -- confirmed by document.documentElement.scrollWidth === clientWidth at all three widths (1280/768/375, no horizontal overflow anywhere). Table layout renders at 1280px; at 768px and 375px the .tablewrap is hidden and .cards renders instead, with each asset class as its own bordered card containing a 2-column current_value/current_percent/target_percent/drift_percent grid -- a clean, accurate implementation of the exact breakpoint behavior the contract calls out.\n\ninteraction_feedback (7/10): this view is primarily read-only display (no filter controls in scope for E6-S5), so feedback is judged on the breach-highlighting affordance (instant, unambiguous, no interaction required) and the responsive transition itself, which is immediate and correct when resizing between widths. Not scored higher only because there are no loading/error/empty states observed in either pass -- the empty-state component (EmptyState.tsx / AC3) exists per the architecture checks but wasn't exercised live (no zero-holdings fixture account was available), so empty-state interaction feedback specifically remains unverified rather than confirmed."
+        }
+      ],
+      "summary": {
+        "E3-S4": "PASS (iteration 2, was FAIL in iteration 1) -- visual_hierarchy 7/10 (min 6), accessibility 8/10 (min 7), responsiveness 7/10 (min 7), interaction_feedback 7/10 (min 6), all now clear their contract bars. Fix verified live: global.css's <=768px hide/show rule is now scoped to `.holdings-page .tablewrap`/`.holdings-page .cards` so it no longer matches AuditLog's shared DataTable wrapper -- the audit table now renders with all 8 rows at 1280/768/375px (previously vanished entirely at 768/375). `.tablewrap` also now has `overflow-x:auto; max-width:100%` unconditionally, eliminating the ~216px page-level horizontal overflow previously seen at 1280px. Remaining minor, non-blocking gap: the #entity_type <select> still doesn't get the branded focus-visible outline that inputs/buttons get (falls back to browser default) -- cosmetic, not a functional or content-access issue.",
+        "E6-S5": "PASS (unchanged from iteration 1, re-verified as a regression check post-fix) -- visual_hierarchy 7/10, accessibility 8/10, responsiveness 9/10, interaction_feedback 7/10, all clearing their contract bars (6/7/7/6). Screenshots and DOM state are pixel/behavior-equivalent to iteration 1; the global.css change only made this page's existing scoping explicit rather than altering its behavior. Minor, non-blocking gaps versus the mockup persist: missing asset_class_name display and missing badge/pill styling for exceeds_threshold (currently plain 'true'/'false' text)."
+      },
+      "iteration_1_history": {
+        "note": "Preserved for audit trail. E3-S4 originally FAILED all three of visual_hierarchy (5/10 < 6), accessibility (5/10 < 7), and responsiveness (3/10 < 7) due to global.css's un-scoped `.tablewrap{display:none}` media query hiding the audit table entirely at <=768px, plus a 216px page-level horizontal overflow bug at 1280px. Full iteration-1 critique text is preserved in git history of this file (see commit that introduced this eval-scores.json)."
+      }
+    }
+  }
+}

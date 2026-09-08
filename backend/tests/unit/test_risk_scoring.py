@@ -85,6 +85,33 @@ def test_an_answer_value_not_among_the_question_s_options_raises_validation_erro
     assert excinfo.value.code == "INVALID_ANSWER"
 
 
+def test_a_point_total_not_covered_by_any_configured_band_raises_score_out_of_range() -> None:
+    """A gap between the last configured band's `max_points` and the highest
+    achievable total raises `ValidationError` (`SCORE_OUT_OF_RANGE`) rather
+    than silently falling through — `_band_for_points`'s own docstring
+    branch."""
+    gapped_rules = ScoringRules(
+        bands=[
+            BandRange(risk_band="CONSERVATIVE", min_points=6, max_points=13),
+            BandRange(risk_band="MODERATE", min_points=14, max_points=22),
+            # AGGRESSIVE band deliberately omitted, leaving 23-30 uncovered.
+        ]
+    )
+    gapped_rule = RiskBandRule(
+        id=2,
+        version=1,
+        questionnaire_json=QUESTIONNAIRE,
+        scoring_rules_json=gapped_rules,
+        published_at="2026-09-01T09:00:00Z",
+        is_active=True,
+    )
+
+    with pytest.raises(ValidationError) as excinfo:
+        score_answers(ALL_HIGH_ANSWERS, gapped_rule)
+
+    assert excinfo.value.code == "SCORE_OUT_OF_RANGE"
+
+
 def test_no_float_appears_anywhere_in_the_scoring_result_or_intermediate_totals() -> None:
     result = score_answers(ALL_LOW_ANSWERS, RULE)
 
