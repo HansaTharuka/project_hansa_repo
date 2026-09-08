@@ -337,3 +337,93 @@ tr[data-breach='true'] td.num.drift {
     display: block;
   }
 }
+
+/* ---- Risk-profile questionnaire & result (E4-S4) ---- */
+main:has(.questionnaire-page),
+main.questionnaire-page,
+main.risk-result-page {
+  max-width: 720px;
+}
+
+.questionnaire-page fieldset,
+.risk-result-page fieldset {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin: 0 0 16px;
+}
+
+.questionnaire-page fieldset[data-invalid='true'] {
+  border-color: var(--color-error-border);
+  background: var(--color-error-bg);
+}
+
+.questionnaire-page legend {
+  font-size: 14px;
+  font-weight: 600;
+  padding: 0 6px;
+}
+
+.questionnaire-page .opt {
+  display: flex;
+  gap: 9px;
+  align-items: flex-start;
+  padding: 5px 0;
+}
+
+.questionnaire-page .opt input {
+  margin-top: 3px;
+  width: auto;
+}
+
+.questionnaire-page .opt label {
+  font-weight: 400;
+  font-size: 14px;
+  margin: 0;
+}
+
+.questionnaire-page .err {
+  color: var(--color-error);
+  font-size: 13px;
+  margin: 6px 0 0;
+  font-weight: 600;
+}
+
+.infobox {
+  background: #eef1f5;
+  border: 1px solid #b8c4d4;
+  color: #2c3e52;
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+
+.risk-result-page .band {
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin: 6px 0 2px;
+}
+
+.risk-result-page .band-raw {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+
+.dashboard-page .quick-links {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+@media (max-width: 480px) {
+  main.questionnaire-page,
+  main.risk-result-page {
+    padding: 24px 16px 48px;
+  }
+}
