@@ -92,3 +92,19 @@ coverage: 100% (532 backend + 40 frontend = 572 tests passing)
 learned_rules: 0
 blocked_stories: none
 next_action: Negotiate sprint contract for Group F (E3-S4 compliance audit-log UI, E4-S3 risk-profile submission API, E5-S2 allocation recommendation service, E6-S5 holdings/drift UI, E7-S4 goals API, E8-S3 rebalancing API, E9-S2 advisor override/manual-recommendation service, E10-S3 admin API) and spawn generator team
+
+=== Session 6 ===
+date: 2026-09-08T00:00:00Z
+mode: full
+branch: feat/wealthwise-build
+groups_completed: [A, B, C, D, E, F]
+groups_remaining: [G, H]
+current_group: none
+current_stories: []
+sprint_contract: sprint-contracts/F.json
+last_commit: 2b12a6d "feat: implement group F (E3-S4, E4-S3, E5-S2, E6-S5, E7-S4, E8-S3, E9-S2, E10-S3)"
+features_passing: 167 / 207
+coverage: 100% (2238/2238 statements, backend) + 58/58 frontend tests
+learned_rules: 0
+blocked_stories: none
+next_action: Negotiate sprint contract for Group G and spawn generator team. Note for the next session: Group F required 4 evaluator passes to clear (self-heal fixed CORS + sum_bps key drift on pass 1->2; an infra env-var/process-lifecycle issue, not a code defect, blocked pass 2->3 and was resolved by restarting the backend without --reload; the audit `to`-date boundary bug plus a CSS breakpoint collision found on pass 3 were fixed and verified clean on pass 4). See specs/reviews/evaluator-report.md's Group F "Pass 4 (orchestrator-driven fix cycle)" section for the full sign-off. Two non-blocking follow-ups flagged for a future group: (1) instantiate real Playwright tooling in the repo (.claude/templates/playwright.config.template.ts has never been used) so evaluators stop reconstructing scratch browser-automation projects per pass; (2) minor CSS gap — #entity_type <select> doesn't get the branded focus-visible ring in global.css. Group E (commit 064a210) still has no evaluator sign-off record in evaluator-report.md — pre-existing gap, not caused by this session, still flagged for the lead.
