@@ -15,7 +15,11 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from src.app.dependencies import CurrentUser, get_session, require_role
-from src.domain.risk_profile.service import get_latest_risk_band_assignment, submit_risk_profile
+from src.domain.risk_profile.service import (
+    get_active_questionnaire,
+    get_latest_risk_band_assignment,
+    submit_risk_profile,
+)
 from src.types.errors import NotFoundError, ValidationError
 
 router = APIRouter(prefix="/api/risk-profile", tags=["risk-profile"])
@@ -51,6 +55,27 @@ class RiskProfileLatestResponse(BaseModel):
     risk_band: str
     rule_version: int
     assigned_at: str
+
+
+class QuestionnaireOptionResponse(BaseModel):
+    """One selectable answer — `points` is never included (api-contracts.md
+    §6.1: the client must not be able to reverse-engineer the band)."""
+
+    value: str
+    label: str
+
+
+class QuestionnaireQuestionResponse(BaseModel):
+    question_id: str
+    text: str
+    options: list[QuestionnaireOptionResponse]
+
+
+class QuestionnaireResponse(BaseModel):
+    """The active questionnaire, `points`-stripped (api-contracts.md §6.1)."""
+
+    rule_version: int
+    questions: list[QuestionnaireQuestionResponse]
 
 
 @router.post("/submit", status_code=201)
@@ -96,6 +121,34 @@ def get_latest(
         risk_band=assignment.risk_band,
         rule_version=assignment.rule_version,
         assigned_at=assignment.assigned_at,
+    )
+
+
+@router.get("/questionnaire", status_code=200)
+def get_questionnaire(
+    user: CurrentUser = Depends(require_role("customer")),
+    session: Session = Depends(get_session),
+) -> QuestionnaireResponse:
+    """The active `RiskBandRule`'s questionnaire, with every option's `points`
+    stripped so the client can never reverse-engineer the scoring (api-contracts.md
+    §6.1). 404 `NO_ACTIVE_RULE` if no rule has ever been published."""
+    del user
+    rule = get_active_questionnaire(session)
+    if rule is None:
+        raise NotFoundError("No active RiskBandRule has been published.", code="NO_ACTIVE_RULE")
+    return QuestionnaireResponse(
+        rule_version=rule.version,
+        questions=[
+            QuestionnaireQuestionResponse(
+                question_id=question.question_id,
+                text=question.text,
+                options=[
+                    QuestionnaireOptionResponse(value=option.value, label=option.label)
+                    for option in question.options
+                ],
+            )
+            for question in rule.questionnaire_json.questions
+        ],
     )
 
 

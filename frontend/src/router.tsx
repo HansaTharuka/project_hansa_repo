@@ -11,7 +11,17 @@ import { roleRedirect } from './auth/roleRedirect';
 import { Layout } from './components/Layout';
 import { Login } from './pages/Login';
 import { AuditLog } from './pages/compliance/AuditLog';
+import { AdminHome } from './pages/admin/AdminHome';
+import { AssetClasses } from './pages/admin/AssetClasses';
+import { RuleEditor } from './pages/admin/RuleEditor';
+import { TemplateEditor } from './pages/admin/TemplateEditor';
+import { ThresholdEditor } from './pages/admin/ThresholdEditor';
+import { Dashboard } from './pages/customer/Dashboard';
+import { Goals } from './pages/customer/Goals';
 import { Holdings } from './pages/customer/Holdings';
+import { Questionnaire } from './pages/customer/Questionnaire';
+import { Rebalancing } from './pages/customer/Rebalancing';
+import { RiskResult } from './pages/customer/RiskResult';
 
 function RootRedirect() {
   const { user, isLoading } = useAuth();
@@ -21,16 +31,8 @@ function RootRedirect() {
   return <Navigate to={user === null ? '/login' : roleRedirect(user.role)} replace />;
 }
 
-function CustomerDashboardStub() {
-  return <p>Customer dashboard — built by a later story.</p>;
-}
-
 function AdvisorCustomerListStub() {
   return <p>Advisor customer list — built by a later story.</p>;
-}
-
-function AdminHomeStub() {
-  return <p>Admin console — built by a later story.</p>;
 }
 
 export function AppRouter() {
@@ -43,7 +45,37 @@ export function AppRouter() {
         element={
           <ProtectedRoute allowedRoles={['customer']}>
             <Layout>
-              <CustomerDashboardStub />
+              <Dashboard />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/customer/questionnaire"
+        element={
+          <ProtectedRoute allowedRoles={['customer']}>
+            <Layout>
+              <Questionnaire />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/customer/risk-result"
+        element={
+          <ProtectedRoute allowedRoles={['customer']}>
+            <Layout>
+              <RiskResult />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/customer/goals"
+        element={
+          <ProtectedRoute allowedRoles={['customer']}>
+            <Layout>
+              <Goals />
             </Layout>
           </ProtectedRoute>
         }
@@ -54,6 +86,16 @@ export function AppRouter() {
           <ProtectedRoute allowedRoles={['customer']}>
             <Layout>
               <Holdings />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/customer/rebalancing"
+        element={
+          <ProtectedRoute allowedRoles={['customer']}>
+            <Layout>
+              <Rebalancing />
             </Layout>
           </ProtectedRoute>
         }
@@ -73,7 +115,47 @@ export function AppRouter() {
         element={
           <ProtectedRoute allowedRoles={['admin']}>
             <Layout>
-              <AdminHomeStub />
+              <AdminHome />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/templates"
+        element={
+          <ProtectedRoute allowedRoles={['admin']}>
+            <Layout>
+              <TemplateEditor />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/rules"
+        element={
+          <ProtectedRoute allowedRoles={['admin']}>
+            <Layout>
+              <RuleEditor />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/asset-classes"
+        element={
+          <ProtectedRoute allowedRoles={['admin']}>
+            <Layout>
+              <AssetClasses />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/threshold"
+        element={
+          <ProtectedRoute allowedRoles={['admin']}>
+            <Layout>
+              <ThresholdEditor />
             </Layout>
           </ProtectedRoute>
         }

@@ -21,12 +21,16 @@ from src.app.dependencies import CurrentUser, get_session, require_role
 from src.domain.admin.service import (
     create_asset_class_with_audit,
     list_allocation_templates_for_admin,
+    list_asset_classes_for_admin,
+    list_risk_band_rules_for_admin,
     publish_allocation_template,
     publish_risk_band_rule,
 )
 from src.domain.holdings.service import advance_day
 from src.types.entities import AllocationEntry, AllocationSet, Questionnaire, ScoringRules
 from src.types.entities import AllocationTemplate as AllocationTemplateEntity
+from src.types.entities import AssetClass as AssetClassEntity
+from src.types.entities import RiskBandRule as RiskBandRuleEntity
 from src.types.errors import ValidationError
 from src.types.fixedpoint import percent_to_string, string_to_basis_points
 
@@ -55,6 +59,18 @@ class RiskBandRulePublishRequest(BaseModel):
 class RiskBandRulePublishResponse(BaseModel):
     id: int
     version: int
+    published_at: str
+    is_active: bool
+
+
+class RiskBandRuleListEntryResponse(BaseModel):
+    """Unlike the customer-facing questionnaire endpoint, this admin view
+    includes each option's `points` (api-contracts.md §12.2)."""
+
+    id: int
+    version: int
+    questionnaire_json: Questionnaire
+    scoring_rules_json: ScoringRules
     published_at: str
     is_active: bool
 
@@ -144,6 +160,18 @@ def post_risk_band_rule(
     )
 
 
+@router.get("/risk-band-rules", status_code=200)
+def get_risk_band_rules(
+    user: CurrentUser = Depends(require_role("admin")),
+    session: Session = Depends(get_session),
+) -> list[RiskBandRuleListEntryResponse]:
+    """Every version — active and superseded — ordered by `version` ascending
+    (api-contracts.md §12.2)."""
+    del user
+    rules = list_risk_band_rules_for_admin(session)
+    return [_rule_to_list_response(rule) for rule in rules]
+
+
 @router.post("/allocation-templates", status_code=201)
 def post_allocation_template(
     body: AllocationTemplatePublishRequest,
@@ -204,6 +232,32 @@ def post_asset_class(
         session, code=body.code, name=body.name, actor_id=user.user_id, actor_role=user.role
     )
     return AssetClassResponse(id=asset_class.id, code=asset_class.code, name=asset_class.name)
+
+
+@router.get("/asset-classes", status_code=200)
+def get_asset_classes(
+    user: CurrentUser = Depends(require_role("admin")),
+    session: Session = Depends(get_session),
+) -> list[AssetClassResponse]:
+    """Every `AssetClass`, ordered by `code` ascending (api-contracts.md §12.6)."""
+    del user
+    asset_classes = list_asset_classes_for_admin(session)
+    return [_asset_class_to_response(asset_class) for asset_class in asset_classes]
+
+
+def _asset_class_to_response(asset_class: AssetClassEntity) -> AssetClassResponse:
+    return AssetClassResponse(id=asset_class.id, code=asset_class.code, name=asset_class.name)
+
+
+def _rule_to_list_response(rule: RiskBandRuleEntity) -> RiskBandRuleListEntryResponse:
+    return RiskBandRuleListEntryResponse(
+        id=rule.id,
+        version=rule.version,
+        questionnaire_json=rule.questionnaire_json,
+        scoring_rules_json=rule.scoring_rules_json,
+        published_at=rule.published_at,
+        is_active=rule.is_active,
+    )
 
 
 def _parse_percent_bps(value: str) -> int:

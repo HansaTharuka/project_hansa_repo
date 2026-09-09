@@ -27,12 +27,14 @@ from src.app.error_handlers import register_error_handlers
 from src.app.middleware.request_id import RequestIDMiddleware
 from src.app.middleware.request_log import RequestLogMiddleware
 from src.app.routers.admin import router as admin_router
+from src.app.routers.advisor import router as advisor_router
 from src.app.routers.audit import router as audit_router
 from src.app.routers.auth import router as auth_router
 from src.app.routers.goals import router as goals_router
 from src.app.routers.health import router as health_router
 from src.app.routers.holdings import router as holdings_router
 from src.app.routers.rebalancing import router as rebalancing_router
+from src.app.routers.recommendation import router as recommendation_router
 from src.app.routers.risk_profile import router as risk_profile_router
 from src.core.config import Settings
 from src.core.logging import configure_logging
@@ -56,6 +58,8 @@ def create_app() -> FastAPI:
     app.include_router(risk_profile_router)
     app.include_router(goals_router)
     app.include_router(rebalancing_router)
+    app.include_router(recommendation_router)
+    app.include_router(advisor_router)
     # Registration order matters: Starlette wraps middleware in reverse of
     # registration order, so the LAST one added runs FIRST. RequestIDMiddleware
     # must run before RequestLogMiddleware so the request id it stamps onto

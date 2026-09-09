@@ -10,7 +10,7 @@
  * independently-tunable threshold (architecture_check
  * `template_editor_sum_gate_matches_api`).
  */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import type {
   AllocationRequestEntry,
@@ -29,11 +29,27 @@ function defaultRows(assetClasses: AssetClassResponse[]): AllocationRequestEntry
   return assetClasses.map((assetClass) => ({ asset_class_id: assetClass.id, percent: '0.00' }));
 }
 
+interface HistoryRow {
+  id: number;
+  version: number;
+  publishedAt: string;
+  isActive: boolean;
+}
+
+function toHistoryRow(template: AllocationTemplateResponse): HistoryRow {
+  return {
+    id: template.id,
+    version: template.version,
+    publishedAt: template.published_at,
+    isActive: template.is_active,
+  };
+}
+
 export function TemplateEditor() {
   const [assetClasses, setAssetClasses] = useState<AssetClassResponse[]>([]);
   const [riskBand, setRiskBand] = useState<RiskBand>('MODERATE');
   const [rows, setRows] = useState<AllocationRequestEntry[]>([]);
-  const [history, setHistory] = useState<AllocationTemplateResponse[]>([]);
+  const [history, setHistory] = useState<HistoryRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [publishedMessage, setPublishedMessage] = useState<string | null>(null);
   const [isPublishing, setIsPublishing] = useState(false);
@@ -57,10 +73,25 @@ export function TemplateEditor() {
     };
   }, []);
 
+  // Monotonic request-id guard: a publish's post-write reconciliation fetch
+  // must win over a still-in-flight earlier fetch (e.g. the initial-mount
+  // load) that resolves later, so only the most-recently-issued request's
+  // result is ever applied to state.
+  const latestHistoryRequestId = useRef(0);
+
   const loadHistory = useCallback((band: RiskBand) => {
+    const requestId = ++latestHistoryRequestId.current;
     getAllocationTemplates(band)
-      .then((templates) => setHistory(templates))
-      .catch(() => setError('Version history could not be loaded. Please try again.'));
+      .then((templates) => {
+        if (requestId === latestHistoryRequestId.current) {
+          setHistory(templates.map(toHistoryRow));
+        }
+      })
+      .catch(() => {
+        if (requestId === latestHistoryRequestId.current) {
+          setError('Version history could not be loaded. Please try again.');
+        }
+      });
   }, []);
 
   useEffect(() => {
@@ -107,6 +138,20 @@ export function TemplateEditor() {
     try {
       const response = await publishAllocationTemplate({ risk_band: riskBand, allocations: rows });
       setPublishedMessage(`Published version ${response.version} for ${response.risk_band}.`);
+      // Optimistic append for perceived latency, then reconcile with the
+      // server's authoritative list. The request-id guard in `loadHistory`
+      // ensures this reconciliation — now the most-recently-issued request —
+      // wins even if an earlier fetch (e.g. initial mount) is still in
+      // flight and resolves after it.
+      setHistory((current) => [
+        ...current,
+        {
+          id: response.id,
+          version: response.version,
+          publishedAt: response.published_at,
+          isActive: response.is_active,
+        },
+      ]);
       loadHistory(riskBand);
     } catch {
       setError('Publish failed. Please try again.');
@@ -148,47 +193,49 @@ export function TemplateEditor() {
           </select>
         </div>
 
-        <table>
-          <thead>
-            <tr>
-              <th scope="col">asset class</th>
-              <th scope="col" className="num">
-                percent
-              </th>
-              <th scope="col"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row, index) => (
-              <tr key={`${row.asset_class_id}-${index}`}>
-                <td>{assetClassName(row.asset_class_id)}</td>
-                <td className="num">
-                  <label className="sr-only" htmlFor={`allocation-percent-${index}`}>
-                    percent for row {index + 1}
-                  </label>
-                  <input
-                    id={`allocation-percent-${index}`}
-                    data-testid={`allocation-percent-${index}`}
-                    type="text"
-                    inputMode="decimal"
-                    value={row.percent}
-                    onChange={(event) => handlePercentChange(index, event.target.value)}
-                  />
-                </td>
-                <td>
-                  <button
-                    type="button"
-                    className="secondary small"
-                    onClick={() => handleRemoveRow(index)}
-                    aria-label={`Remove row ${index + 1}`}
-                  >
-                    Remove
-                  </button>
-                </td>
+        <div className="tablewrap">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">asset class</th>
+                <th scope="col" className="num">
+                  percent
+                </th>
+                <th scope="col"></th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {rows.map((row, index) => (
+                <tr key={`${row.asset_class_id}-${index}`}>
+                  <td>{assetClassName(row.asset_class_id)}</td>
+                  <td className="num">
+                    <label className="sr-only" htmlFor={`allocation-percent-${index}`}>
+                      percent for row {index + 1}
+                    </label>
+                    <input
+                      id={`allocation-percent-${index}`}
+                      data-testid={`allocation-percent-${index}`}
+                      type="text"
+                      inputMode="decimal"
+                      value={row.percent}
+                      onChange={(event) => handlePercentChange(index, event.target.value)}
+                    />
+                  </td>
+                  <td>
+                    <button
+                      type="button"
+                      className="secondary small"
+                      onClick={() => handleRemoveRow(index)}
+                      aria-label={`Remove row ${index + 1}`}
+                    >
+                      Remove
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
 
         <p>
           <button type="button" className="secondary small" onClick={handleAddRow}>
@@ -221,28 +268,30 @@ export function TemplateEditor() {
         {history.length === 0 ? (
           <EmptyState message="No templates published for this risk band yet." />
         ) : (
-          <table>
-            <thead>
-              <tr>
-                <th scope="col">id</th>
-                <th scope="col" className="num">
-                  version
-                </th>
-                <th scope="col">published_at</th>
-                <th scope="col">is_active</th>
-              </tr>
-            </thead>
-            <tbody>
-              {history.map((template) => (
-                <tr key={template.id}>
-                  <td>{template.id}</td>
-                  <td className="num">{template.version}</td>
-                  <td>{template.published_at}</td>
-                  <td>{String(template.is_active)}</td>
+          <div className="tablewrap">
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col">id</th>
+                  <th scope="col" className="num">
+                    version
+                  </th>
+                  <th scope="col">published_at</th>
+                  <th scope="col">is_active</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {history.map((row) => (
+                  <tr key={row.id}>
+                    <td>{row.id}</td>
+                    <td className="num">{row.version}</td>
+                    <td>{row.publishedAt}</td>
+                    <td>{String(row.isActive)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </section>
     </main>

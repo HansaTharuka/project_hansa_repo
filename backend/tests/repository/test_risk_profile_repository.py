@@ -11,6 +11,7 @@ from src.domain.risk_profile.repository import (
     get_latest_assignment,
     get_rule_by_version,
     insert_answers,
+    list_rule_versions,
     publish_rule,
 )
 from src.types.entities import BandRange, Question, Questionnaire, QuestionOption, ScoringRules
@@ -180,6 +181,35 @@ def test_each_risk_profile_answer_row_records_the_documented_fields(
     assert answers[0].question_id == "Q1"
     assert answers[0].answer_value == "low"
     assert answers[0].submitted_at == "2026-09-03T10:15:00Z"
+
+
+def test_list_rule_versions_returns_every_version_ordered_by_version_ascending(
+    db_session: Session,
+) -> None:
+    publish_rule(
+        db_session,
+        questionnaire=QUESTIONNAIRE,
+        scoring_rules=SCORING_RULES,
+        published_at="2026-09-01T09:00:00Z",
+    )
+    db_session.commit()
+    publish_rule(
+        db_session,
+        questionnaire=QUESTIONNAIRE,
+        scoring_rules=SCORING_RULES,
+        published_at="2026-09-02T09:00:00Z",
+    )
+    db_session.commit()
+
+    versions = list_rule_versions(db_session)
+
+    assert [rule.version for rule in versions] == [1, 2]
+    assert versions[0].is_active is False
+    assert versions[1].is_active is True
+
+
+def test_list_rule_versions_returns_empty_list_when_never_published(db_session: Session) -> None:
+    assert list_rule_versions(db_session) == []
 
 
 def test_get_latest_assignment_returns_none_when_never_assigned(db_session: Session) -> None:

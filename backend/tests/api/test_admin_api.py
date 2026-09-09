@@ -232,6 +232,83 @@ def test_non_admin_roles_are_rejected_with_403(
     assert response.json()["error"]["code"] == "ROLE_NOT_PERMITTED"
 
 
+def test_get_asset_classes_returns_200_ordered_by_code_ascending(
+    client: TestClient, db_session: Session
+) -> None:
+    token = _seed_user_and_login(
+        client, db_session, email="adminapi.admin6@wealthwise.test", role="admin"
+    )
+    _seed_asset_class(db_session, code="EQ_DM6", name="Developed-Market Equity")
+    _seed_asset_class(db_session, code="AA_FIRST6", name="Alphabetically First")
+    _seed_asset_class(db_session, code="ZZ_LAST6", name="Alphabetically Last")
+
+    response = client.get(
+        "/api/admin/asset-classes", headers={"Authorization": f"Bearer {token}"}
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    codes = [row["code"] for row in body if row["code"].endswith("6")]
+    assert codes == sorted(codes)
+    assert set(body[0].keys()) == {"id", "code", "name"}
+
+
+@pytest.mark.parametrize("role", ["customer", "advisor", "compliance"])
+def test_get_asset_classes_non_admin_roles_are_rejected_with_403(
+    client: TestClient, db_session: Session, role: str
+) -> None:
+    token = _seed_user_and_login(
+        client, db_session, email=f"adminapi.{role}.getassetclasses@wealthwise.test", role=role
+    )
+
+    response = client.get(
+        "/api/admin/asset-classes", headers={"Authorization": f"Bearer {token}"}
+    )
+
+    assert response.status_code == 403
+    assert response.json()["error"]["code"] == "ROLE_NOT_PERMITTED"
+
+
+def test_get_risk_band_rules_returns_200_listing_every_version_with_points_included(
+    client: TestClient, db_session: Session
+) -> None:
+    token = _seed_user_and_login(
+        client, db_session, email="adminapi.admin7@wealthwise.test", role="admin"
+    )
+    headers = {"Authorization": f"Bearer {token}"}
+    publish_body = {
+        "questionnaire_json": VALID_QUESTIONNAIRE, "scoring_rules_json": VALID_SCORING_RULES,
+    }
+    client.post("/api/admin/risk-band-rules", headers=headers, json=publish_body)
+    client.post("/api/admin/risk-band-rules", headers=headers, json=publish_body)
+
+    response = client.get("/api/admin/risk-band-rules", headers=headers)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert [row["version"] for row in body] == [1, 2]
+    assert body[0]["is_active"] is False
+    assert body[1]["is_active"] is True
+    first_option = body[0]["questionnaire_json"]["questions"][0]["options"][0]
+    assert first_option["points"] == 1
+
+
+@pytest.mark.parametrize("role", ["customer", "advisor", "compliance"])
+def test_get_risk_band_rules_non_admin_roles_are_rejected_with_403(
+    client: TestClient, db_session: Session, role: str
+) -> None:
+    token = _seed_user_and_login(
+        client, db_session, email=f"adminapi.{role}.getriskbandrules@wealthwise.test", role=role
+    )
+
+    response = client.get(
+        "/api/admin/risk-band-rules", headers={"Authorization": f"Bearer {token}"}
+    )
+
+    assert response.status_code == 403
+    assert response.json()["error"]["code"] == "ROLE_NOT_PERMITTED"
+
+
 def test_get_allocation_templates_filtered_by_risk_band_returns_all_versions_ordered_by_version(
     client: TestClient, db_session: Session
 ) -> None:

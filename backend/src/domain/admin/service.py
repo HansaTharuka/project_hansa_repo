@@ -24,10 +24,14 @@ from sqlalchemy.orm import Session
 
 from src.domain.admin.repository import update_asset_class as _update_asset_class_row
 from src.domain.audit.service import write_audit_entry
-from src.domain.holdings.repository import get_asset_class_by_code, insert_asset_class
+from src.domain.holdings.repository import (
+    get_asset_class_by_code,
+    insert_asset_class,
+    list_asset_classes,
+)
 from src.domain.rebalancing.threshold_repository import publish_threshold
 from src.domain.recommendation.repository import list_templates, publish_template
-from src.domain.risk_profile.repository import publish_rule
+from src.domain.risk_profile.repository import list_rule_versions, publish_rule
 from src.types.entities import (
     AllocationSet,
     AllocationTemplate,
@@ -197,6 +201,20 @@ def update_asset_class_with_audit(
         details={"asset_class_id": asset_class_id},
     )
     return asset_class
+
+
+def list_asset_classes_for_admin(session: Session) -> list[AssetClass]:
+    """Every `AssetClass`, ordered by `code` ascending (api-contracts.md §12.6).
+    A read, so no audit entry. `holdings.repository.list_asset_classes` orders
+    by insertion id for its other callers, so the code-ordering happens here,
+    not by changing that repository function."""
+    return sorted(list_asset_classes(session), key=lambda asset_class: asset_class.code)
+
+
+def list_risk_band_rules_for_admin(session: Session) -> list[RiskBandRule]:
+    """Every `RiskBandRule` version, active and superseded, ordered by
+    `version` ascending (api-contracts.md §12.2). A read, so no audit entry."""
+    return list_rule_versions(session)
 
 
 def _publish_with_conflict_translation[T](

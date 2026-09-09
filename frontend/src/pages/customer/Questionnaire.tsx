@@ -23,7 +23,7 @@ export function Questionnaire() {
   const [latest, setLatest] = useState<RiskBandAssignmentResponse | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
-  const [invalidQuestionIds, setInvalidQuestionIds] = useState<ReadonlySet<string>>(new Set());
+  const [hasInteracted, setHasInteracted] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
@@ -57,15 +57,8 @@ export function Questionnaire() {
   }, []);
 
   function selectAnswer(questionId: string, value: string): void {
+    setHasInteracted(true);
     setAnswers((prev) => ({ ...prev, [questionId]: value }));
-    setInvalidQuestionIds((prev) => {
-      if (!prev.has(questionId)) {
-        return prev;
-      }
-      const next = new Set(prev);
-      next.delete(questionId);
-      return next;
-    });
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
@@ -74,9 +67,12 @@ export function Questionnaire() {
       return;
     }
 
+    // Defensive guard only: a real click can never reach here while any
+    // question is unanswered, because the Submit button stays HTML-disabled
+    // (see `allAnswered` below). Inline validation messages are rendered
+    // directly from `unansweredQuestionIds`, not from this branch.
     const missing = questionnaire.questions.filter((q) => answers[q.question_id] === undefined);
     if (missing.length > 0) {
-      setInvalidQuestionIds(new Set(missing.map((q) => q.question_id)));
       return;
     }
 
@@ -118,6 +114,11 @@ export function Questionnaire() {
   }
 
   const allAnswered = questionnaire.questions.every((q) => answers[q.question_id] !== undefined);
+  const unansweredQuestionIds = new Set(
+    questionnaire.questions
+      .filter((q) => answers[q.question_id] === undefined)
+      .map((q) => q.question_id),
+  );
 
   return (
     <main className="questionnaire-page">
@@ -138,7 +139,10 @@ export function Questionnaire() {
       <section className="panel">
         <form onSubmit={(event) => void handleSubmit(event)} noValidate>
           {questionnaire.questions.map((question, questionIndex) => (
-            <fieldset key={question.question_id} data-invalid={invalidQuestionIds.has(question.question_id)}>
+            <fieldset
+              key={question.question_id}
+              data-invalid={hasInteracted && unansweredQuestionIds.has(question.question_id)}
+            >
               <legend>{question.text}</legend>
               {question.options.map((option, optionIndex) => {
                 const id = `${question.question_id}-${option.value}`;
@@ -157,7 +161,7 @@ export function Questionnaire() {
                   </div>
                 );
               })}
-              {invalidQuestionIds.has(question.question_id) && (
+              {hasInteracted && unansweredQuestionIds.has(question.question_id) && (
                 <p className="err" role="alert">
                   Select an answer for this question before submitting.
                 </p>

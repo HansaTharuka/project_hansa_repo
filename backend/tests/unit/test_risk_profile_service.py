@@ -12,7 +12,7 @@ from tests.factories import build_customer, build_user
 from src.db.models import Customer
 from src.domain.auth.repository import create_user
 from src.domain.risk_profile.repository import publish_rule
-from src.domain.risk_profile.service import submit_risk_profile
+from src.domain.risk_profile.service import get_active_questionnaire, submit_risk_profile
 from src.types.entities import (
     BandRange,
     Question,
@@ -197,3 +197,21 @@ def test_resubmitting_creates_a_second_distinct_row_leaving_the_first_unchanged(
     assert latest.id == second.id
     # the first row is untouched
     assert first.risk_band == "CONSERVATIVE"
+
+
+def test_get_active_questionnaire_returns_the_full_active_rule_including_points(
+    db_session: Session,
+) -> None:
+    _publish_rule(db_session)
+
+    rule = get_active_questionnaire(db_session)
+
+    assert rule is not None
+    assert rule.version == 1
+    assert rule.questionnaire_json.questions[0].options[0].points == 1
+
+
+def test_get_active_questionnaire_returns_none_when_never_published(
+    db_session: Session,
+) -> None:
+    assert get_active_questionnaire(db_session) is None

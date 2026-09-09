@@ -17,7 +17,13 @@ export function NavBar() {
       <h1>WealthWise</h1>
       {user !== null && (
         <nav aria-label="Primary">
-          {user.role === 'customer' && <Link to="/customer/holdings">Holdings</Link>}
+          {user.role === 'customer' && (
+            <>
+              <Link to="/customer/holdings">Holdings</Link>
+              <Link to="/customer/goals">Goals</Link>
+              <Link to="/customer/rebalancing">Rebalancing</Link>
+            </>
+          )}
         </nav>
       )}
       {user !== null && (

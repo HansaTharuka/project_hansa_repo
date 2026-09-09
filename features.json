@@ -1074,8 +1074,8 @@
       "Arrange/execute: The questionnaire.",
       "Assert: renders all questions from the active RiskBandRule version and disables the submit button until every question has an answer selected."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-08T12:14:52.402Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -1089,8 +1089,8 @@
       "Arrange/execute: Submitting a complete questionnaire navigates to a result screen displaying the returned risk_band value in human-readable form (e.g..",
       "Assert: Conservative)."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-08T12:14:52.402Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -1104,8 +1104,8 @@
       "Arrange/execute: Attempting to submit with any question unanswered.",
       "Assert: shows an inline validation message per unanswered question and does not call the submit API."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-09T06:24:03.518Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -1119,8 +1119,8 @@
       "Arrange/execute: Every question's answer options are rendered as labeled.",
       "Assert: keyboard-selectable radio/select controls."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-08T12:14:52.402Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -1134,8 +1134,8 @@
       "Arrange/execute: If the customer already has a prior RiskBandAssignment, revisiting the questionnaire screen.",
       "Assert: shows their current band before re-submission."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-08T12:14:52.402Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -1299,8 +1299,8 @@
       "Arrange/execute: GET /api/recommendation for an authenticated customer with an existing risk-band assignment.",
       "Assert: returns 200 with an allocation breakdown whose percentages sum to 100."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-08T11:33:52.685Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -1314,8 +1314,8 @@
       "Arrange/execute: The same endpoint for a customer with no risk-band assignment yet.",
       "Assert: returns 404 rather than a default allocation."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-08T11:33:52.685Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -1329,8 +1329,8 @@
       "Arrange/execute: The endpoint called with an advisor- or admin-role JWT.",
       "Assert: returns 403."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-08T11:33:52.685Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -1344,8 +1344,8 @@
       "Arrange/execute: The response includes the version of the AllocationTemplate used.",
       "Assert: enabling traceability to AC-10's immutability guarantee."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-08T11:33:52.685Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -1359,8 +1359,8 @@
       "Arrange/execute: An unauthenticated request.",
       "Assert: returns 401."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-08T11:33:52.685Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -2124,8 +2124,8 @@
       "Arrange/execute: The goals list screen.",
       "Assert: displays every goal for the logged-in customer with target_amount, target_date, priority, and current percent_complete."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-08T11:41:24.938Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -2139,8 +2139,8 @@
       "Arrange/execute: Submitting the create-goal form with a negative or zero target_amount.",
       "Assert: shows an inline validation error and does not call the create API."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-08T11:41:24.938Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -2154,8 +2154,8 @@
       "Execute the scenario described: Each goal's progress is rendered as a progress bar or percentage label reflecting the latest GoalProgressSnapshot.",
       "Assert the described outcome is observed."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-08T11:41:24.938Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -2169,8 +2169,8 @@
       "Arrange/execute: Editing an existing goal's priority via the form.",
       "Assert: updates the displayed value after save without a full page reload."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-08T11:41:24.938Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -2184,8 +2184,8 @@
       "Execute the scenario described: All form inputs are labeled and keyboard-operable.",
       "Assert the described outcome is observed."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-08T11:41:24.938Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -2439,8 +2439,8 @@
       "Execute the scenario described: The screen lists every pending recommendation with its proposed BUY/SELL actions per asset class.",
       "Assert the described outcome is observed."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-08T11:41:24.938Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -2454,8 +2454,8 @@
       "Execute the scenario described: Clicking Accept calls the accept API and removes the recommendation from the pending list on success.",
       "Assert the described outcome is observed."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-08T11:41:24.938Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -2469,8 +2469,8 @@
       "Execute the scenario described: Clicking Dismiss calls the dismiss API and removes the recommendation from the pending list on success.",
       "Assert the described outcome is observed."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-08T11:41:24.938Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -2484,8 +2484,8 @@
       "Execute the scenario described: A customer with no pending recommendations sees an explicit empty-state message.",
       "Assert the described outcome is observed."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-08T11:41:24.938Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -2499,8 +2499,8 @@
       "Arrange/execute: Both action buttons are keyboard-operable and disabled while their respective API call is in flight.",
       "Assert: preventing double-submit."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-08T11:41:24.938Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -2664,8 +2664,8 @@
       "Arrange/execute: GET /api/advisor/customers with an advisor-role JWT.",
       "Assert: returns 200 with a list of customers including their current risk band."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-08T11:33:52.685Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -2679,8 +2679,8 @@
       "Arrange/execute: GET /api/advisor/customers/{id}.",
       "Assert: returns that customer's portfolio detail (holdings, goals, current allocation) for drill-in."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-08T11:33:52.685Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -2694,8 +2694,8 @@
       "Arrange/execute: POST /api/advisor/customers/{id}/override with a valid reason.",
       "Assert: returns 201 and the new risk_band; the same call without reason returns 422."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-08T11:33:52.685Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -2709,8 +2709,8 @@
       "Arrange/execute: POST /api/advisor/customers/{id}/manual-recommendation logs the recommendation and.",
       "Assert: returns 201."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-08T11:33:52.685Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -2724,8 +2724,8 @@
       "Arrange/execute: Any of the above endpoints called with a customer- or compliance-role JWT.",
       "Assert: returns 403."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-08T11:33:52.685Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -3039,8 +3039,8 @@
       "Arrange/execute: The allocation template editor.",
       "Assert: shows a running total of entered percentages and visually flags, before submit, when the total is not exactly 100."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-08T12:14:52.402Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -3054,8 +3054,8 @@
       "Arrange/execute: The Publish button on the template editor.",
       "Assert: is disabled while the running total is not exactly 100."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-08T12:14:52.402Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -3069,8 +3069,8 @@
       "Arrange/execute: The risk-band rule editor allows adding/removing questions and.",
       "Assert: requires at least 6 before enabling publish."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-08T11:41:24.938Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -3084,8 +3084,8 @@
       "Arrange/execute: The asset-class master screen lists all asset classes and supports adding a new one; submitting a duplicate code.",
       "Assert: shows an inline error sourced from the API's 409 response."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-08T12:14:52.402Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -3099,8 +3099,8 @@
       "Execute the scenario described: Publishing a new template/rule version from the UI refreshes the displayed version history without a full page reload.",
       "Assert the described outcome is observed."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-09T06:24:03.518Z",
     "failure_reason": null,
     "failure_layer": null
   }

@@ -181,32 +181,34 @@ export function RuleEditor() {
 
       <section className="panel">
         <h3>Version history</h3>
-        <table>
-          <thead>
-            <tr>
-              <th scope="col">id</th>
-              <th scope="col" className="num">
-                version
-              </th>
-              <th scope="col" className="num">
-                question count
-              </th>
-              <th scope="col">published_at</th>
-              <th scope="col">is_active</th>
-            </tr>
-          </thead>
-          <tbody>
-            {history.map((row) => (
-              <tr key={row.id}>
-                <td>{row.id}</td>
-                <td className="num">{row.version}</td>
-                <td className="num">{row.questionCount}</td>
-                <td>{row.publishedAt}</td>
-                <td>{String(row.isActive)}</td>
+        <div className="tablewrap">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">id</th>
+                <th scope="col" className="num">
+                  version
+                </th>
+                <th scope="col" className="num">
+                  question count
+                </th>
+                <th scope="col">published_at</th>
+                <th scope="col">is_active</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {history.map((row) => (
+                <tr key={row.id}>
+                  <td>{row.id}</td>
+                  <td className="num">{row.version}</td>
+                  <td className="num">{row.questionCount}</td>
+                  <td>{row.publishedAt}</td>
+                  <td>{String(row.isActive)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </section>
     </main>
   );

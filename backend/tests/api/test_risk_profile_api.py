@@ -215,3 +215,61 @@ def test_unauthenticated_requests_return_401(client: TestClient, db_session: Ses
 
     assert submit.status_code == 401
     assert latest.status_code == 401
+
+
+def test_get_questionnaire_returns_200_with_rule_version_and_questions_and_no_points(
+    client: TestClient, db_session: Session
+) -> None:
+    _publish_rule(db_session)
+    token = _seed_customer_and_login(client, db_session, "riskapi.customer4@wealthwise.test")
+
+    response = client.get(
+        "/api/risk-profile/questionnaire", headers={"Authorization": f"Bearer {token}"}
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert set(body.keys()) == {"rule_version", "questions"}
+    assert body["rule_version"] == 1
+    assert len(body["questions"]) == 6
+    for question in body["questions"]:
+        assert set(question.keys()) == {"question_id", "text", "options"}
+        for option in question["options"]:
+            assert set(option.keys()) == {"value", "label"}
+            assert "points" not in option
+
+
+@pytest.mark.parametrize("role", ["advisor", "admin"])
+def test_get_questionnaire_non_customer_roles_are_rejected_with_403(
+    client: TestClient, db_session: Session, role: str
+) -> None:
+    _publish_rule(db_session)
+    token = _seed_user_and_login(
+        client, db_session, email=f"riskapi.questionnaire.{role}@wealthwise.test", role=role
+    )
+
+    response = client.get(
+        "/api/risk-profile/questionnaire", headers={"Authorization": f"Bearer {token}"}
+    )
+
+    assert response.status_code == 403
+    assert response.json()["error"]["code"] == "ROLE_NOT_PERMITTED"
+
+
+def test_get_questionnaire_unauthenticated_returns_401(client: TestClient) -> None:
+    response = client.get("/api/risk-profile/questionnaire")
+
+    assert response.status_code == 401
+
+
+def test_get_questionnaire_with_no_active_rule_returns_404(
+    client: TestClient, db_session: Session
+) -> None:
+    token = _seed_customer_and_login(client, db_session, "riskapi.customer5@wealthwise.test")
+
+    response = client.get(
+        "/api/risk-profile/questionnaire", headers={"Authorization": f"Bearer {token}"}
+    )
+
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "NO_ACTIVE_RULE"

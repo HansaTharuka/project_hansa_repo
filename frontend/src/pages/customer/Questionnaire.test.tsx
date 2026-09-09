@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -97,19 +97,17 @@ describe('Questionnaire', () => {
     await renderReady();
     const user = userEvent.setup();
 
-    // Answer only Q1, leave Q2 unanswered.
+    // Answer only Q1, leave Q2 unanswered — a real browser can never click a
+    // disabled Submit button, so the inline message must appear from this
+    // interaction alone, with no submit attempt dispatched.
     await user.click(screen.getByTestId('question-1-option-1'));
     const submit = screen.getByRole('button', { name: /submit questionnaire/i });
     expect(submit).toBeDisabled();
 
-    // Force a submit attempt via the form to exercise inline validation even
-    // though the disabled attribute already prevents a real click — this
-    // matches the acceptance criterion's "attempting to submit" wording.
-    const form = submit.closest('form');
-    expect(form).not.toBeNull();
-    fireEvent.submit(form as HTMLFormElement);
-
     await waitFor(() => expect(screen.getAllByRole('alert').length).toBeGreaterThan(0));
+    expect(
+      screen.getByText('Select an answer for this question before submitting.'),
+    ).toBeInTheDocument();
     expect(submitSpy).not.toHaveBeenCalled();
   });
 

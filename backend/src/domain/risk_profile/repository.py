@@ -67,6 +67,14 @@ def get_rule_by_version(session: Session, version: int) -> RiskBandRuleEntity | 
     return _to_entity(row) if row is not None else None
 
 
+def list_rule_versions(session: Session) -> list[RiskBandRuleEntity]:
+    """Every `RiskBandRule` version — active and superseded — ordered by
+    `version` ascending (E10-S3 admin listing)."""
+    statement = select(RiskBandRuleRow).order_by(RiskBandRuleRow.version.asc())
+    rows = session.execute(statement).scalars().all()
+    return [_to_entity(row) for row in rows]
+
+
 def insert_answers(
     session: Session,
     *,

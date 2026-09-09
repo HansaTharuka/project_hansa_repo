@@ -66,6 +66,172 @@
       "iteration_1_history": {
         "note": "Preserved for audit trail. E3-S4 originally FAILED all three of visual_hierarchy (5/10 < 6), accessibility (5/10 < 7), and responsiveness (3/10 < 7) due to global.css's un-scoped `.tablewrap{display:none}` media query hiding the audit table entirely at <=768px, plus a 216px page-level horizontal overflow bug at 1280px. Full iteration-1 critique text is preserved in git history of this file (see commit that introduced this eval-scores.json)."
       }
+    },
+    "G": {
+      "group": "G",
+      "iteration": 4,
+      "timestamp": "2026-09-08T02:15:00Z",
+      "method": "Playwright (chromium, headless) driven by hand-written Node scripts (raw `playwright` package, no @playwright/test harness available in this environment) against the live app -- admin.olivia.brandt@wealthwise.test at backend :8000 / frontend :5173. Scoped, final re-review of just the 2 pages that failed iteration 3 (TemplateEditor, RuleEditor), per instruction -- Questionnaire/RiskResult/Goals/Rebalancing/AssetClasses were not re-touched and their iteration-3 PASS scores are carried forward unchanged below. For each of the 2 pages: drove a real Publish (filling valid data, TemplateEditor to exactly 100.00; RuleEditor's 6 already-loaded questions given fresh text) and polled the Version History table's row count every 300ms for up to 3s with zero manual reload, then separately measured document.documentElement.scrollWidth vs clientWidth at a real 375px viewport -- the same two quantitative checks that found both iteration-3 defects, now re-run to confirm the fixes.",
+      "iteration_4_fix_verified": "Both iteration-3 defects are fixed and re-verified live. (1) Version-history refresh: TemplateEditor's Version History row count went from 11 to 12 immediately after clicking Publish, with zero manual reload and the URL unchanged (http://localhost:5173/admin/templates throughout) -- the success toast ('Published version 12 for MODERATE.') and the new row (id 16, version 12, is_active true) both appeared together in the same screenshot, unlike iteration 3 where the toast appeared but the row did not. RuleEditor's Version History row count went from 2 to 3 the same way (toast 'Published version 3.', new row id 3/version 3/question_count 6/is_active true all present). Matches generator-G-fix3's stated change (TemplateEditor switched from a re-fetch to the same direct local-state-append pattern RuleEditor/AssetClasses already used). (2) 375px overflow: both pages now measure scrollWidth === clientWidth === 375 (0px overflow), down from TemplateEditor's 65px and RuleEditor's 91px in iteration 3 -- confirmed via the .tablewrap-plus-explicit-input-sizing fix, and visually confirmed via full-page 375px screenshots showing every row (including percent inputs / question-text inputs and their Remove buttons) fitting within the viewport with no visible horizontal scrollbar.",
+      "pages": [
+        {
+          "story_id": "E4-S4",
+          "page": "Risk questionnaire",
+          "route": "/customer/questionnaire",
+          "mockup_reference": "specs/design/mockups/E4-S4.html",
+          "contract_criteria": {
+            "visual_hierarchy": { "score": 8, "min_score": 6, "pass": true },
+            "accessibility": { "score": 8, "min_score": 7, "pass": true },
+            "responsiveness": { "score": 8, "min_score": 6, "pass": true },
+            "interaction_feedback": { "score": 7, "min_score": 7, "pass": true }
+          },
+          "contract_verdict": "PASS",
+          "calibration_scores": { "design_quality": 8, "originality": 6, "craft": 8, "functionality": 7 },
+          "calibration_weighted_average": 7.23,
+          "calibration_threshold": 6,
+          "calibration_per_criterion_minimum": 4,
+          "calibration_verdict": "PASS",
+          "verdict": "PASS",
+          "note": "Carried forward unchanged from iteration 3 per instruction -- not in scope for this iteration's re-review (only TemplateEditor and RuleEditor were re-tested). See iteration_3_history for the full original critique.",
+          "critique": "Not re-tested this iteration; scores and critique carried forward as-is from iteration 3's rigorous live verification (real end-to-end questionnaire submission, keyboard Tab+Space, current-band infobox on revisit, zero 375px overflow)."
+        },
+        {
+          "story_id": "E4-S4",
+          "page": "Risk result",
+          "route": "/customer/risk-result",
+          "mockup_reference": "specs/design/mockups/E4-S4.html",
+          "contract_criteria": {
+            "visual_hierarchy": { "score": 8, "min_score": 6, "pass": true },
+            "accessibility": { "score": 7, "min_score": 7, "pass": true },
+            "responsiveness": { "score": 7, "min_score": 6, "pass": true },
+            "interaction_feedback": { "score": 7, "min_score": 7, "pass": true }
+          },
+          "contract_verdict": "PASS",
+          "calibration_scores": { "design_quality": 7, "originality": 6, "craft": 7, "functionality": 7 },
+          "calibration_weighted_average": 6.85,
+          "calibration_threshold": 6,
+          "calibration_per_criterion_minimum": 4,
+          "calibration_verdict": "PASS",
+          "verdict": "PASS",
+          "note": "Carried forward unchanged from iteration 3 per instruction -- not in scope for this iteration's re-review. See iteration_3_history for the full original critique.",
+          "critique": "Not re-tested this iteration; scores and critique carried forward as-is from iteration 3's rigorous live verification (real submitted result correctly rendered end to end, zero 375px overflow)."
+        },
+        {
+          "story_id": "E7-S5",
+          "page": "Goals",
+          "route": "/customer/goals",
+          "mockup_reference": "specs/design/mockups/E7-S5.html",
+          "contract_criteria": {
+            "visual_hierarchy": { "score": 7, "min_score": 6, "pass": true },
+            "accessibility": { "score": 8, "min_score": 7, "pass": true },
+            "responsiveness": { "score": 7, "min_score": 6, "pass": true },
+            "interaction_feedback": { "score": 8, "min_score": 7, "pass": true }
+          },
+          "contract_verdict": "PASS",
+          "calibration_scores": { "design_quality": 7, "originality": 5, "craft": 7, "functionality": 8 },
+          "calibration_weighted_average": 7.15,
+          "calibration_threshold": 6,
+          "calibration_per_criterion_minimum": 4,
+          "calibration_verdict": "PASS",
+          "verdict": "PASS",
+          "note": "Carried forward unchanged since iteration 2 per instruction -- Goals never depended on any of the defects found/fixed in iterations 2-4 and has not been re-touched since its original rigorous live verification.",
+          "critique": "Not re-tested this iteration; scores and critique carried forward as-is."
+        },
+        {
+          "story_id": "E8-S4",
+          "page": "Rebalancing recommendations",
+          "route": "/customer/rebalancing",
+          "mockup_reference": "specs/design/mockups/E8-S4.html",
+          "contract_criteria": {
+            "visual_hierarchy": { "score": 7, "min_score": 6, "pass": true },
+            "accessibility": { "score": 7, "min_score": 7, "pass": true },
+            "responsiveness": { "score": 7, "min_score": 6, "pass": true },
+            "interaction_feedback": { "score": 7, "min_score": 7, "pass": true }
+          },
+          "contract_verdict": "PASS",
+          "calibration_scores": { "design_quality": 7, "originality": 5, "craft": 7, "functionality": 7 },
+          "calibration_weighted_average": 6.69,
+          "calibration_threshold": 6,
+          "calibration_per_criterion_minimum": 4,
+          "calibration_verdict": "PASS",
+          "verdict": "PASS",
+          "note": "Carried forward unchanged since iteration 2 per instruction -- Rebalancing never depended on any of the defects found/fixed in iterations 2-4 and has not been re-touched since its original rigorous live verification. AC3/AC5's double-submit-guard and keyboard-Enter-activation remain plausible-but-not-adversarially-verified -- still a minor open follow-up, not blocking.",
+          "critique": "Not re-tested this iteration; scores and critique carried forward as-is."
+        },
+        {
+          "story_id": "E10-S4",
+          "page": "Allocation template editor",
+          "route": "/admin/templates",
+          "mockup_reference": "specs/design/mockups/E10-S4.html",
+          "contract_criteria": {
+            "visual_hierarchy": { "score": 7, "min_score": 6, "pass": true },
+            "accessibility": { "score": 7, "min_score": 7, "pass": true },
+            "responsiveness": { "score": 7, "min_score": 6, "pass": true },
+            "interaction_feedback": { "score": 8, "min_score": 7, "pass": true }
+          },
+          "contract_verdict": "PASS",
+          "calibration_scores": { "design_quality": 7, "originality": 5, "craft": 7, "functionality": 8 },
+          "calibration_weighted_average": 7.15,
+          "calibration_threshold": 6,
+          "calibration_per_criterion_minimum": 4,
+          "calibration_verdict": "PASS",
+          "verdict": "PASS",
+          "critique": "Both of iteration 3's confirmed defects are now fixed and re-verified live -- this page now clears every contract bar. Version History refresh: filled the 7 allocation rows (Cash and Equivalents, Commodities [newly present from an earlier test], Developed-Market Equity, Emerging-Market Equity, Corporate Fixed Income, Government Fixed Income, Real Estate) to sum exactly 100.00 (Cash and Equivalents=100.00, rest 0.00), clicked Publish -- the success toast 'Published version 12 for MODERATE.' appeared AND the Version History table grew from 11 to 12 rows in the same render (id 16, version 12, is_active true), confirmed via a live DOM poll with zero manual reload and the URL staying at /admin/templates throughout. 375px overflow: document.documentElement.scrollWidth === clientWidth === 375 (0px overflow, down from iteration 3's measured 65px) -- confirmed via both the quantitative check and a full-page 375px screenshot showing all 7 rows' percent inputs and Remove buttons fitting cleanly within the viewport.\n\nvisual_hierarchy (7/10): unchanged from iteration 3's assessment -- well-organized sections, real asset-class names, clear red/green running-total feedback.\n\naccessibility (7/10, now meets the raised bar): the 375px overflow that was previously flagged as a real mobile-accessibility problem (forcing horizontal scrolling to reach the Remove button) is resolved; sr-only labels on percent inputs remain correctly present and are now fully reachable at every viewport width.\n\nresponsiveness (7/10, up from iteration 3's failing 4/10): the 65px overflow is gone, quantitatively confirmed, not just visually estimated.\n\ninteraction_feedback (8/10, up from iteration 3's failing 4/10, exceeds the raised bar): both halves of this page's contracted behavior -- the running-total/publish gate (already proven in iteration 3) and the Version-History-refreshes-without-reload requirement (the specific iteration-3 failure, now confirmed fixed) -- are fully, rigorously live-verified working correctly. This page is now on par with AssetClasses' already-strong interaction_feedback score."
+        },
+        {
+          "story_id": "E10-S4",
+          "page": "Risk-band rule editor",
+          "route": "/admin/rules",
+          "mockup_reference": "specs/design/mockups/E10-S4.html",
+          "contract_criteria": {
+            "visual_hierarchy": { "score": 7, "min_score": 6, "pass": true },
+            "accessibility": { "score": 7, "min_score": 7, "pass": true },
+            "responsiveness": { "score": 7, "min_score": 6, "pass": true },
+            "interaction_feedback": { "score": 8, "min_score": 7, "pass": true }
+          },
+          "contract_verdict": "PASS",
+          "calibration_scores": { "design_quality": 7, "originality": 5, "craft": 7, "functionality": 8 },
+          "calibration_weighted_average": 7.15,
+          "calibration_threshold": 6,
+          "calibration_per_criterion_minimum": 4,
+          "calibration_verdict": "PASS",
+          "verdict": "PASS",
+          "critique": "Both of iteration 3's open items are now resolved -- this page also clears every contract bar. Version History refresh (previously untested live, now driven for the first time this iteration): filled fresh text into all 6 already-loaded question rows ('Question N text (iteration 4 check)'), confirmed Publish was enabled (6 >= MIN_QUESTIONS), clicked it -- the success toast 'Published version 3.' appeared AND the Version History table grew from 2 to 3 rows in the same render (id 3, version 3, question_count 6, is_active true), confirmed via a live DOM poll with zero manual reload and the URL staying at /admin/rules throughout. This confirms the source-level prediction from iteration 3 (that RuleEditor's client-side-append pattern, unlike TemplateEditor's then-broken re-fetch pattern, would work) was correct. 375px overflow: document.documentElement.scrollWidth === clientWidth === 375 (0px overflow, down from iteration 3's measured 91px, the worst regression found anywhere in this review) -- confirmed via both the quantitative check and a full-page 375px screenshot showing all 6 question-text inputs and their Remove buttons fitting cleanly within their bordered cards with no horizontal scrollbar.\n\nvisual_hierarchy (7/10): unchanged from iteration 3's assessment -- real question data, clear count-note, legible version history.\n\naccessibility (7/10, now meets the raised bar): the 91px overflow that was previously the single largest measured mobile-accessibility defect in this whole group is resolved; question-text inputs and Remove buttons remain fully reachable and legible at 375px.\n\nresponsiveness (7/10, up from iteration 3's failing 3/10 -- the largest single-criterion swing in this review): the 91px overflow is gone, quantitatively confirmed.\n\ninteraction_feedback (8/10, up from iteration 3's failing 6/10, exceeds the raised bar): the count-gated Publish enable/disable (proven since iteration 2) and the Publish-click-to-history-update path (finally live-driven this iteration, and confirmed working) are both now fully verified -- closing out the last open question about this page's core interactions."
+        },
+        {
+          "story_id": "E10-S4",
+          "page": "Asset-class master",
+          "route": "/admin/asset-classes",
+          "mockup_reference": "specs/design/mockups/E10-S4.html",
+          "contract_criteria": {
+            "visual_hierarchy": { "score": 7, "min_score": 6, "pass": true },
+            "accessibility": { "score": 7, "min_score": 7, "pass": true },
+            "responsiveness": { "score": 7, "min_score": 6, "pass": true },
+            "interaction_feedback": { "score": 8, "min_score": 7, "pass": true }
+          },
+          "contract_verdict": "PASS",
+          "calibration_scores": { "design_quality": 7, "originality": 5, "craft": 7, "functionality": 8 },
+          "calibration_weighted_average": 7.15,
+          "calibration_threshold": 6,
+          "calibration_per_criterion_minimum": 4,
+          "calibration_verdict": "PASS",
+          "verdict": "PASS",
+          "note": "Carried forward unchanged from iteration 3 per instruction -- not in scope for this iteration's re-review (already PASS, and its refresh pattern was the model the other two pages' fixes were based on). See iteration_3_history for the full original critique.",
+          "critique": "Not re-tested this iteration; scores and critique carried forward as-is from iteration 3's rigorous live verification (both the 409-duplicate-code path and the successful-create-appends-in-place path fully confirmed, zero 375px overflow)."
+        }
+      ],
+      "summary": {
+        "overall": "PASS (iteration 4) -- all 7 of 7 pages now PASS their contract bars. Both of iteration 3's remaining defects are fixed and re-verified live with the same quantitative methodology that originally found them: (1) TemplateEditor's Version History table now correctly grows in place after a successful Publish, with zero manual reload, confirmed by a live DOM poll (11 -> 12 rows) alongside the success toast in the same render -- generator-G-fix3 switched it from a re-fetch-via-loadHistory() pattern to the same direct local-state-append pattern RuleEditor.tsx and AssetClasses.tsx already used, eliminating the race rather than patching around it. (2) Both TemplateEditor (was 65px) and RuleEditor (was 91px, the worst regression found in this entire multi-iteration review) now measure exactly 0px of horizontal overflow at 375px, confirmed via document.documentElement.scrollWidth === clientWidth === 375 plus full-page screenshots showing every row's input and Remove button fitting cleanly within the viewport. As a bonus, this iteration also live-drove RuleEditor's actual Publish-click-to-history-update behavior for the first time (previously only its enable/disable gate had been re-confirmed in iteration 3) and found it working correctly, closing out that page's last open question.\n\nGroup G's full journey across 4 iterations: iteration 1 found a total frontend routing gap (all 7 pages unreachable, 0/10 everywhere); iteration 2 found the routing fix worked but surfaced 3 missing backend GET endpoints blocking 5 of 7 pages; iteration 3 found those endpoints fixed and 5 of 7 pages passing, but surfaced 2 new, narrower defects (a broken version-history refresh, and significant 375px overflow) unique to the two admin editor screens; iteration 4 confirms both of those are now fixed, with no new defects found. All 7 pages -- Questionnaire, RiskResult, Goals, Rebalancing, TemplateEditor, RuleEditor, AssetClasses -- now clear every one of this group's contract criteria, including its two raised bars (accessibility >=7, interaction_feedback >=7)."
+      },
+      "iteration_3_history": {
+        "note": "Preserved for audit trail. Iteration 3 verified the iteration-2 backend-endpoint fix (Questionnaire, RiskResult, and AssetClasses all moved to PASS with real end-to-end interaction) but found 2 remaining FAILs with 2 new, narrower defects unique to that iteration's deeper testing: (1) TemplateEditor.tsx's Version History table did not refresh after a successful Publish without a manual reload (confirmed via a dedicated 5-second/10-poll regression check showing zero DOM update despite successful POST+GET network calls) -- a direct AC5/pw-g-20 violation; (2) both TemplateEditor (65px) and RuleEditor (91px) had measured, quantified horizontal page overflow at 375px, traced to their shared per-row (input + Remove button) layout pattern not adapting to narrow viewports. Both defects are confirmed fixed in iteration 4 above. Full iteration-3 critique text, per-page scores, and the raw responsiveness measurements are preserved in git history of this file (see the commit that recorded the Group G iteration-3 entry)."
+      },
+      "iteration_2_history": {
+        "note": "Preserved for audit trail. Iteration 2 verified the iteration-1 routing fix (all 7 pages became reachable) but found a second blocking defect: 3 missing/misregistered backend GET endpoints (GET /api/risk-profile/questionnaire 404; GET /api/admin/risk-band-rules and GET /api/admin/asset-classes both 405). Result: Questionnaire FAIL, RiskResult FAIL (blocked upstream), Goals PASS, Rebalancing PASS, TemplateEditor FAIL (asset-class rows never populated), RuleEditor FAIL (list never populated, though its add/remove/gate logic was already proven correct even from zero), AssetClasses FAIL (list never populated, though its 409-duplicate-code path was already proven correct). Full iteration-2 critique text is preserved in git history of this file (see the commit that recorded the Group G iteration-2 entry)."
+      },
+      "iteration_1_history": {
+        "note": "Preserved for audit trail. Iteration 1 FAILED all 7 pages at the floor (1/10 on every contract and calibration criterion) because frontend/src/router.tsx had zero <Route> entries for any of this group's 7 URLs and frontend/src/components/NavBar.tsx had no links to them -- every one of the 7 contracted pages rendered a completely blank document (innerText length 0) regardless of backend state. Full iteration-1 critique text is preserved in git history of this file (see the commit that first introduced the Group G entry)."
+      }
     }
   }
 }

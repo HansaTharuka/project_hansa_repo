@@ -23,7 +23,7 @@ from src.domain.risk_profile.repository import (
     insert_assignment,
 )
 from src.domain.risk_profile.scoring import score_answers
-from src.types.entities import RiskBandAssignment
+from src.types.entities import RiskBandAssignment, RiskBandRule
 from src.types.errors import NotFoundError
 
 
@@ -81,6 +81,15 @@ def get_latest_risk_band_assignment(
     calls, so the router never imports `domain.risk_profile.repository`
     directly (system-design.md D3)."""
     return get_latest_assignment(session, customer_id)
+
+
+def get_active_questionnaire(session: Session) -> RiskBandRule | None:
+    """The currently active `RiskBandRule`, or `None` if never published — the
+    service-layer read `app.routers.risk_profile`'s `GET /questionnaire`
+    handler calls, so the router never imports `domain.risk_profile.repository`
+    directly (system-design.md D3). Returned as-is, `points` included; the
+    router strips `points` when building its customer-facing response."""
+    return get_active_rule(session)
 
 
 def _now_iso() -> str:

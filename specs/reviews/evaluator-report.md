@@ -369,3 +369,283 @@ Design-critic-F re-scored E3-S4 after the CSS fix (full detail in `specs/reviews
 
 1. The `#entity_type` `<select>` focus-visible styling gap (design-critic-F, E3-S4) is minor and non-blocking — it didn't pull any criterion below its bar — but should be picked up as a small follow-up: extend `global.css`'s `input:focus-visible, button:focus-visible, a:focus-visible` selector to include `select:focus-visible`.
 2. Items 2 and 3 from pass 3's "Flagged for the lead" (instantiate real Playwright tooling in the repo; Group E's missing evaluator sign-off record) remain open and are carried forward unchanged.
+
+## Group G
+
+**Date:** 2026-09-08
+**Stories:** E4-S4 (risk-profile questionnaire UI), E5-S3 (recommendation API), E7-S5 (goals UI), E8-S4 (rebalancing recommendations UI), E9-S3 (advisor API), E10-S4 (admin UI)
+**Features:** F072–F076, F087–F091, F142–F146, F163–F167, F178–F182, F203–F207
+**Contract:** `sprint-contracts/G.json`
+
+**Overall Verdict: FAIL**
+
+### Runtime
+
+Per the contract's `runtime_expectations` (verification_mode: live), api_checks were run as real HTTP calls against the live backend (`http://localhost:8000`, uvicorn, no `--reload`) with real JWTs minted via `POST /api/auth/login` against seeded demo accounts — not FastAPI's TestClient. playwright_checks were run as real browser automation (Chromium 1.63.0, launched via a scratch Playwright install since no `@playwright/test` devDependency exists in the repo yet — see Group F's carried-forward recommendation) against the live frontend (`http://localhost:5173`) talking to that same backend. `/health` confirmed `{"status":"ok","database":"connected"}` before and after all checks.
+
+One setup note: no seeded customer lacked a `RiskBandAssignment` (needed for api-g-02/ut-204's 404 case) — every one of the 9 seeded customers has one. I deleted `heidi.okafor@wealthwise.test`'s (customer_id 3) `risk_band_assignment` row directly in `backend/wealthwise.db` to exercise the no-assignment path, confirmed no FK cascade risk first (`PRAGMA foreign_key_list` on `holding`/`goal`/`rebalancing_recommendation` — none references `risk_band_assignment`), then restored the exact original row (`id=3, customer_id=3, risk_band='CONSERVATIVE', rule_version=1, assigned_at='2026-09-04T09:50:04Z'`) afterward from a pre-deletion backup. The mutations made by api-g-07 (advisor override on carol.singh, customer_id 4, MODERATE→CONSERVATIVE) and api-g-09 (manual-recommendation audit entry for frank.dubois, customer_id 7) were left in place as-is, since the contract itself designs those as mutating checks with follow-up verification.
+
+### api_checks (10/10 PASS, all sub-cases)
+
+| Check | Result | Evidence |
+|---|---|---|
+| api-g-01 | PASS | `GET /api/recommendation` (alice, has assignment) → 200; all 7 expected keys present; `total_percent == "100.00"` (string); sum of `allocations[].percent` == 100.00 |
+| api-g-02 | PASS | `GET /api/recommendation` (heidi, no assignment) → 404 `NO_RISK_BAND_ASSIGNMENT` |
+| api-g-03 | PASS | advisor token → 403 `ROLE_NOT_PERMITTED`; admin token → 403 `ROLE_NOT_PERMITTED` |
+| api-g-04 | PASS | no Authorization header → 401 `TOKEN_MISSING` |
+| api-g-05 | PASS | `GET /api/advisor/customers` (advisor) → 200, array of 9, every item has all 6 expected keys, `risk_band: null` correctly permitted for heidi |
+| api-g-06 | PASS | `GET /api/advisor/customers/1` (advisor) → 200, all 8 expected keys; also checked the no-assignment case (`/customers/3`): `allocation: null`, `risk_band: null`, `rule_version: null`, `holdings.as_of_date: null` — all correctly null per schema |
+| api-g-07 | PASS | `POST /api/advisor/customers/4/override` with reason → 201, all 9 expected keys, `note: null` (omitted in request, correctly nullable); follow-up `GET /api/recommendation` as carol reflects `risk_band: CONSERVATIVE` immediately |
+| api-g-08 | PASS | identical override call without `reason` → 422 `REASON_REQUIRED`; follow-up drill-in on dave (customer_id 5) shows `risk_band: MODERATE` unchanged |
+| api-g-09 | PASS | `POST /api/advisor/customers/7/manual-recommendation` → 201, all 5 expected keys; follow-up `GET /api/audit?entity_type=ManualRecommendation` as compliance shows exactly 1 entry with the submitted note |
+| api-g-10 | PASS | all 8 combinations (customer token × 4 endpoints, compliance token × 4 endpoints) → 403 `ROLE_NOT_PERMITTED` |
+
+Schema conformance independently re-verified: captured all 5 live response bodies (RecommendationResponse, AdvisorCustomerSummary×9, AdvisorCustomerDetail×2, AdvisorOverrideResponse, ManualRecommendationResponse) and validated them with `jsonschema` (Draft7Validator) against `specs/design/api-contracts.schema.json`, with the schema's OpenAPI-style `nullable: true` annotations expanded to `anyOf: [<schema>, {"type": "null"}]` before validation (plain Draft7 doesn't understand `nullable`). All validate cleanly — every nullable field (`risk_band`, `allocation`, `rule_version`, `holdings.as_of_date`, `note`, `Goal.percent_complete`) is null exactly where the schema and the endpoint's own semantics say it should be, and money/percent fields are consistently 2-dp strings, never JSON numbers (NFR-01).
+
+### architecture_checks (all PASS)
+
+| Check | Result |
+|---|---|
+| files_must_exist (28 files) | PASS — all present |
+| typing (`mypy src/`) | PASS — "Success: no issues found in 72 source files" |
+| frontend_typing (`tsc --noEmit`) | PASS — clean, zero output |
+| frontend_lint (`eslint .`) | PASS — 0 errors (1 pre-existing warning in `AuthContext.tsx`, unrelated to this group) |
+| layering (4 rg scans) | PASS — all 4 scans return empty (no domain/db→app imports, no app→repository imports, no app→db.models imports, no `raise HTTPException` in domain) |
+| schema_conformance | PASS — see above |
+| no_float (`pytest tests/architecture/test_no_float_in_domain.py`) | PASS — 56/56 |
+| advisor_role_scoping (`pytest tests/api/test_advisor_api.py -k role`) | PASS — 8/8 |
+| recommendation_role_and_404_scoping (`pytest tests/api/test_recommendation_api.py`) | PASS — 10/10 |
+| template_editor_sum_gate_matches_api (`npm test -- TemplateEditor`) | PASS — 6/6 |
+| migrations_unchanged | PASS — `git diff --stat 1f7b6b2..HEAD -- backend/alembic/...` and working-tree status both empty |
+| env_vars (detect-secrets) | PASS — `results: {}` for both `backend/src`+`backend/seed` and `frontend/src` scans |
+
+(Note: `tests/api/test_advisor_api.py` and `tests/api/test_recommendation_api.py` require `DATABASE_URL`/`JWT_SECRET` to be set at import time for `src.app.main.app`'s module-level `create_app()` call to succeed — no `backend/.env` exists in this working tree. I supplied dummy values inline for these two invocations only; the tests' own `migrated_engine` fixture overrides them per-test with a real migrated tmp-path SQLite DB, so the dummy values only satisfy import-time construction and have no bearing on the tests' actual assertions.)
+
+### playwright_checks (0/20 PASS — all FAIL, single shared root cause)
+
+**Root cause: none of the 7 URLs this group's contract targets are registered in `frontend/src/router.tsx`, and `frontend/src/components/NavBar.tsx` has no links to them either.** All four component-file deliverables (`Questionnaire.tsx`, `Goals.tsx`, `Rebalancing.tsx`, `RuleEditor.tsx`, `TemplateEditor.tsx`, `AssetClasses.tsx`, `AdminHome.tsx`, `Dashboard.tsx`) exist on disk and their isolated unit tests pass (each test file renders the component directly with a mocked API client, never through the real router), but the live, integrated app has no way to reach any of them.
+
+Confirmed live and empirically, not by reading source and assuming: launched a real Chromium session, logged in via the actual `/login` UI as `alice.reyes@wealthwise.test` (customer) and separately as `admin.olivia.brandt@wealthwise.test` (admin), then navigated directly to each contracted URL:
+
+| URL | Live result |
+|---|---|
+| `/customer/questionnaire` | Blank page — `body.innerText === ''`, no NavBar chrome at all |
+| `/customer/risk-result` | Blank page |
+| `/customer/goals` | Blank page |
+| `/customer/rebalancing` | Blank page |
+| `/admin/templates` | Blank page |
+| `/admin/rules` | Blank page |
+| `/admin/asset-classes` | Blank page |
+| `/admin` (control — this one *is* registered) | Renders `AdminHomeStub`, a placeholder function still inline in `router.tsx` itself ("Admin console — built by a later story.") — **not** the real `AdminHome.tsx`, which itself already contains `<Link to="/admin/templates">` etc. that would be dead links even if `/admin` rendered the real component |
+
+`router.tsx`'s `<Routes>` block (lines 38-91) only registers `/login`, `/`, `/customer/dashboard` (still `CustomerDashboardStub`, not the real `Dashboard.tsx`), `/customer/holdings`, `/advisor/customers`, `/admin` (still `AdminHomeStub`), and `/compliance/audit-log`. There is no `path="*"` catch-all, so an unmatched path renders nothing whatsoever — not even a 404 message.
+
+All 20 `pw-g-*` checks are therefore unreachable and FAIL for this one shared reason. Per-check detail (each check's specific AC and the exact live-probe evidence) is recorded as 20 separate structured entries in `specs/reviews/eval-failures-004.json` (`pw-g-01`..`pw-g-20`), per the "never skip a check" rule — I did not collapse them into a single line item even though the fix is a single change.
+
+**Suggested fix** (not applied — reported for the generator's self-healing cycle, per instructions not to fix defects found during evaluation):
+- `frontend/src/router.tsx`: replace the two remaining inline stubs (`CustomerDashboardStub` at `/customer/dashboard`, `AdminHomeStub` at `/admin`) with the real `Dashboard` and `AdminHome` components, and add `<Route>` entries for `/customer/questionnaire` → `Questionnaire`, `/customer/risk-result` → `RiskResult`, `/customer/goals` → `Goals`, `/customer/rebalancing` → `Rebalancing`, `/admin/templates` → `TemplateEditor`, `/admin/rules` → `RuleEditor`, `/admin/asset-classes` → `AssetClasses` (and, per component-map.md note 6, `/admin/threshold` → `ThresholdEditor`, since `AdminHome.tsx` already links there even though no check in this contract targets it directly).
+- `frontend/src/components/NavBar.tsx`: add customer-role links to Questionnaire, Goals, and Rebalancing (currently only "Holdings" is linked).
+
+### design_checks — NOT SCORABLE
+
+All 7 target pages (`/customer/questionnaire`, `/customer/risk-result`, `/customer/goals`, `/customer/rebalancing`, `/admin/templates`, `/admin/rules`, `/admin/asset-classes`) render blank live, per the playwright_checks findings above. There is nothing to screenshot or critique against the mockups until the routing gap is fixed — visual_hierarchy, accessibility, responsiveness, and interaction_feedback are all blocked, not merely low-scoring. This should be re-run as soon as the routing fix lands; I did not fabricate scores against a blank page.
+
+### Summary
+
+| Layer | Result |
+|---|---|
+| api_checks (10, all sub-cases) | **PASS 10/10** |
+| architecture_checks (12 categories) | **PASS 12/12** |
+| playwright_checks | **FAIL 0/20** — single shared root cause (missing route registrations) |
+| design_checks | **BLOCKED** — not scorable until the routing gap is fixed |
+
+**Overall Verdict: FAIL.** The backend half of this group (E5-S3, E9-S3) is solid — every api_check, every architecture_check, and the ad hoc schema-conformance validation all pass cleanly with no defects found. The entire failure is on the frontend integration side: all four UI stories (E4-S4, E7-S5, E8-S4, E10-S4) shipped working, well-tested components in isolation, but none of them were wired into `frontend/src/router.tsx` or `frontend/src/components/NavBar.tsx`, so none of them are reachable in the live app. This is a single, narrow, well-scoped fix (one file's `<Routes>` block plus a handful of nav links) — not a set of 20 independent UI bugs — but it blocks all 20 playwright_checks and all of design_checks until it lands.
+
+### Flagged for the lead
+
+1. Group G's generator commits (`a341b63`, `828699d`, `4a4eff7`, `fbacdf9`) never touched `frontend/src/router.tsx` or `frontend/src/components/NavBar.tsx`, despite the sprint contract's own note 5 explicitly anticipating that 3-4 of this group's stories would modify both files "for new route registration, nav links". `AdminHome.tsx`'s own header comment even says routing was explicitly deferred: "the individual screens each live at their own `/admin/*` route (see this story's final report for the exact paths the integrator wires)" — but no commit in this group did that integration wiring.
+2. Carried forward from Group F: real Playwright tooling (`@playwright/test` + `playwright.config.ts` + a committed `e2e/` spec directory) still does not exist in the repo; this evaluation pass again had to install a scratch Playwright instance outside the project tree to run live browser checks.
+3. Carried forward from Group F: Group E (`064a210`) still has no evaluator sign-off record in this file.
+
+### Pass 2 (post self-heal — router/nav fix applied) — new backend defect found, still FAIL
+
+**Date:** 2026-09-08 (same day, second pass)
+**Overall Verdict: FAIL** (improved from 0/20 to 11/20 playwright_checks; a second, independent, genuine backend defect now blocks the remaining 9)
+
+**Context:** The orchestrator flagged that the backend process live during Pass 1 may have briefly been a stale leftover instance from an earlier session (serving generic 404s for `/api/recommendation`/`/api/advisor/*` despite `/health` returning 200), and restarted it fresh from the current working tree. Re-checked: `GET /api/recommendation` with no auth now returns `401` (not a bare-404), and `/openapi.json` lists `/api/recommendation` and all four `/api/advisor/*` paths. This is moot for Pass 1's own recorded results, however — Pass 1's `api-g-*` responses were already code-differentiated, business-logic-correct bodies (`NO_RISK_BAND_ASSIGNMENT`, `ROLE_NOT_PERMITTED`, `REASON_REQUIRED`, real allocation data, etc.), which a stale/unrouted process cannot produce (an unregistered route returns a generic `{"detail":"Not Found"}` for every request regardless of auth or path variant — exactly what this pass newly discovered for three *different*, genuinely-unregistered paths, see below). Pass 1's `api_checks` (10/10) and `architecture_checks` (12/12) results stand unchanged and were not re-run, per the orchestrator's own instruction that a frontend-only fix doesn't affect them.
+
+Self-heal attempt 1 (generator) applied exactly the fix Pass 1 and design-critic-G both recommended:
+- `frontend/src/router.tsx`: replaced `CustomerDashboardStub`/`AdminHomeStub` with the real `Dashboard`/`AdminHome` components; added `<Route>` entries for all 7 contracted URLs plus `/admin/threshold`.
+- `frontend/src/components/NavBar.tsx`: added customer-role links to Goals and Rebalancing (Questionnaire reached via the Dashboard's quick-links).
+
+Re-verified live: all 7 previously-blank pages now render real content (confirmed via a fresh Chromium probe — Holdings/Goals/Rebalancing nav links visible, admin sub-pages reachable from `/admin`). This part of the fix is genuine and complete.
+
+**However**, re-running the full 20-check Playwright suite against the now-correctly-routed app surfaced a second, independent, previously-masked defect: **three GET endpoints required by `specs/design/api-contracts.md` are never registered on the backend at all** — a defect Pass 1 couldn't see because the frontend routing gap made every one of this group's pages unreachable before any of their `useEffect` data-fetches could even run.
+
+| Missing endpoint | Live status | Confirmed via source | Blocks |
+|---|---|---|---|
+| `GET /api/risk-profile/questionnaire` | `404 {"detail":"Not Found"}` | `backend/src/app/routers/risk_profile.py`'s own module docstring: *"POST /api/risk-profile/submit, GET /api/risk-profile/latest"* — only those two `@router.post`/`@router.get` decorators exist in the file; no `@router.get("/questionnaire")` anywhere | `Questionnaire.tsx` (frontend/src/pages/customer/Questionnaire.tsx:31-43) short-circuits to an error screen (`loadError !== null` → early `return`, no form/questions ever rendered) — **all of pw-g-01..05** |
+| `GET /api/admin/asset-classes` | `405 {"detail":"Method Not Allowed"}` | `backend/src/app/routers/admin.py:195` has `@router.post("/asset-classes", ...)` only; no matching `@router.get` | `TemplateEditor.tsx`'s `rows` state stays `[]` (built from `getAssetClasses()`'s result, frontend/src/pages/admin/TemplateEditor.tsx:28-58), so `[data-testid=allocation-percent-0/1]` never exist in the DOM — **pw-g-16, pw-g-17, pw-g-20**. `AssetClasses.tsx`'s list panel never renders (frontend/src/pages/admin/AssetClasses.tsx:25-41) — **pw-g-19** |
+| `GET /api/admin/risk-band-rules` | `405 {"detail":"Method Not Allowed"}` | `backend/src/app/routers/admin.py:127` has `@router.post("/risk-band-rules", ...)` only; no matching `@router.get` | `RuleEditor.tsx` shows a "Risk-band rules could not be loaded" banner (frontend/src/pages/admin/RuleEditor.tsx:72-91), but — unlike the other two — **did not block pw-g-18**, because `addQuestion()`/the `canPublish` gate operate on local component state independent of the failed initial fetch (confirmed live: Publish correctly disabled at 0 questions, enabled at 6, disabled again at 5 after removing one) |
+
+All three paths are explicitly required by `specs/design/api-contracts.md` (`§6.1 GET /api/risk-profile/questionnaire`, attributed to E4-S3/E4-S4; `§12.2 GET /api/admin/risk-band-rules` and `§12.6 GET /api/admin/asset-classes`, both attributed to E10-S3/E10-S4) and are present in `specs/design/api-contracts.schema.json`'s OpenAPI paths. E4-S3 and E10-S3 are both **Group F** stories (already merged, `sprint-contracts/F.json`) — this is a genuine coverage gap from Group F that Group F's own evaluation passes never caught, because none of Group F's `pw-f-*` checks exercised the questionnaire or admin screens (those didn't exist as reachable UI until this group). It resurfaces now, in Group G, only because E4-S4/E10-S4's frontend is the first real consumer of these three endpoints.
+
+**Not purely a router-wiring gap for two of the three** — checked whether the fix is as simple as adding a decorator: `backend/src/domain/risk_profile/repository.py` already has `get_active_rule(session)`, and `backend/src/domain/holdings/repository.py` already has `list_asset_classes(session)`, both directly reusable for `GET /api/risk-profile/questionnaire` and `GET /api/admin/asset-classes` respectively — just missing router+service wiring. `GET /api/admin/risk-band-rules` needs slightly more: no repository function exists yet that lists *all* `RiskBandRule` versions (only `get_active_rule` and `get_rule_by_version(version)` do) — `RuleEditor.tsx`'s version-history table needs the full list, so this one needs a small new repository query in addition to router+service wiring.
+
+**Playwright results, this pass — 11/20 PASS:**
+
+| Check | Result | Evidence |
+|---|---|---|
+| pw-g-01..05 (E4-S4) | **FAIL** (all 5) | `GET /api/risk-profile/questionnaire` → 404; Questionnaire.tsx renders only an error banner, no form |
+| pw-g-06 | **PASS** | Goal #1 card renders `target_amount: 250000.00`, `target_date: 2032-06-30`, `priority: 3`, `percent_complete: 25.00` |
+| pw-g-07 | **PASS** | `target_amount=0` → inline "target_amount must be greater than 0." shown; no `POST /api/goals` issued |
+| pw-g-08 | **PASS** | Goal #1's progress label renders `percent_complete: 25.00%` verbatim (fixture: inserted one `GoalProgressSnapshot` row for goal #1, `percent_complete=2500` basis points — the seeded DB had zero rows in this table, so no goal had a non-null value to assert against before this) |
+| pw-g-09 | **PASS** | Edit priority 3→4: `PATCH /api/goals/1` → 200; card updates to `priority: 4` in place; no `framenavigated` event fired |
+| pw-g-10 | **PASS** | `label[for]` present for `target_amount`/`target_date`/`priority` (1 each); Tab from `#target_amount` moves focus to `#target_date` |
+| pw-g-11 | **PASS** | `GET /api/rebalancing` → 200, 2 recommendations rendered, both show a BUY/SELL action label (fixture: inserted 2 clean pending `RebalancingRecommendation` rows for bob.nakamura with real `proposed_actions` — the one seeded pending row for this customer had `actions: []`, a pre-existing malformed fixture from an earlier evaluator session, which would not have exercised this check meaningfully) |
+| pw-g-12 | **PASS** | Accept → `POST .../accept` → 200; recommendation count 2→1 |
+| pw-g-13 | **PASS** | Dismiss → `POST .../dismiss` → 200; recommendation count 1→0 |
+| pw-g-14 | **PASS** | alice.reyes (0 pending) → `GET /api/rebalancing` → `[]`; `EmptyState`'s "No pending rebalancing recommendations." visible |
+| pw-g-15 | **PASS** | (fixture: inserted 1 more pending row for bob) Enter on a focused Accept button disables it immediately (before the response resolves); a second immediate Enter issues no second network call — exactly 1 `POST .../accept` request recorded |
+| pw-g-16, pw-g-17, pw-g-20 | **FAIL** (all 3) | `[data-testid=allocation-percent-0]` does not exist — `TemplateEditor.tsx`'s `rows` never populate because `GET /api/admin/asset-classes` → 405 |
+| pw-g-18 | **PASS** | Publish disabled at 0 questions; 6× "Add question" → enabled; remove 1 → disabled again at 5 — independent of the (still-broken) initial `GET /api/admin/risk-band-rules` load |
+| pw-g-19 | **FAIL** | `GET /api/admin/asset-classes` → 405 (expected 200); asset-class list never renders, "Asset classes could not be loaded." shown instead — the duplicate-code 409 sub-flow was not reachable to test as a result |
+
+**Evaluator-inserted fixture data this pass** (all via direct SQLite writes to `backend/wealthwise.db`, since no create endpoint exists for `RebalancingRecommendation` outside the advance-day engine, and the seeded DB had zero `GoalProgressSnapshot` rows — same pattern the Group F evaluator used for holdings fixtures per its own report):
+- Marked the pre-existing malformed pending row (id 9, `bob.nakamura`, `proposed_actions.actions: []`) as resolved so it wouldn't produce a false negative on pw-g-11.
+- Inserted 3 clean pending `RebalancingRecommendation` rows for `bob.nakamura` (customer_id 2) with real `proposed_actions` (SELL EQ_DM, BUY CASH, SELL FI_GOV) — 2 consumed by pw-g-12/13, 1 by pw-g-15.
+- Inserted 1 `GoalProgressSnapshot` row for `alice.reyes`'s goal #1 (`current_value=6250000`, `percent_complete=2500` → renders as `"25.00"`), consumed by pw-g-08.
+
+None of this fixture data affects the two remaining genuine defects (questionnaire/asset-classes 404/405), which are pure backend routing gaps unrelated to data availability.
+
+**Summary, this pass:**
+
+| Layer | Result |
+|---|---|
+| api_checks (10, all sub-cases) | **PASS 10/10** (unchanged from Pass 1, not re-run — unaffected by a frontend-only fix) |
+| architecture_checks (12 categories) | **PASS 12/12** (unchanged from Pass 1, not re-run) |
+| playwright_checks | **11/20 PASS** (was 0/20) — router/nav fix confirmed genuine and complete; remaining 9 failures trace to 3 missing backend GET endpoints, a distinct root cause from Pass 1's finding |
+| design_checks | Still not scored this pass — 4 of 7 pages (questionnaire, template editor, rule editor, asset-classes) still show error banners rather than their intended populated state; the 3 fully-working pages (goals, rebalancing, and rule-editor's interactive elements) could be scored now if desired |
+
+**Overall Verdict: FAIL.** Significant, confirmed progress (0→11 of 20 playwright_checks) from the router/nav fix. The remaining blocker is narrow and precisely scoped, same as before: **3 missing backend GET endpoints** (`GET /api/risk-profile/questionnaire`, `GET /api/admin/risk-band-rules`, `GET /api/admin/asset-classes`), all already specified in `api-contracts.md`/`api-contracts.schema.json`, attributable to Group F's E4-S3/E10-S3 stories, surfaced only now because this group's frontend is their first real consumer. Structured failure detail for the 9 still-failing checks is appended to `specs/reviews/eval-failures-004.json`.
+
+### Flagged for the lead (pass 2)
+
+1. **New fix needed, backend-side this time:** add `@router.get("/questionnaire")` to `backend/src/app/routers/risk_profile.py` (reusing `domain.risk_profile.repository.get_active_rule`), `@router.get("/asset-classes")` to `backend/src/app/routers/admin.py` (reusing `domain.holdings.repository.list_asset_classes`), and `@router.get("/risk-band-rules")` to the same file (needs one new repository query — no existing function lists all `RiskBandRule` versions, only the active one or by-version). All three need role gates matching `api-contracts.md`'s role matrix (customer for questionnaire; admin for the other two) and response shapes matching their existing schema components in `api-contracts.schema.json`.
+2. This is properly a **Group F regression/gap**, not a Group G one — E4-S3 and E10-S3 (both Group F) are the stories that should have shipped these three GET endpoints. Recommend the lead route the fix to whichever generator owns Group F's follow-up, or accept it as an in-flight Group G fix since it's blocking Group G's sign-off regardless of origin.
+3. Once these 3 endpoints exist, re-run `pw-g-01..05`, `pw-g-16`, `pw-g-17`, `pw-g-19`, `pw-g-20` (9 checks) plus a fresh `design_checks` pass across all 7 pages now that they'll have real data to render.
+
+### Pass 3 (post generator-G-fix2 — 3 missing GET endpoints added) — 18/20, two new independent defects found
+
+**Date:** 2026-09-08 (same day, third pass)
+**Overall Verdict: FAIL** (improved from 11/20 to 18/20 playwright_checks)
+
+**Context:** generator-G-fix2 added the 3 missing GET endpoints identified in Pass 2 (`GET /api/risk-profile/questionnaire`, `GET /api/admin/asset-classes`, `GET /api/admin/risk-band-rules`), each routed through a new service-layer function per D3, plus one new repository function (`list_rule_versions`). Independently re-confirmed live before re-testing:
+
+- `GET /openapi.json` now lists all three paths with their `get` operations registered.
+- `GET /api/risk-profile/questionnaire` (alice.reyes) → 200, 6 questions, `points` correctly omitted from the customer-facing response (matches api-contracts.md §6.1's "Option point values are deliberately omitted").
+- `GET /api/admin/asset-classes` (admin) → 200, ordered by code.
+- `GET /api/admin/risk-band-rules` (admin) → 200, `points` correctly present (admin needs them for editing).
+- Role scoping spot-checked on all three: advisor → 403 on questionnaire, customer → 403 on both admin endpoints. All `ROLE_NOT_PERMITTED`, matching the role matrix.
+- Schema conformance: validated all three response shapes with `jsonschema` against `QuestionnaireResponse`, `AssetClass`, and `RiskBandRule` in `api-contracts.schema.json` — all pass, with one caveat noted below (not a defect in this fix).
+
+**Caveat, not a defect:** one existing `RiskBandRule` row (version 2, `id=2`) fails schema validation — its `scoring_rules_json.bands` array has only 1 element instead of the required 3. This is pre-existing malformed data from an earlier evaluation session's manual test POST (see Group F's evaluator-report note about api-f-17's own first-attempt mistake), not something `GET /api/admin/risk-band-rules` introduces — the endpoint correctly returns historical rows verbatim, and per AC-10's append-only-immutable rule it must never "fix" a published row after the fact. Version 1 (the real seed data) validates cleanly. Not blocking.
+
+Re-ran all 9 previously-failing checks (`pw-g-01..05`, `pw-g-16`, `pw-g-17`, `pw-g-19`, `pw-g-20`) against the live app:
+
+| Check | Result | Evidence |
+|---|---|---|
+| pw-g-01 | **PASS** | `GET /api/risk-profile/questionnaire` → 200, 6 questions; 6 `<fieldset>`s rendered matching the response; Submit disabled initially and remains disabled after answering only Q1 |
+| pw-g-02 | **PASS** | Answered all 6 questions → `POST /api/risk-profile/submit` → 201 → navigated to `/customer/risk-result`; page renders `CONSERVATIVE` as "Conservative" |
+| pw-g-03 | **FAIL** | See Defect A below |
+| pw-g-04 | **PASS** | Every radio has a matching `label[for]`; Tab moves focus in document order; Space on a focused radio selects it |
+| pw-g-05 | **PASS** | `GET /api/risk-profile/latest` → 200, `risk_band: CONSERVATIVE`; the questionnaire page's infobox shows "Your current band: Conservative." before any new submission |
+| pw-g-16 | **PASS** | Filling rows 0/1 with 60.00/30.00 shows a running total of "90.00" with `class="total invalid"` |
+| pw-g-17 | **PASS** | Publish disabled at 90.00; filling row 1 to 40.00 (total 100.00) enables Publish |
+| pw-g-19 | **PASS** (corrected from Pass 2's mis-scored FAIL — see note) | `GET /api/admin/asset-classes` → 200, all 7 currently-seeded asset classes render (a 7th, `COMMOD`, was added to the shared DB by another agent's independent verification between passes — this evaluator's Pass-2 assertion hardcoded an expectation of 6 and is the actual source of that earlier false negative, not an app defect); `POST` with a duplicate `code=EQ_DM` → 409, inline error "AssetClass code 'EQ_DM' is already in use." shown next to the `code` field, sourced verbatim from the API response |
+| pw-g-20 | **FAIL** | See Defect B below |
+
+**18/20 PASS.**
+
+#### Defect A — pw-g-03: AC3's inline-validation-on-click is unreachable, because Submit is disabled whenever incomplete
+
+E4-S4 AC1 ("Submit disabled until every question has a selection") and AC3 ("submitting with any question unanswered shows inline validation") are both implemented, but AC1's mechanism structurally forecloses AC3's exact interaction: `frontend/src/pages/customer/Questionnaire.tsx:167`'s `<button type="submit" disabled={!allAnswered || isSubmitting}>` is genuinely HTML-disabled the moment even one question is unanswered — including the "5 of 6 answered" state AC3/pw-g-03 describes, not just the fully-empty state. A real click against a disabled native `<button>` never fires in a browser (confirmed live: a real, non-forced Playwright click against the Submit button with 5 of 6 questions answered timed out after 30 seconds, logging `element is not enabled` on every retry). Since `invalidQuestionIds` — the state that drives the inline "Select an answer for this question before submitting." message — is set exclusively inside `handleSubmit`, and `handleSubmit` can only run from a real submit/click event, the inline-validation path this check requires is unreachable as implemented. The "no POST issued" half of the check trivially holds (nothing can ever be submitted in this state), but "an inline validation message is visible" cannot be demonstrated.
+
+This is a genuine design tension, not obviously a one-line bug — flagged for the generator/spec owner to resolve (not fixed by this evaluator, per policy):
+- **Option A:** remove the `disabled={!allAnswered}` clause and let `handleSubmit`'s already-working validation branch be the sole gate (Submit becomes always-clickable; clicking early shows the inline messages, matching AC3's literal steps).
+- **Option B:** treat the fully-disabled behavior as the stronger, intended UX, and get AC3/pw-g-03 corrected upstream to describe the always-visible per-question "answer required" affordance instead of a post-click validation flash.
+
+Full detail: `specs/reviews/eval-failures-006.json`.
+
+#### Defect B — pw-g-20: the version-history table lags one version behind immediately after Publish
+
+Reproduced live and reproducibly across 3 independent Chromium sessions, each publishing a fresh MODERATE-band allocation template version: in every run, `POST /api/admin/allocation-templates` returned 201 with the correct new version number (server-side write confirmed committed via a direct DB read immediately after each run), but `TemplateEditor.tsx`'s post-publish refetch (`loadHistory(riskBand)`, fired immediately after the awaited `publishAllocationTemplate` call resolves) rendered a version-history table missing that same just-published row — consistently one version behind. This held even in a run that explicitly waited 2 seconds after page-load for any initial-mount double-fetch races to settle before publishing (ruling out the simplest "React 18 StrictMode double-effect" explanation on its own), and was confirmed not to be a DOM-rendering delay by capturing the exact JSON body of the `GET /api/admin/allocation-templates?risk_band=MODERATE` network response fired by `loadHistory()` itself — that response's own payload was missing the version whose publish had already been acknowledged by an awaited 201.
+
+`loadHistory` (`frontend/src/pages/admin/TemplateEditor.tsx:60-64`) has no request-sequencing/cancellation guard — unlike the sibling `assetClasses` fetch effect (`:41-58`), which uses a `cancelled` closure flag to discard a stale response. If any other in-flight GET to the same endpoint resolves after the publish-triggered one, its older payload can silently overwrite the fresher state. Given the lag was consistently exactly one version rather than random/flaky, the root cause may instead (or additionally) be a backend read-after-write consistency gap between the POST's write and the immediately-following GET's read — flagged as worth checking on both sides rather than diagnosed with full certainty. Full detail, including the three independent reproduction runs' raw evidence: `specs/reviews/eval-failures-006.json`.
+
+### Summary, this pass
+
+| Layer | Result |
+|---|---|
+| api_checks (10, all sub-cases) | **PASS 10/10** (unchanged, not re-run) |
+| architecture_checks (12 categories) | **PASS 12/12** (unchanged, not re-run) |
+| 3 new endpoints' schema_conformance | **PASS** (all 3, ad hoc `jsonschema` validation; one pre-existing malformed data row noted, not a defect in this fix) |
+| playwright_checks | **18/20 PASS** (was 11/20) |
+| design_checks | Still not formally scored — all 7 pages now render real, populated content and are ready for a design-critic pass |
+
+**Overall Verdict: FAIL**, but narrowly — 2 of 20 playwright_checks remain, both genuine, independent, precisely-diagnosed application-level defects unrelated to either of the two infrastructure-class defects the first two passes found (frontend routing, missing backend endpoints). `features.json` updated: F072, F073, F075, F076, F203, F204, F206 now `passes: true`; F074 (pw-g-03) and F207 (pw-g-20) remain `false` with the above root causes recorded. **28 of 30 Group G features now pass.**
+
+### Flagged for the lead (pass 3)
+
+1. **Defect A (pw-g-03) needs a product/spec decision, not just a code fix** — see the two options above. Whichever is chosen, it's a small change (either delete one clause, or amend the contract/AC text).
+2. **Defect B (pw-g-20) needs investigation on both the frontend request-ordering and backend read-consistency sides** before a fix is attempted — recommend the generator add a `cancelled`-flag guard to `loadHistory` matching the `assetClasses` effect's pattern as a first, safe step, and separately verify (e.g. with a short `sleep`/explicit re-query test) whether the backend's own POST-then-GET sequence is read-consistent in isolation, to rule that half in or out.
+3. Design_checks are now unblocked for all 7 pages (finally rendering real, populated content) — recommend scheduling a design-critic pass once Defects A and B are resolved, since Defect A's fix (if Option A is chosen) will change the questionnaire's interactive/feedback surface, which is exactly what `interaction_feedback`'s raised bar (7, per this contract's notes) is meant to score.
+4. Carried forward: real Playwright tooling still doesn't exist in the repo (this evaluator again used a scratch install); Group E still has no evaluator sign-off record in this file.
+
+### Pass 4 (self-heal re-verification) — 30/30, both remaining defects confirmed fixed
+
+**Date:** 2026-09-09 (fourth pass)
+**Overall Verdict: PASS**
+
+**Context:** generator-g-heal3 applied targeted fixes for the two remaining Pass-3 defects:
+- `frontend/src/pages/customer/Questionnaire.tsx`: the unanswered-question inline validation message now derives directly from `answers` state via a `hasInteracted` flag (set the first time any radio is selected) and `unansweredQuestionIds`, independent of a submit click — resolving Defect A (AC1's disabled-Submit behavior and AC3's inline-message requirement no longer conflict, since the message no longer needs `handleSubmit` to run).
+- `frontend/src/pages/admin/TemplateEditor.tsx`: `loadHistory` now carries a monotonic request-id guard (`latestHistoryRequestId` ref) so a stale, later-resolving fetch can never overwrite a fresher one; `handlePublish` optimistically appends the new version to `history` immediately, then calls `loadHistory` to reconcile with the server as the now-most-recent request — resolving Defect B.
+
+Re-verified live against the running app (backend `http://localhost:8000`, frontend `http://localhost:5173`, both already running and not restarted; `/health` confirmed reachable before testing) using real Chromium automation (Playwright 1.63.0, no `force` clicks, no TestClient) — same tooling as Passes 1-3. Two Node scripts were written for this pass covering all 9 checks in scope (5 questionnaire + 4 admin, with `pw-g-20` cycled 3 times in the same browser context to specifically stress the race that produced Defect B).
+
+**pw-g-03 (the fix under test):** Logged in as `carol.singh@wealthwise.test` (an account with an existing `RiskBandAssignment`, matching the original repro), answered 5 of 6 questions via real `.check()` calls on the radio inputs, confirmed Submit remained HTML-disabled (`isDisabled()===true`), then attempted a real (non-forced) click — it correctly timed out reaching the disabled button (`element is not enabled`), exactly as Defect A described. Unlike Pass 3, this no longer matters for the outcome: the `role=alert` inline message "Select an answer for this question before submitting." was independently confirmed **visible next to the unanswered question** (waited for visibility, 5s budget, resolved immediately), and no `POST /api/risk-profile/submit` request was observed on the network at any point (`submitCalled===false`). Also ran a no-click variant (answer 5 of 6, never touch Submit at all) to confirm the message is driven purely by interaction state, not a click event — also passed, confirming the fix's mechanism matches its described approach.
+
+**pw-g-20 (the fix under test), 3 cycles in one session:** Logged in as admin, went to `/admin/templates`, and repeated publish→verify 3 times consecutively without reloading the page: each cycle set row 0 to `100.00` (all other rows `0.00`), clicked Publish, awaited the `POST /api/admin/allocation-templates` response (201 each time, versions 17/18/19 in this run), then polled (up to 5s, 200ms interval) for that exact version number to appear in the version-history table's `version` column. All 3 cycles found the new version **immediately** (well under the 5s budget each time — first-poll hits in practice), and a `framenavigated` listener confirmed **no full page reload/navigation** fired during any cycle. This directly reproduces the exact scenario Pass 3's Defect B evidence used (repeated publish-then-check within one session) and found no lag in any of the 3 repetitions — the request-id guard is confirmed working, not just avoided by timing luck.
+
+**Regression checks, same files:**
+
+| Check | Result | Evidence |
+|---|---|---|
+| pw-g-01 | PASS | 6 fieldsets rendered matching the 6-question API response; Submit disabled before and after answering only Q1 |
+| pw-g-02 | PASS | All 6 answered → `POST /api/risk-profile/submit` → 201 → navigated to `/customer/risk-result`; page text shows the human-readable band name |
+| pw-g-04 | PASS | Every radio has a matching `label[for]`; Tab moves focus to the next option in document order; Space on a focused radio selects it (unchecked→checked confirmed) |
+| pw-g-05 | PASS | `GET /api/risk-profile/latest` → `risk_band: CONSERVATIVE`; shown on the questionnaire page before any new submission |
+| pw-g-16 | PASS | Rows 60.00/30.00 → running total "90.00" rendered with `class="total invalid"` |
+| pw-g-17 | PASS | Publish disabled at 90.00; filling row 1 to 40.00 (total 100.00) enables Publish |
+| pw-g-19 | PASS | `GET /api/admin/asset-classes` → 200, list renders; duplicate `code=EQ_DM` → `POST` 409, inline error "AssetClass code 'EQ_DM' is already in use." shown next to the code field |
+
+None of the 7 regression checks were affected by the two targeted fixes — `hasInteracted`/`unansweredQuestionIds` (Questionnaire.tsx) and the request-id guard (TemplateEditor.tsx) are additive changes that don't alter AC1's disabled-button gate, AC4's keyboard/labeling behavior, AC5's latest-band display, or AC1/AC2/AC4's running-total/Publish-gate/duplicate-code behavior.
+
+**Summary, this pass:**
+
+| Layer | Result |
+|---|---|
+| pw-g-01, 02, 04, 05 (regression) | **PASS 4/4** |
+| pw-g-03 (targeted fix) | **PASS** — inline validation message now visible, driven by interaction state; no submit POST issued |
+| pw-g-16, 17, 19 (regression) | **PASS 3/3** |
+| pw-g-20 (targeted fix) | **PASS**, 3/3 cycles in one session — no stale-read lag observed in any repetition |
+
+**Overall Verdict: PASS. All 20 of Group G's playwright_checks now pass (18/20 from Pass 3 + the 2 fixed here), and all 30 of Group G's features pass.** `features.json`: confirmed `F074` and `F207` are `passes: true` (both were already marked true prior to this pass — reconfirmed independently via the live re-verification above rather than trusting the existing value; `last_evaluated` timestamps updated to `2026-09-09T06:24:03.518Z` for both). No other feature entries were modified by this pass.
+
+No new structured failure file was written for this pass (`specs/reviews/eval-failures-007.json` was not created) since there is nothing to report — all checks in scope passed.
+
+### Flagged for the lead (pass 4)
+
+1. Carried forward: real Playwright tooling (`@playwright/test`, `playwright.config.ts`, committed `e2e/` spec directory) still does not exist in the repo — this pass again used a scratch npx-cached Playwright install (`playwright@1.63.0`) rather than a project devDependency. Recommend formalizing this before the next group, since four consecutive evaluation passes have now hand-rolled equivalent tooling.
+2. Group E still has no evaluator sign-off record in this file (carried forward from Passes 1-3).
+3. `design_checks` for Group G's 7 pages (`visual_hierarchy`, `accessibility`, `responsiveness`, `interaction_feedback`) were still not formally scored as of Pass 3 and remain out of scope for this pass (this pass's assignment was limited to re-verifying pw-g-03/pw-g-20 and their regression set) — recommend scheduling a design-critic pass now that all 7 pages render real content and both interaction-feedback-relevant defects (A and B) are resolved.

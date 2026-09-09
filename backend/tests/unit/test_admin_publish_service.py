@@ -13,6 +13,8 @@ from sqlalchemy.orm import Session
 from src.db.models import AllocationTemplate as AllocationTemplateRow
 from src.domain.admin.service import (
     create_asset_class_with_audit,
+    list_asset_classes_for_admin,
+    list_risk_band_rules_for_admin,
     publish_allocation_template,
     publish_rebalancing_threshold,
     publish_risk_band_rule,
@@ -227,3 +229,35 @@ def test_updating_an_asset_class_to_its_own_current_code_is_allowed(
     assert updated.name == "Renamed"
     spy.assert_called_once()
     assert spy.call_args.kwargs["entity_type"] == "AssetClass"
+
+
+def test_list_asset_classes_for_admin_returns_them_ordered_by_code_ascending(
+    db_session: Session,
+) -> None:
+    _asset_class_id(db_session, "ZZZ")
+    _asset_class_id(db_session, "AAA")
+    _asset_class_id(db_session, "MMM")
+
+    asset_classes = list_asset_classes_for_admin(db_session)
+
+    assert [asset_class.code for asset_class in asset_classes] == ["AAA", "MMM", "ZZZ"]
+
+
+def test_list_risk_band_rules_for_admin_returns_every_version_ordered_by_version_ascending(
+    db_session: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        "src.domain.admin.service.write_audit_entry", MagicMock(wraps=lambda *a, **kw: None)
+    )
+    publish_risk_band_rule(
+        db_session, questionnaire=SIX_QUESTIONS, scoring_rules=SCORING_RULES, **ACTOR
+    )
+    publish_risk_band_rule(
+        db_session, questionnaire=SIX_QUESTIONS, scoring_rules=SCORING_RULES, **ACTOR
+    )
+
+    rules = list_risk_band_rules_for_admin(db_session)
+
+    assert [rule.version for rule in rules] == [1, 2]
+    assert rules[0].is_active is False
+    assert rules[1].is_active is True

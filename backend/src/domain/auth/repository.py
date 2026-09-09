@@ -40,6 +40,13 @@ def get_customer_by_id(session: Session, customer_id: int) -> Customer | None:
     return session.execute(statement).scalar_one_or_none()
 
 
+def list_customers(session: Session) -> list[Customer]:
+    """Every `Customer` row, ordered by id — the advisor customer list's
+    source set (E9-S3 AC1)."""
+    statement = select(Customer).order_by(Customer.id.asc())
+    return list(session.execute(statement).scalars().all())
+
+
 def create_user(
     session: Session, *, email: str, password_hash: str, role: str, created_at: str
 ) -> User:

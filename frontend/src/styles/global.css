@@ -500,6 +500,12 @@ main.admin-page {
   color: var(--color-text-muted);
 }
 
+.admin-page .question input[type='text'] {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
 .admin-page .count-note {
   font-size: 13px;
   margin: 0 0 14px;
