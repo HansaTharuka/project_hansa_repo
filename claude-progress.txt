@@ -108,3 +108,19 @@ coverage: 100% (2238/2238 statements, backend) + 58/58 frontend tests
 learned_rules: 0
 blocked_stories: none
 next_action: Negotiate sprint contract for Group G and spawn generator team. Note for the next session: Group F required 4 evaluator passes to clear (self-heal fixed CORS + sum_bps key drift on pass 1->2; an infra env-var/process-lifecycle issue, not a code defect, blocked pass 2->3 and was resolved by restarting the backend without --reload; the audit `to`-date boundary bug plus a CSS breakpoint collision found on pass 3 were fixed and verified clean on pass 4). See specs/reviews/evaluator-report.md's Group F "Pass 4 (orchestrator-driven fix cycle)" section for the full sign-off. Two non-blocking follow-ups flagged for a future group: (1) instantiate real Playwright tooling in the repo (.claude/templates/playwright.config.template.ts has never been used) so evaluators stop reconstructing scratch browser-automation projects per pass; (2) minor CSS gap — #entity_type <select> doesn't get the branded focus-visible ring in global.css. Group E (commit 064a210) still has no evaluator sign-off record in evaluator-report.md — pre-existing gap, not caused by this session, still flagged for the lead.
+
+=== Session 7 ===
+date: 2026-09-09T06:30:00Z
+mode: full
+branch: feat/wealthwise-build
+groups_completed: [A, B, C, D, E, F, G]
+groups_remaining: [H]
+current_group: none
+current_stories: []
+sprint_contract: sprint-contracts/G.json
+last_commit: 3adf04c "feat: implement group G (E4-S4, E5-S3, E7-S5, E8-S4, E9-S3, E10-S4)"
+features_passing: 197 / 207
+coverage: 100% (2540/2540 statements backend, 664 tests) + 126/126 frontend tests
+learned_rules: 0
+blocked_stories: none
+next_action: Negotiate sprint contract for Group H (E5-S4 recommended-allocation UI view, E9-S4 advisor UI) and spawn generator team — the final group; all 10 remaining features (F092-F096, F183-F187) belong to it. Notes for the next session: (1) Group G required 4 evaluator passes — pass 1 found missing frontend route registration (generator commits never wired router.tsx/NavBar.tsx despite the contract anticipating it), pass 2 found 2 backend GET endpoints that were actually a Group F coverage gap (questionnaire + admin risk-band-rules/asset-classes reads never implemented in Group F), pass 3 found and fixed a CORS-adjacent AC1/AC3 tension on the questionnaire (resolved via a spec correction, not a code defect) plus one genuine app bug each in Questionnaire.tsx and TemplateEditor.tsx, and pass 4 live-reverified both fixes plus a same-file regression set — see evaluator-report.md's Group G section (Passes 1-4) for the full trail. (2) Backend test/coverage runs in this environment require exporting DATABASE_URL and JWT_SECRET as real environment variables, NOT a backend/.env file — tests/unit/test_config.py::TestGitignore::test_no_real_env_file_exists_on_disk asserts no such file exists on disk; a stray backend/.env was created and removed during this session's verification, do not recreate one. (3) Carried forward from Group F: real Playwright tooling (@playwright/test, playwright.config.ts, a committed e2e/ directory) still does not exist in the repo — four consecutive evaluation passes (Group F pass 4, Group G passes 1-4) have now hand-rolled equivalent scratch tooling; recommend instantiating .claude/templates/playwright.config.template.ts before or during Group H. (4) Group G's design_checks (visual_hierarchy/accessibility/responsiveness/interaction_feedback for its 7 pages) were never formally scored by a design-critic pass across any of the 4 evaluator passes — out of scope for those passes, still open; consider running one before/alongside Group H's own design_checks, or explicitly accept the gap. (5) Group E (commit 064a210) still has no evaluator sign-off record in evaluator-report.md — pre-existing gap, still flagged, still not blocking.
