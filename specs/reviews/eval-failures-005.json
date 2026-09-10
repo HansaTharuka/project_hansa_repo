@@ -1,0 +1,170 @@
+[
+  {
+    "check_id": "pw-g-01",
+    "category": "playwright_fail",
+    "error_type": "missing_endpoint",
+    "error_type_detail": "E4-S4 AC1: the router-wiring fix from eval-failures-004.json is confirmed complete and correct (frontend/src/router.tsx now registers /customer/questionnaire and the page is reached), but the page cannot render because its data source does not exist on the backend.",
+    "expected": "GET /api/risk-profile/questionnaire resolves 200 with a QuestionnaireDocument and the question list renders.",
+    "actual": "Reproduced live with a real Chromium session (Playwright 1.63.0) driving http://localhost:5173 against http://localhost:8000, logged in as alice.reyes@wealthwise.test. Navigating to /customer/questionnaire now reaches the real Questionnaire.tsx component (confirmed: NavBar chrome and 'Risk-profile questionnaire' heading render), but GET /api/risk-profile/questionnaire returns 404 {\"detail\":\"Not Found\"} - a generic FastAPI route-not-found body, not an application-level error - and the component's loadError branch renders only 'The questionnaire could not be loaded. Please try again.' with no form, no questions, no data-testid elements.",
+    "stack_trace": "backend/src/app/routers/risk_profile.py - the module's own docstring states 'POST /api/risk-profile/submit, GET /api/risk-profile/latest' as its complete scope; grep -n \"@router\\.(get|post)\" on the file shows only those two decorators. No @router.get(\"/questionnaire\") exists anywhere in the backend. specs/design/api-contracts.md §6.1 and api-contracts.schema.json both already specify this path (attributed to E4-S3/E4-S4), and it is absent from the live /openapi.json's paths list.",
+    "files_likely_involved": [
+      "backend/src/app/routers/risk_profile.py (needs a new @router.get(\"/questionnaire\", status_code=200) handler)",
+      "backend/src/domain/risk_profile/repository.py (get_active_rule(session) already exists and is directly reusable - no new repository code needed for this endpoint)"
+    ],
+    "test_coverage_gap": "No backend test anywhere in tests/api/ or tests/repository/ exercises GET /api/risk-profile/questionnaire - it was never implemented, so there was nothing to test. This is a Group F (E4-S3) coverage gap that only became visible once Group G's frontend became the endpoint's first real consumer.",
+    "prior_attempts": [
+      {
+        "date": "2026-09-08 (pass 1, this evaluator)",
+        "note": "Recorded in eval-failures-004.json as blocked by a missing <Route> in frontend/src/router.tsx. That fix was applied by the generator's self-heal attempt 1 and is confirmed correct and complete - /customer/questionnaire is now reached. This is a newly-surfaced, independent defect discovered once the routing gap was fixed."
+      }
+    ],
+    "story": "E4-S4"
+  },
+  {
+    "check_id": "pw-g-02",
+    "category": "playwright_fail",
+    "error_type": "missing_endpoint",
+    "error_type_detail": "E4-S4 AC2: same root cause as pw-g-01 - cannot progress past the initial questionnaire load to submit it.",
+    "expected": "Submitting a complete questionnaire POSTs /api/risk-profile/submit and navigates to /customer/risk-result showing the returned risk_band.",
+    "actual": "Cannot be exercised - Questionnaire.tsx never renders the form (see pw-g-01). /customer/risk-result itself now routes correctly (confirmed reachable, shows 'No questionnaire result to display yet.' when visited directly with no location.state), so this check is blocked solely by the questionnaire load failure, not a second routing issue.",
+    "stack_trace": "backend/src/app/routers/risk_profile.py - see pw-g-01.",
+    "files_likely_involved": ["backend/src/app/routers/risk_profile.py"],
+    "test_coverage_gap": "Covered only at the unit level (ut-199), which mocks the API and never exercises the real backend.",
+    "prior_attempts": [
+      {
+        "date": "2026-09-08 (pass 1, this evaluator)",
+        "note": "Recorded in eval-failures-004.json as blocked by missing routes for both /customer/questionnaire and /customer/risk-result. Both routes are now registered and confirmed reachable; risk-result correctly shows its own empty-state message when visited with no state. Only the questionnaire's data source remains broken."
+      }
+    ],
+    "story": "E4-S4"
+  },
+  {
+    "check_id": "pw-g-03",
+    "category": "playwright_fail",
+    "error_type": "missing_endpoint",
+    "error_type_detail": "E4-S4 AC3: same root cause as pw-g-01.",
+    "expected": "Submitting with one question unanswered shows an inline validation message and issues no POST /api/risk-profile/submit.",
+    "actual": "Cannot be exercised - the questionnaire form never renders (see pw-g-01), so there are no questions to leave unanswered.",
+    "stack_trace": "backend/src/app/routers/risk_profile.py - see pw-g-01.",
+    "files_likely_involved": ["backend/src/app/routers/risk_profile.py"],
+    "test_coverage_gap": "Covered only at the unit level (ut-200).",
+    "prior_attempts": [
+      {
+        "date": "2026-09-08 (pass 1, this evaluator)",
+        "note": "Recorded in eval-failures-004.json as a routing gap; the route is now registered and reached, but the underlying data fetch still 404s."
+      }
+    ],
+    "story": "E4-S4"
+  },
+  {
+    "check_id": "pw-g-04",
+    "category": "playwright_fail",
+    "error_type": "missing_endpoint",
+    "error_type_detail": "E4-S4 AC4: same root cause as pw-g-01.",
+    "expected": "Every question's options are labeled, keyboard-selectable radio/select controls.",
+    "actual": "Cannot be exercised - no questions render at all (see pw-g-01).",
+    "stack_trace": "backend/src/app/routers/risk_profile.py - see pw-g-01.",
+    "files_likely_involved": ["backend/src/app/routers/risk_profile.py"],
+    "test_coverage_gap": "Covered only at the unit level (ut-201).",
+    "prior_attempts": [
+      {
+        "date": "2026-09-08 (pass 1, this evaluator)",
+        "note": "Recorded in eval-failures-004.json as a routing gap; the route is now registered and reached, but the underlying data fetch still 404s."
+      }
+    ],
+    "story": "E4-S4"
+  },
+  {
+    "check_id": "pw-g-05",
+    "category": "playwright_fail",
+    "error_type": "missing_endpoint",
+    "error_type_detail": "E4-S4 AC5: same root cause as pw-g-01.",
+    "expected": "Revisiting /customer/questionnaire with a prior RiskBandAssignment shows the customer's current band (from GET /api/risk-profile/latest, which does work) before re-submission.",
+    "actual": "GET /api/risk-profile/latest itself returns 200 correctly (confirmed live, alice.reyes has an existing CONSERVATIVE assignment), but Questionnaire.tsx's loadError branch (triggered by the sibling GET /api/risk-profile/questionnaire 404) returns early and never reaches the JSX that would display `latest`. The current-band banner is unreachable purely because of the sibling request's failure, not because /latest itself is broken.",
+    "stack_trace": "frontend/src/pages/customer/Questionnaire.tsx:102-109 (loadError early-return happens before the `latest !== null` banner at line 129); backend/src/app/routers/risk_profile.py - see pw-g-01 for the questionnaire endpoint itself.",
+    "files_likely_involved": ["backend/src/app/routers/risk_profile.py"],
+    "test_coverage_gap": "Covered only at the unit level (ut-202).",
+    "prior_attempts": [
+      {
+        "date": "2026-09-08 (pass 1, this evaluator)",
+        "note": "Recorded in eval-failures-004.json as a routing gap; the route is now registered and reached, but the underlying data fetch still 404s."
+      }
+    ],
+    "story": "E4-S4"
+  },
+  {
+    "check_id": "pw-g-16",
+    "category": "playwright_fail",
+    "error_type": "missing_endpoint",
+    "error_type_detail": "E10-S4 AC1: the router-wiring fix is confirmed complete (/admin/templates now renders the real TemplateEditor.tsx, reached from the real AdminHome.tsx via its Link), but the allocation-percent input rows never materialize because their data source does not exist on the backend.",
+    "expected": "TemplateEditor.tsx renders one <input data-testid=allocation-percent-N> row per asset class; filling two of them shows a running total with a warning treatment when it is not exactly 100.",
+    "actual": "Reproduced live, logged in as admin.olivia.brandt@wealthwise.test: /admin/templates now renders 'Allocation template editor' with real chrome, but shows 'Asset classes could not be loaded. Please try again.' and zero table rows. [data-testid=allocation-percent-0] does not exist in the DOM at all, because TemplateEditor.tsx's `rows` state (frontend/src/pages/admin/TemplateEditor.tsx:33-58) is built exclusively from getAssetClasses()'s resolved value, which never resolves.",
+    "stack_trace": "GET /api/admin/asset-classes -> 405 {\"detail\":\"Method Not Allowed\"}. backend/src/app/routers/admin.py:195 registers only @router.post(\"/asset-classes\", status_code=201) - no @router.get for the same path exists anywhere in the file. specs/design/api-contracts.md §12.6 and api-contracts.schema.json both already specify GET /api/admin/asset-classes (attributed to E10-S3/E10-S4), and it is present in the schema's paths but absent from the live /openapi.json's actual registered operations for that path (only 'post' is listed).",
+    "files_likely_involved": [
+      "backend/src/app/routers/admin.py (needs a new @router.get(\"/asset-classes\", status_code=200) handler, admin-role-gated)",
+      "backend/src/domain/holdings/repository.py (list_asset_classes(session) already exists and is directly reusable)"
+    ],
+    "test_coverage_gap": "No backend test exercises GET /api/admin/asset-classes - it was never implemented. Group F (E10-S3) coverage gap, surfaced only now that Group G's TemplateEditor/AssetClasses screens are the endpoint's first real consumers.",
+    "prior_attempts": [
+      {
+        "date": "2026-09-08 (pass 1, this evaluator)",
+        "note": "Recorded in eval-failures-004.json as blocked by /admin still rendering AdminHomeStub instead of the real AdminHome, with no /admin/templates route at all. Both are now fixed and confirmed - /admin renders the real AdminHome.tsx with working links, and /admin/templates renders the real TemplateEditor.tsx. This is a newly-surfaced, independent defect."
+      }
+    ],
+    "story": "E10-S4"
+  },
+  {
+    "check_id": "pw-g-17",
+    "category": "playwright_fail",
+    "error_type": "missing_endpoint",
+    "error_type_detail": "E10-S4 AC2: same root cause as pw-g-16.",
+    "expected": "Publish is disabled while the running total is not exactly 100, enabled once it is.",
+    "actual": "Cannot be exercised - there are no allocation-percent inputs to fill (see pw-g-16); the Publish button's disabled state can never be driven away from its initial (correct, but untestable-for-this-AC) disabled default of an empty/zero total.",
+    "stack_trace": "backend/src/app/routers/admin.py:195 - see pw-g-16.",
+    "files_likely_involved": ["backend/src/app/routers/admin.py"],
+    "test_coverage_gap": "Covered only at the unit level (ut-224).",
+    "prior_attempts": [
+      {
+        "date": "2026-09-08 (pass 1, this evaluator)",
+        "note": "Recorded in eval-failures-004.json as a routing gap, now fixed; blocked by a different, newly-surfaced backend defect."
+      }
+    ],
+    "story": "E10-S4"
+  },
+  {
+    "check_id": "pw-g-19",
+    "category": "playwright_fail",
+    "error_type": "missing_endpoint",
+    "error_type_detail": "E10-S4 AC4: the router-wiring fix is confirmed complete (/admin/asset-classes now renders the real AssetClasses.tsx), but the asset-class list never renders because its GET endpoint does not exist.",
+    "expected": "GET /api/admin/asset-classes resolves 200 and the asset-class list renders; submitting a duplicate code shows an inline 409 error.",
+    "actual": "Reproduced live: /admin/asset-classes renders 'Asset-class master' with real chrome and a working create-form, but shows 'Asset classes could not be loaded. Please try again.' and an empty table - the create form itself (code/name inputs, submit button) is present and independent of the failed list load, but this check's first assertion (the GET resolving and the list rendering) fails outright, so the duplicate-code 409 sub-flow was not attempted.",
+    "stack_trace": "GET /api/admin/asset-classes -> 405 {\"detail\":\"Method Not Allowed\"} - see pw-g-16 for full root-cause detail (identical endpoint).",
+    "files_likely_involved": ["backend/src/app/routers/admin.py"],
+    "test_coverage_gap": "AssetClasses.test.tsx renders <AssetClasses /> directly with a mocked API client, so it never touches the real (missing) backend endpoint.",
+    "prior_attempts": [
+      {
+        "date": "2026-09-08 (pass 1, this evaluator)",
+        "note": "Recorded in eval-failures-004.json as blocked by a missing <Route> in router.tsx. The route now exists and is reached; blocked by a different, newly-surfaced backend defect (shared with pw-g-16/17/20)."
+      }
+    ],
+    "story": "E10-S4"
+  },
+  {
+    "check_id": "pw-g-20",
+    "category": "playwright_fail",
+    "error_type": "missing_endpoint",
+    "error_type_detail": "E10-S4 AC5: same root cause as pw-g-16.",
+    "expected": "Publishing a new template/rule version refreshes the version-history list without a full page reload.",
+    "actual": "Cannot be exercised - Publish is unreachable (see pw-g-16/17); there is no allocation-percent-0 input to set to 100.00.",
+    "stack_trace": "backend/src/app/routers/admin.py:195 - see pw-g-16.",
+    "files_likely_involved": ["backend/src/app/routers/admin.py"],
+    "test_coverage_gap": "Covered only at the unit level (ut-227).",
+    "prior_attempts": [
+      {
+        "date": "2026-09-08 (pass 1, this evaluator)",
+        "note": "Recorded in eval-failures-004.json as a routing gap, now fixed; blocked by a different, newly-surfaced backend defect."
+      }
+    ],
+    "story": "E10-S4"
+  }
+]

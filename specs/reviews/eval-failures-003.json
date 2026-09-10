@@ -1,0 +1,24 @@
+[
+  {
+    "check_id": "pw-f-03",
+    "category": "playwright_fail",
+    "error_type": "validation_error",
+    "error_type_detail": "date_range_to_filter_not_inclusive_of_boundary",
+    "expected": "E3-S4 AC3 / api-contracts.md §13.1: GET /api/audit?from=<date>&to=<date> returns every entry whose timestamp falls on or between from and to, inclusive of both boundary dates. sprint-contracts/F.json pw-f-03 fills #from and #to with the same/a later date than a known entry and expects that entry included in the rendered rows, not excluded.",
+    "actual": "Reproduced live with a real Chromium session (Playwright 1.63.0) driving http://localhost:5173 against http://localhost:8000, and independently confirmed via direct curl: GET /api/audit (no filter) returns 5 entries, all timestamped 2026-09-07Txx:xx:xxZ. GET /api/audit?to=2026-09-07 returns 0 entries (total: 0). GET /api/audit?from=2026-09-07 returns all 5 (from works correctly). GET /api/audit?to=2026-09-08 (next day) returns all 5. The `to` boundary silently excludes every entry dated on the `to` day itself unless the entry happens to be timestamped exactly at 00:00:00 - i.e. `to` behaves as an exclusive start-of-day cutoff, not an inclusive end-of-day one. The Playwright test (tests/group-f.spec.js pw-f-03 in this evaluator's scratch suite) failed with a timeout waiting for `table tbody tr` to become visible, because the filtered result set was empty.",
+    "stack_trace": "backend/src/app/routers/audit.py:53-67 - `to: str | None = Query(default=None)` is passed straight through as `end=to` to `src.domain.audit.service.list_audit_entries`, which passes it unchanged to `src.domain.audit.repository.query_audit_entries`/`count_audit_entries`. backend/src/domain/audit/repository.py:97-113 `_apply_filters` does `if end is not None: statement = statement.where(AuditLogEntryRow.timestamp <= end)` - a plain string/lexicographic (SQLite TEXT column) comparison of a bare date string like '2026-09-07' against full ISO-8601 timestamps like '2026-09-07T05:19:02Z'. Because '2026-09-07T05:19:02Z' > '2026-09-07' lexicographically, every entry with a non-midnight time component on the `to` date is excluded. No conversion to an end-of-day boundary (e.g. `to + 'T23:59:59.999999'`) happens anywhere in the router or service layer before this comparison. `from`/`start` uses `>=` against the same bare date and happens to work correctly by coincidence of comparison direction, masking the asymmetry.",
+    "files_likely_involved": [
+      "backend/src/app/routers/audit.py:53-67",
+      "backend/src/domain/audit/service.py:73-98",
+      "backend/src/domain/audit/repository.py:97-113"
+    ],
+    "test_coverage_gap": "No existing test exercises this path with a bare date `to` value end-to-end. backend/tests/repository/test_audit_repository.py's own boundary test (test_query_by_entity_type_and_date_range_returns_rows_ordered_by_timestamp_asc) always calls the repository directly with a pre-expanded end='2026-09-03T23:59:59Z', which masks the bug at the repository-test layer. backend/tests/api/test_audit_api.py has zero tests that pass a `from`/`to` query parameter at all. The frontend's ut-160 (AuditLog.test.tsx) mocks the GET /api/audit response, so it never exercises the real backend date comparison. pw-f-03 is the only check anywhere in this group's contract that drives the real endpoint with a real date-only query param end-to-end, and it is the only one that caught this.",
+    "prior_attempts": [
+      {
+        "date": "2026-09-07 (second pass, this evaluator)",
+        "note": "Backend infra outage (Defect 3 / infra-f-01 in eval-failures-002.json) blocked this check entirely - could not be exercised at all. That outage is now resolved (backend restarted with DATABASE_URL/JWT_SECRET set as real env vars); this is a newly-surfaced, independent defect discovered once the app became reachable again."
+      }
+    ],
+    "story": "E3-S4"
+  }
+]

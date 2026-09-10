@@ -1,0 +1,1129 @@
+{
+  "group": "G",
+  "stories": [
+    "E4-S4",
+    "E5-S3",
+    "E7-S5",
+    "E8-S4",
+    "E9-S3",
+    "E10-S4"
+  ],
+  "features": [
+    "F072",
+    "F073",
+    "F074",
+    "F075",
+    "F076",
+    "F087",
+    "F088",
+    "F089",
+    "F090",
+    "F091",
+    "F142",
+    "F143",
+    "F144",
+    "F145",
+    "F146",
+    "F163",
+    "F164",
+    "F165",
+    "F166",
+    "F167",
+    "F178",
+    "F179",
+    "F180",
+    "F181",
+    "F182",
+    "F203",
+    "F204",
+    "F205",
+    "F206",
+    "F207"
+  ],
+  "runtime_expectations": {
+    "verification_mode": "live",
+    "app_expected_running": true,
+    "health_check_required": true,
+    "reason": "Unlike Groups C-F, this group carries no pure Service-layer story with no HTTP surface — every one of its 6 stories is either API (E5-S3, E9-S3) or UI (E4-S4, E7-S5, E8-S4, E10-S4). Per explicit instruction for this group, api_checks are verified against the live backend (`cd backend && uv run uvicorn src.app.main:app --reload` on http://localhost:8000) with real curl/HTTP calls and real JWTs minted via POST /api/auth/login against seeded demo accounts, not FastAPI's TestClient. playwright_checks are verified against the live frontend (`cd frontend && npm run dev` on http://localhost:5173) talking to that same live backend. The evaluator MUST start both processes and pass the /health probe before running either section. unit_test_checks (pytest/vitest) remain a separate, additional signal and do not substitute for the live api_checks/playwright_checks."
+  },
+  "api_checks": [
+    {
+      "id": "api-g-01",
+      "method": "GET",
+      "path": "/api/recommendation",
+      "headers": {
+        "Authorization": "Bearer <customer token with an active RiskBandAssignment>"
+      },
+      "expected_status": 200,
+      "expected_body_keys": [
+        "risk_band",
+        "rule_version",
+        "template_version",
+        "horizon",
+        "allocations",
+        "total_percent",
+        "generated_at"
+      ],
+      "description": "E5-S3 AC1, AC4; api-contracts.md §7.1. A customer with an existing risk-band assignment gets 200 with allocations summing to total_percent == \"100.00\" (fixed-point string, never a float), and template_version present in the body for AC-10 traceability."
+    },
+    {
+      "id": "api-g-02",
+      "method": "GET",
+      "path": "/api/recommendation",
+      "headers": {
+        "Authorization": "Bearer <customer token with no RiskBandAssignment>"
+      },
+      "expected_status": 404,
+      "description": "E5-S3 AC2. A customer who has never completed the risk questionnaire gets 404 NO_RISK_BAND_ASSIGNMENT — never a default/fallback allocation."
+    },
+    {
+      "id": "api-g-03",
+      "method": "GET",
+      "path": "/api/recommendation",
+      "headers": {
+        "Authorization": "Bearer <advisor token>"
+      },
+      "expected_status": 403,
+      "description": "E5-S3 AC3. Parametrized over an advisor-role token and, separately, an admin-role token against the same path — both return 403 ROLE_NOT_PERMITTED."
+    },
+    {
+      "id": "api-g-04",
+      "method": "GET",
+      "path": "/api/recommendation",
+      "headers": {},
+      "expected_status": 401,
+      "description": "E5-S3 AC5. No Authorization header returns 401 TOKEN_MISSING."
+    },
+    {
+      "id": "api-g-05",
+      "method": "GET",
+      "path": "/api/advisor/customers",
+      "headers": {
+        "Authorization": "Bearer <advisor token>"
+      },
+      "expected_status": 200,
+      "expected_body_keys": [
+        "customer_id",
+        "email",
+        "risk_band",
+        "kyc_verified",
+        "total_value",
+        "goal_count"
+      ],
+      "description": "E9-S3 AC1; api-contracts.md §11.1. An advisor-role token gets 200 with an array of customers; every item includes customer_id, email, risk_band (null permitted for a customer with no assignment), kyc_verified, total_value, goal_count."
+    },
+    {
+      "id": "api-g-06",
+      "method": "GET",
+      "path": "/api/advisor/customers/{customer_id}",
+      "headers": {
+        "Authorization": "Bearer <advisor token>"
+      },
+      "expected_status": 200,
+      "expected_body_keys": [
+        "customer_id",
+        "email",
+        "kyc_verified",
+        "risk_band",
+        "holdings",
+        "goals",
+        "allocation",
+        "override_history"
+      ],
+      "description": "E9-S3 AC2; api-contracts.md §11.2. An advisor drilling into an existing customer id gets the full portfolio-detail payload in one call: holdings, goals, and current allocation (allocation is null only when the customer has no RiskBandAssignment)."
+    },
+    {
+      "id": "api-g-07",
+      "method": "POST",
+      "path": "/api/advisor/customers/{customer_id}/override",
+      "headers": {
+        "Authorization": "Bearer <advisor token>"
+      },
+      "body": {
+        "new_band": "CONSERVATIVE",
+        "reason": "Client reported imminent liquidity need"
+      },
+      "expected_status": 201,
+      "expected_body_keys": [
+        "override_id",
+        "customer_id",
+        "previous_band",
+        "new_band",
+        "reason",
+        "note",
+        "created_at",
+        "assignment_id",
+        "risk_band"
+      ],
+      "description": "E9-S3 AC3 (positive path); api-contracts.md §11.3. A valid non-empty reason returns 201 with the new risk_band; note is present (null, since this request omits it) per AdvisorOverrideResponse's required-but-nullable field in api-contracts.schema.json; a subsequent GET /api/recommendation for that customer reflects the overridden band immediately."
+    },
+    {
+      "id": "api-g-08",
+      "method": "POST",
+      "path": "/api/advisor/customers/{customer_id}/override",
+      "headers": {
+        "Authorization": "Bearer <advisor token>"
+      },
+      "body": {
+        "new_band": "CONSERVATIVE"
+      },
+      "expected_status": 422,
+      "description": "E9-S3 AC3 (negative path). The identical call with reason omitted returns 422 REASON_REQUIRED; no AdvisorOverride and no new RiskBandAssignment row is written, confirmed by a follow-up GET drill-in showing the risk_band unchanged."
+    },
+    {
+      "id": "api-g-09",
+      "method": "POST",
+      "path": "/api/advisor/customers/{customer_id}/manual-recommendation",
+      "headers": {
+        "Authorization": "Bearer <advisor token>"
+      },
+      "body": {
+        "note": "Recommended increasing cash weighting ahead of the client's Q4 liquidity need."
+      },
+      "expected_status": 201,
+      "expected_body_keys": [
+        "audit_entry_id",
+        "customer_id",
+        "advisor_id",
+        "note",
+        "created_at"
+      ],
+      "description": "E9-S3 AC4; api-contracts.md §11.4. A valid note returns 201 and writes exactly one AuditLogEntry (entity_type=ManualRecommendation), verified by a follow-up GET /api/audit?entity_type=ManualRecommendation as compliance showing the note."
+    },
+    {
+      "id": "api-g-10",
+      "method": "GET",
+      "path": "/api/advisor/customers",
+      "headers": {
+        "Authorization": "Bearer <customer token>"
+      },
+      "expected_status": 403,
+      "description": "E9-S3 AC5. Parametrized over all four advisor endpoints (GET /api/advisor/customers, GET /api/advisor/customers/{id}, POST .../override, POST .../manual-recommendation) each called with a customer-role token and, separately, a compliance-role token (8 combinations) — every one returns 403 ROLE_NOT_PERMITTED."
+    }
+  ],
+  "playwright_checks": [
+    {
+      "id": "pw-g-01",
+      "description": "E4-S4 AC1. The questionnaire renders every question from the active RiskBandRule version and keeps Submit disabled until all are answered.",
+      "url": "/customer/questionnaire",
+      "steps": [
+        {
+          "action": "wait_for",
+          "assertion": "GET /api/risk-profile/questionnaire resolves and the question list renders"
+        },
+        {
+          "action": "snapshot",
+          "assertion": "The number of rendered questions equals the number of questions in the questionnaire response; Submit button is disabled"
+        },
+        {
+          "action": "click",
+          "selector": "[data-testid=question-1-option-1]"
+        },
+        {
+          "action": "snapshot",
+          "assertion": "Submit remains disabled while at least one question is unanswered"
+        }
+      ]
+    },
+    {
+      "id": "pw-g-02",
+      "description": "E4-S4 AC2. Submitting a complete questionnaire navigates to the result screen and shows the returned risk_band in human-readable form.",
+      "url": "/customer/questionnaire",
+      "steps": [
+        {
+          "action": "fill_all",
+          "assertion": "select one answer for every rendered question"
+        },
+        {
+          "action": "click",
+          "selector": "button[type=submit]"
+        },
+        {
+          "action": "wait_for",
+          "assertion": "POST /api/risk-profile/submit resolves 201 and the URL navigates to the risk-result route"
+        },
+        {
+          "action": "snapshot",
+          "assertion": "The result screen shows the response's risk_band rendered in human-readable form, e.g. 'MODERATE' displayed as 'Moderate'"
+        }
+      ]
+    },
+    {
+      "id": "pw-g-03",
+      "description": "E4-S4 AC3. Submitting with any question unanswered shows an inline validation message per unanswered question and never calls the submit API.",
+      "url": "/customer/questionnaire",
+      "steps": [
+        {
+          "action": "fill_all_but_one",
+          "assertion": "answer every question except one"
+        },
+        {
+          "action": "click",
+          "selector": "button[type=submit]"
+        },
+        {
+          "action": "assert_network_request",
+          "assertion": "no POST /api/risk-profile/submit request is issued"
+        },
+        {
+          "action": "snapshot",
+          "assertion": "An inline validation message is visible next to the unanswered question"
+        }
+      ]
+    },
+    {
+      "id": "pw-g-04",
+      "description": "E4-S4 AC4. Every question's options are labeled, keyboard-selectable radio/select controls.",
+      "url": "/customer/questionnaire",
+      "steps": [
+        {
+          "action": "snapshot",
+          "assertion": "Every option is an <input type=radio> or <option> with an associated label[for] or wrapping <label>"
+        },
+        {
+          "action": "press_key",
+          "selector": "[data-testid=question-1-option-1]",
+          "value": "Tab",
+          "assertion": "focus moves to the next selectable option/question in document order"
+        },
+        {
+          "action": "press_key",
+          "selector": "[data-testid=question-1-option-1]",
+          "value": "Space",
+          "assertion": "pressing Space/Enter on a focused radio selects it"
+        }
+      ]
+    },
+    {
+      "id": "pw-g-05",
+      "description": "E4-S4 AC5. Revisiting the questionnaire with a prior RiskBandAssignment shows the customer's current band before re-submission.",
+      "url": "/customer/questionnaire",
+      "steps": [
+        {
+          "action": "wait_for",
+          "assertion": "GET /api/risk-profile/latest is issued for a customer fixture with an existing assignment"
+        },
+        {
+          "action": "snapshot",
+          "assertion": "The current risk_band from /api/risk-profile/latest is displayed on the questionnaire screen before any new submission"
+        }
+      ]
+    },
+    {
+      "id": "pw-g-06",
+      "description": "E7-S5 AC1. The goals list shows every goal for the logged-in customer with target_amount, target_date, priority, and current percent_complete.",
+      "url": "/customer/goals",
+      "steps": [
+        {
+          "action": "wait_for",
+          "assertion": "GET /api/goals resolves and the goals list renders"
+        },
+        {
+          "action": "snapshot",
+          "assertion": "Each rendered goal shows target_amount, target_date, priority, and percent_complete"
+        }
+      ]
+    },
+    {
+      "id": "pw-g-07",
+      "description": "E7-S5 AC2. Submitting the create-goal form with a negative or zero target_amount shows an inline validation error and never calls the create API.",
+      "url": "/customer/goals",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#target_amount",
+          "value": "0"
+        },
+        {
+          "action": "fill",
+          "selector": "#target_date",
+          "value": "2032-06-30"
+        },
+        {
+          "action": "click",
+          "selector": "button[type=submit]"
+        },
+        {
+          "action": "assert_network_request",
+          "assertion": "no POST /api/goals request is issued"
+        },
+        {
+          "action": "snapshot",
+          "assertion": "An inline validation error is visible on the target_amount field"
+        }
+      ]
+    },
+    {
+      "id": "pw-g-08",
+      "description": "E7-S5 AC3. Each goal's progress is rendered as a progress bar or percentage label reflecting the latest GoalProgressSnapshot.",
+      "url": "/customer/goals",
+      "steps": [
+        {
+          "action": "wait_for",
+          "assertion": "a goal fixture with percent_complete non-null renders"
+        },
+        {
+          "action": "snapshot",
+          "assertion": "The rendered progress bar/percentage label for that goal matches percent_complete from the API response verbatim"
+        }
+      ]
+    },
+    {
+      "id": "pw-g-09",
+      "description": "E7-S5 AC4. Editing an existing goal's priority via the form updates the displayed value after save without a full page reload.",
+      "url": "/customer/goals",
+      "steps": [
+        {
+          "action": "click",
+          "selector": "[data-testid=goal-edit]"
+        },
+        {
+          "action": "fill",
+          "selector": "#priority",
+          "value": "3"
+        },
+        {
+          "action": "click",
+          "selector": "button[type=submit]"
+        },
+        {
+          "action": "wait_for",
+          "assertion": "PATCH /api/goals/{goal_id} resolves 200"
+        },
+        {
+          "action": "snapshot",
+          "assertion": "The goal's displayed priority is now 3, without a full page navigation/reload event firing"
+        }
+      ]
+    },
+    {
+      "id": "pw-g-10",
+      "description": "E7-S5 AC5. All form inputs are labeled and keyboard-operable.",
+      "url": "/customer/goals",
+      "steps": [
+        {
+          "action": "snapshot",
+          "assertion": "label[for] exists for target_amount, target_date, priority inputs, each pointing at a matching id"
+        },
+        {
+          "action": "press_key",
+          "selector": "#target_amount",
+          "value": "Tab",
+          "assertion": "focus moves to the next form field in document order"
+        }
+      ]
+    },
+    {
+      "id": "pw-g-11",
+      "description": "E8-S4 AC1. The screen lists every pending recommendation with its proposed BUY/SELL actions per asset class.",
+      "url": "/customer/rebalancing",
+      "steps": [
+        {
+          "action": "wait_for",
+          "assertion": "GET /api/rebalancing resolves and pending recommendations render"
+        },
+        {
+          "action": "snapshot",
+          "assertion": "Each recommendation shows its proposed_actions, each with asset_class and a BUY or SELL action label"
+        }
+      ]
+    },
+    {
+      "id": "pw-g-12",
+      "description": "E8-S4 AC2. Clicking Accept calls the accept API and removes the recommendation from the pending list on success.",
+      "url": "/customer/rebalancing",
+      "steps": [
+        {
+          "action": "click",
+          "selector": "[data-testid=recommendation-accept]"
+        },
+        {
+          "action": "wait_for",
+          "assertion": "POST /api/rebalancing/{recommendation_id}/accept resolves 200"
+        },
+        {
+          "action": "snapshot",
+          "assertion": "The accepted recommendation no longer appears in the pending list"
+        }
+      ]
+    },
+    {
+      "id": "pw-g-13",
+      "description": "E8-S4 AC3. Clicking Dismiss calls the dismiss API and removes the recommendation from the pending list on success.",
+      "url": "/customer/rebalancing",
+      "steps": [
+        {
+          "action": "click",
+          "selector": "[data-testid=recommendation-dismiss]"
+        },
+        {
+          "action": "wait_for",
+          "assertion": "POST /api/rebalancing/{recommendation_id}/dismiss resolves 200"
+        },
+        {
+          "action": "snapshot",
+          "assertion": "The dismissed recommendation no longer appears in the pending list"
+        }
+      ]
+    },
+    {
+      "id": "pw-g-14",
+      "description": "E8-S4 AC4. A customer with no pending recommendations sees an explicit empty-state message.",
+      "url": "/customer/rebalancing",
+      "steps": [
+        {
+          "action": "wait_for",
+          "assertion": "GET /api/rebalancing for a customer fixture with [] resolves"
+        },
+        {
+          "action": "assert_visible",
+          "selector": "[data-testid=empty-state], .empty",
+          "assertion": "An explicit empty-state message is visible; no empty list/broken layout is rendered"
+        }
+      ]
+    },
+    {
+      "id": "pw-g-15",
+      "description": "E8-S4 AC5. Accept/Dismiss buttons are keyboard-operable and disabled while their API call is in flight, preventing double-submit.",
+      "url": "/customer/rebalancing",
+      "steps": [
+        {
+          "action": "press_key",
+          "selector": "[data-testid=recommendation-accept]",
+          "value": "Enter",
+          "assertion": "pressing Enter on a focused Accept button triggers the same action as a click"
+        },
+        {
+          "action": "snapshot",
+          "assertion": "Immediately after the click/Enter, before the API response resolves, the clicked button is disabled and a second immediate click/press is a no-op (only one accept/dismiss network request is issued)"
+        }
+      ]
+    },
+    {
+      "id": "pw-g-16",
+      "description": "E10-S4 AC1. The allocation template editor shows a running total of entered percentages and visually flags when the total is not exactly 100.",
+      "url": "/admin/templates",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "[data-testid=allocation-percent-0]",
+          "value": "60.00"
+        },
+        {
+          "action": "fill",
+          "selector": "[data-testid=allocation-percent-1]",
+          "value": "30.00"
+        },
+        {
+          "action": "snapshot",
+          "assertion": "A running total of 90.00 is displayed and carries a visual warning/error treatment because it is not exactly 100"
+        }
+      ]
+    },
+    {
+      "id": "pw-g-17",
+      "description": "E10-S4 AC2. The Publish button is disabled while the running total is not exactly 100, and enabled once it is.",
+      "url": "/admin/templates",
+      "steps": [
+        {
+          "action": "snapshot",
+          "assertion": "With the running total at 90.00, the Publish button is disabled"
+        },
+        {
+          "action": "fill",
+          "selector": "[data-testid=allocation-percent-1]",
+          "value": "40.00"
+        },
+        {
+          "action": "snapshot",
+          "assertion": "With the running total now exactly 100.00, the Publish button is enabled"
+        }
+      ]
+    },
+    {
+      "id": "pw-g-18",
+      "description": "E10-S4 AC3. The risk-band rule editor allows adding/removing questions and requires at least 6 before enabling Publish.",
+      "url": "/admin/rules",
+      "steps": [
+        {
+          "action": "snapshot",
+          "assertion": "With fewer than 6 questions present, Publish is disabled"
+        },
+        {
+          "action": "click",
+          "selector": "[data-testid=add-question]",
+          "assertion": "clicking Add Question appends a new question row"
+        },
+        {
+          "action": "snapshot",
+          "assertion": "Once 6 or more questions are present, Publish becomes enabled; removing a question below 6 disables Publish again"
+        }
+      ]
+    },
+    {
+      "id": "pw-g-19",
+      "description": "E10-S4 AC4. The asset-class master screen lists all asset classes and supports adding a new one; a duplicate code shows an inline error sourced from the API's 409 response.",
+      "url": "/admin/asset-classes",
+      "steps": [
+        {
+          "action": "wait_for",
+          "assertion": "GET /api/admin/asset-classes resolves and the asset-class list renders"
+        },
+        {
+          "action": "fill",
+          "selector": "#code",
+          "value": "EQ_DM"
+        },
+        {
+          "action": "fill",
+          "selector": "#name",
+          "value": "Duplicate of an existing code"
+        },
+        {
+          "action": "click",
+          "selector": "button[type=submit]"
+        },
+        {
+          "action": "wait_for",
+          "assertion": "POST /api/admin/asset-classes resolves 409"
+        },
+        {
+          "action": "snapshot",
+          "assertion": "An inline error message derived from the 409 response body is shown next to the code field"
+        }
+      ]
+    },
+    {
+      "id": "pw-g-20",
+      "description": "E10-S4 AC5. Publishing a new template/rule version from the UI refreshes the displayed version history without a full page reload.",
+      "url": "/admin/templates",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "[data-testid=allocation-percent-0]",
+          "value": "100.00"
+        },
+        {
+          "action": "click",
+          "selector": "[data-testid=publish]"
+        },
+        {
+          "action": "wait_for",
+          "assertion": "POST /api/admin/allocation-templates resolves 201"
+        },
+        {
+          "action": "snapshot",
+          "assertion": "The version-history list now includes the newly published version without a full page navigation/reload event firing"
+        }
+      ]
+    }
+  ],
+  "design_checks": {
+    "visual_hierarchy": {
+      "required": true,
+      "min_score": 6
+    },
+    "accessibility": {
+      "required": true,
+      "min_score": 7
+    },
+    "responsiveness": {
+      "required": true,
+      "min_score": 6
+    },
+    "interaction_feedback": {
+      "required": true,
+      "min_score": 7
+    },
+    "viewports": [
+      1280,
+      375
+    ],
+    "mockup_reference": [
+      "specs/design/mockups/E4-S4.html",
+      "specs/design/mockups/E7-S5.html",
+      "specs/design/mockups/E8-S4.html",
+      "specs/design/mockups/E10-S4.html"
+    ],
+    "pages": [
+      "/customer/questionnaire",
+      "/customer/risk-result",
+      "/customer/goals",
+      "/customer/rebalancing",
+      "/admin/templates",
+      "/admin/rules",
+      "/admin/asset-classes"
+    ],
+    "notes": "Four UI surfaces this group. accessibility carries the higher bar (7) because three of the four stories have an explicit, testable labeling/keyboard-operability acceptance criterion (E4-S4 AC4, E7-S5 AC5, E8-S4 AC5) — visible :focus outline on every interactive control and correct label/for association is part of that bar. interaction_feedback also carries a raised bar (7, not the usual 6) because this group is dense with in-flight/disabled-state and inline-validation requirements (E4-S4 AC3, E7-S5 AC2, E8-S4 AC2/AC3/AC5, E10-S4 AC1/AC2/AC4/AC5) that are fundamentally about visible state feedback, not just static layout. The admin screens (RuleEditor, TemplateEditor, AssetClasses) share one page (/admin/templates, /admin/rules, /admin/asset-classes) each per AdminHome navigation; the design-critic should score each against its own mockup's aesthetic direction, not literal markup reuse — production code is not expected to reuse the mockups' inline <style> blocks verbatim."
+  },
+  "performance_checks": [],
+  "architecture_checks": {
+    "files_must_exist": [
+      "backend/src/app/routers/recommendation.py",
+      "backend/tests/api/test_recommendation_api.py",
+      "backend/src/app/routers/advisor.py",
+      "backend/tests/api/test_advisor_api.py",
+      "frontend/src/pages/customer/Questionnaire.tsx",
+      "frontend/src/pages/customer/RiskResult.tsx",
+      "frontend/src/pages/customer/Dashboard.tsx",
+      "frontend/src/api/riskProfile.ts",
+      "frontend/src/pages/customer/Questionnaire.test.tsx",
+      "frontend/src/pages/customer/RiskResult.test.tsx",
+      "frontend/src/pages/customer/Goals.tsx",
+      "frontend/src/api/goals.ts",
+      "frontend/src/pages/customer/Goals.test.tsx",
+      "frontend/src/pages/customer/Rebalancing.tsx",
+      "frontend/src/api/rebalancing.ts",
+      "frontend/src/pages/customer/Rebalancing.test.tsx",
+      "frontend/src/pages/admin/AdminHome.tsx",
+      "frontend/src/pages/admin/RuleEditor.tsx",
+      "frontend/src/pages/admin/TemplateEditor.tsx",
+      "frontend/src/pages/admin/AssetClasses.tsx",
+      "frontend/src/pages/admin/ThresholdEditor.tsx",
+      "frontend/src/api/admin.ts",
+      "frontend/src/pages/admin/RuleEditor.test.tsx",
+      "frontend/src/pages/admin/TemplateEditor.test.tsx",
+      "frontend/src/lib/money.ts",
+      "frontend/src/lib/money.test.ts",
+      "frontend/src/pages/admin/AssetClasses.test.tsx",
+      "frontend/src/pages/admin/ThresholdEditor.test.tsx"
+    ],
+    "typing": {
+      "required": true,
+      "traces": [
+        "E5-S3 AC1-AC5",
+        "E9-S3 AC1-AC5"
+      ],
+      "features": [
+        "F087",
+        "F178"
+      ],
+      "command": "cd backend && uv run mypy src/",
+      "description": "mypy exits 0 across src/ including this group's 2 new backend routers (routers/recommendation.py, routers/advisor.py)."
+    },
+    "frontend_typing": {
+      "required": true,
+      "traces": [
+        "E4-S4 AC1-AC5",
+        "E7-S5 AC1-AC5",
+        "E8-S4 AC1-AC5",
+        "E10-S4 AC1-AC5"
+      ],
+      "features": [
+        "F072",
+        "F142",
+        "F163",
+        "F203"
+      ],
+      "command": "cd frontend && npm run typecheck",
+      "description": "tsc --noEmit exits 0 with zero `any` per CLAUDE.md's static-typing rule across all new frontend files this group adds (Questionnaire.tsx, RiskResult.tsx, Dashboard.tsx, api/riskProfile.ts, Goals.tsx, api/goals.ts, Rebalancing.tsx, api/rebalancing.ts, AdminHome.tsx, RuleEditor.tsx, TemplateEditor.tsx, AssetClasses.tsx, ThresholdEditor.tsx, api/admin.ts)."
+    },
+    "frontend_lint": {
+      "required": true,
+      "traces": [
+        "E4-S4 AC1-AC5",
+        "E7-S5 AC1-AC5",
+        "E8-S4 AC1-AC5",
+        "E10-S4 AC1-AC5"
+      ],
+      "features": [
+        "F072",
+        "F142",
+        "F163",
+        "F203"
+      ],
+      "command": "cd frontend && npm run lint",
+      "description": "ESLint clean on all new or modified frontend/src files this group adds."
+    },
+    "layering": {
+      "required": true,
+      "traces": [
+        "system-design.md §2.1's directory-to-layer table",
+        "system-design.md D3 ('Routers may not import repositories')",
+        "folder-structure.md §4"
+      ],
+      "features": [
+        "F087",
+        "F178"
+      ],
+      "command": "rg -n \"^\\s*(from|import)\\s+(src\\.)?app\\b\" backend/src/domain backend/src/db ; rg -n \"^\\s*(from|import)\\s+(src\\.)?domain\\.[a-z_]+\\.(repository|threshold_repository)\\b\" backend/src/app ; rg -n \"^\\s*(from|import)\\s+(src\\.)?db\\.models\\b\" backend/src/app ; rg -n \"raise HTTPException\" backend/src/domain",
+      "description": "The same four static scans carried forward unchanged. This group's two new routers (recommendation.py, advisor.py) must call domain/*/service.py functions only, never a repository or db.models directly, and must never raise HTTPException from inside src/domain."
+    },
+    "schema_conformance": {
+      "required": true,
+      "traces": [
+        "E5-S3 AC1-AC5",
+        "E9-S3 AC1-AC5"
+      ],
+      "features": [
+        "F087",
+        "F090",
+        "F178",
+        "F179",
+        "F180",
+        "F181"
+      ],
+      "command": "cd backend && uv run python -m scripts.validate_openapi_responses --paths /api/recommendation /api/advisor/customers /api/advisor/customers/{customer_id} /api/advisor/customers/{customer_id}/override /api/advisor/customers/{customer_id}/manual-recommendation",
+      "description": "Live response bodies captured from api-g-01, api-g-05, api-g-06, api-g-07, api-g-09 validate against the corresponding schemas in specs/design/api-contracts.schema.json (all 5 paths already exist in the OpenAPI document — this group adds no new path, only implements the ones already specified). If no such validation script exists yet, the evaluator performs the equivalent check ad hoc: every field name and type in each live response matches the schema's component definitions exactly, including money/percent fields transported as 2-dp strings, never JSON numbers (NFR-01)."
+    },
+    "no_float": {
+      "required": true,
+      "traces": [
+        "NFR-01",
+        "data-models.md §2 rule 2"
+      ],
+      "features": [
+        "F090"
+      ],
+      "command": "cd backend && uv run pytest tests/architecture/test_no_float_in_domain.py",
+      "description": "Extended scan continues to pass — this group adds routers only (recommendation.py, advisor.py), no new domain/ modules; the existing scan's file list is unchanged, confirming neither router does its own float arithmetic instead of delegating to E5-S2/E9-S2's already-audited service layer."
+    },
+    "advisor_role_scoping": {
+      "required": true,
+      "traces": [
+        "E9-S3 AC5",
+        "system-design.md D12",
+        "api-contracts.md §11 (advisor role only)"
+      ],
+      "features": [
+        "F182"
+      ],
+      "command": "cd backend && uv run pytest tests/api/test_advisor_api.py -k role",
+      "description": "All four advisor endpoints reject customer- and compliance-role tokens with 403 ROLE_NOT_PERMITTED; none of them is reachable by any role other than advisor, matching api-contracts.md §14's role matrix row-for-row."
+    },
+    "recommendation_role_and_404_scoping": {
+      "required": true,
+      "traces": [
+        "E5-S3 AC2",
+        "E5-S3 AC3",
+        "system-design.md D12"
+      ],
+      "features": [
+        "F088",
+        "F089"
+      ],
+      "command": "cd backend && uv run pytest tests/api/test_recommendation_api.py",
+      "description": "GET /api/recommendation returns 404 NO_RISK_BAND_ASSIGNMENT (never a default allocation) for a customer with no assignment, and 403 ROLE_NOT_PERMITTED for advisor/admin tokens, consistent with the router-layer role gate pattern established in prior groups."
+    },
+    "template_editor_sum_gate_matches_api": {
+      "required": true,
+      "traces": [
+        "E10-S4 AC1",
+        "E10-S4 AC2",
+        "AC-02",
+        "NFR-08"
+      ],
+      "features": [
+        "F203",
+        "F204"
+      ],
+      "command": "cd frontend && npm test -- TemplateEditor",
+      "description": "The frontend TemplateEditor creates and uses frontend/src/lib/money.ts's basis-point arithmetic for its running-total/Publish-disabled gate (see note 8 — this group creates the file; component-map.md's attribution of its creation to the later-scheduled E5-S4 is a spec inconsistency resolved by this contract). That gate must use the same basis-point conversion approach as the backend's authoritative TEMPLATE_SUM_INVALID check (E10-S2/E10-S3, Group E/F) — it is a UX convenience gate in front of the same rule, not an independently-tunable threshold."
+    },
+    "migrations_unchanged": {
+      "required": true,
+      "traces": [
+        "component-map.md note 1",
+        "NFR-05"
+      ],
+      "features": [
+        "F090"
+      ],
+      "command": "git diff --stat <last-group-F-tip-commit>..HEAD -- backend/alembic/versions/ backend/alembic.ini backend/alembic/env.py backend/alembic/script.py.mako",
+      "description": "Must produce empty output. This group adds no new table and needs no schema change — it is UI plus two thin routers over already-migrated entities and already-tested service layers (E5-S2, E9-S2, Group F)."
+    },
+    "env_vars": {
+      "required": true,
+      "traces": [
+        "Synthetic-Data rule (CLAUDE.md)"
+      ],
+      "features": [
+        "F090"
+      ],
+      "command": "cd backend && uv run detect-secrets scan src seed && cd ../frontend && npx detect-secrets scan src",
+      "description": "No new, unallowlisted finding across backend/src, backend/seed, and frontend/src."
+    }
+  },
+  "unit_test_checks": [
+    {
+      "id": "ut-198",
+      "traces": "E4-S4 AC1",
+      "features": [
+        "F072"
+      ],
+      "test_file": "frontend/src/pages/customer/Questionnaire.test.tsx",
+      "assertion": "Rendering Questionnaire.tsx with a mocked GET /api/risk-profile/questionnaire response shows one control group per question; Submit is disabled until every question has a selection."
+    },
+    {
+      "id": "ut-199",
+      "traces": "E4-S4 AC2",
+      "features": [
+        "F073"
+      ],
+      "test_file": "frontend/src/pages/customer/RiskResult.test.tsx",
+      "assertion": "Submitting a complete answer set with a mocked 201 response navigates to RiskResult.tsx, which renders the returned risk_band in human-readable form (e.g. MODERATE -> 'Moderate')."
+    },
+    {
+      "id": "ut-200",
+      "traces": "E4-S4 AC3",
+      "features": [
+        "F074"
+      ],
+      "test_file": "frontend/src/pages/customer/Questionnaire.test.tsx",
+      "assertion": "Submitting with one question unanswered shows an inline validation message for that question and does not call the mocked submit API."
+    },
+    {
+      "id": "ut-201",
+      "traces": "E4-S4 AC4",
+      "features": [
+        "F075"
+      ],
+      "test_file": "frontend/src/pages/customer/Questionnaire.test.tsx",
+      "assertion": "Every option is queryable via getByLabelText (label/for-id association) and reachable via keyboard Tab order."
+    },
+    {
+      "id": "ut-202",
+      "traces": "E4-S4 AC5",
+      "features": [
+        "F076"
+      ],
+      "test_file": "frontend/src/pages/customer/Questionnaire.test.tsx",
+      "assertion": "With a mocked GET /api/risk-profile/latest returning an existing assignment, the questionnaire screen displays the current risk_band before any new submission."
+    },
+    {
+      "id": "ut-203",
+      "traces": "E5-S3 AC1",
+      "features": [
+        "F087"
+      ],
+      "test_file": "backend/tests/api/test_recommendation_api.py",
+      "assertion": "GET /api/recommendation for a customer with a RiskBandAssignment returns 200 with allocations summing to exactly Decimal('100.00')."
+    },
+    {
+      "id": "ut-204",
+      "traces": "E5-S3 AC2",
+      "features": [
+        "F088"
+      ],
+      "test_file": "backend/tests/api/test_recommendation_api.py",
+      "assertion": "GET /api/recommendation for a customer with no RiskBandAssignment returns 404 NO_RISK_BAND_ASSIGNMENT, never a default allocation body."
+    },
+    {
+      "id": "ut-205",
+      "traces": "E5-S3 AC3",
+      "features": [
+        "F089"
+      ],
+      "test_file": "backend/tests/api/test_recommendation_api.py",
+      "assertion": "GET /api/recommendation with an advisor-role token, and separately an admin-role token, both return 403 ROLE_NOT_PERMITTED (parametrized)."
+    },
+    {
+      "id": "ut-206",
+      "traces": "E5-S3 AC4",
+      "features": [
+        "F090"
+      ],
+      "test_file": "backend/tests/api/test_recommendation_api.py",
+      "assertion": "The 200 response body includes template_version equal to the version of the AllocationTemplate actually selected."
+    },
+    {
+      "id": "ut-207",
+      "traces": "E5-S3 AC5",
+      "features": [
+        "F091"
+      ],
+      "test_file": "backend/tests/api/test_recommendation_api.py",
+      "assertion": "GET /api/recommendation with no Authorization header returns 401 TOKEN_MISSING."
+    },
+    {
+      "id": "ut-208",
+      "traces": "E7-S5 AC1",
+      "features": [
+        "F142"
+      ],
+      "test_file": "frontend/src/pages/customer/Goals.test.tsx",
+      "assertion": "Rendering Goals.tsx with a mocked GET /api/goals response shows, for each goal, target_amount, target_date, priority, and percent_complete."
+    },
+    {
+      "id": "ut-209",
+      "traces": "E7-S5 AC2",
+      "features": [
+        "F143"
+      ],
+      "test_file": "frontend/src/pages/customer/Goals.test.tsx",
+      "assertion": "Submitting the create-goal form with target_amount '0' or a negative value (parametrized) shows an inline validation error and does not call the mocked create API."
+    },
+    {
+      "id": "ut-210",
+      "traces": "E7-S5 AC3",
+      "features": [
+        "F144"
+      ],
+      "test_file": "frontend/src/pages/customer/Goals.test.tsx",
+      "assertion": "A goal with percent_complete '25.00' renders a progress bar/percentage label reflecting that exact value."
+    },
+    {
+      "id": "ut-211",
+      "traces": "E7-S5 AC4",
+      "features": [
+        "F145"
+      ],
+      "test_file": "frontend/src/pages/customer/Goals.test.tsx",
+      "assertion": "Editing a goal's priority and saving, with a mocked PATCH 200 response, updates the displayed priority without triggering a route/full-page reload."
+    },
+    {
+      "id": "ut-212",
+      "traces": "E7-S5 AC5",
+      "features": [
+        "F146"
+      ],
+      "test_file": "frontend/src/pages/customer/Goals.test.tsx",
+      "assertion": "Every form input (target_amount, target_date, priority) is queryable via getByLabelText and reachable via keyboard Tab order."
+    },
+    {
+      "id": "ut-213",
+      "traces": "E8-S4 AC1",
+      "features": [
+        "F163"
+      ],
+      "test_file": "frontend/src/pages/customer/Rebalancing.test.tsx",
+      "assertion": "Rendering Rebalancing.tsx with a mocked GET /api/rebalancing response shows every pending recommendation with its proposed_actions' BUY/SELL labels per asset class."
+    },
+    {
+      "id": "ut-214",
+      "traces": "E8-S4 AC2",
+      "features": [
+        "F164"
+      ],
+      "test_file": "frontend/src/pages/customer/Rebalancing.test.tsx",
+      "assertion": "Clicking Accept calls the mocked accept API and, on a mocked 200 success, removes that recommendation from the rendered pending list."
+    },
+    {
+      "id": "ut-215",
+      "traces": "E8-S4 AC3",
+      "features": [
+        "F165"
+      ],
+      "test_file": "frontend/src/pages/customer/Rebalancing.test.tsx",
+      "assertion": "Clicking Dismiss calls the mocked dismiss API and, on a mocked 200 success, removes that recommendation from the rendered pending list."
+    },
+    {
+      "id": "ut-216",
+      "traces": "E8-S4 AC4",
+      "features": [
+        "F166"
+      ],
+      "test_file": "frontend/src/pages/customer/Rebalancing.test.tsx",
+      "assertion": "A mocked GET /api/rebalancing response of [] renders EmptyState.tsx's message, not an empty list or a rendering error."
+    },
+    {
+      "id": "ut-217",
+      "traces": "E8-S4 AC5",
+      "features": [
+        "F167"
+      ],
+      "test_file": "frontend/src/pages/customer/Rebalancing.test.tsx",
+      "assertion": "Accept/Dismiss buttons are keyboard-triggerable (Enter/Space) and become disabled immediately on click, before the mocked API promise resolves, so a second immediate click issues no second network call."
+    },
+    {
+      "id": "ut-218",
+      "traces": "E9-S3 AC1",
+      "features": [
+        "F178"
+      ],
+      "test_file": "backend/tests/api/test_advisor_api.py",
+      "assertion": "GET /api/advisor/customers with an advisor-role token returns 200 with an array where every item includes risk_band."
+    },
+    {
+      "id": "ut-219",
+      "traces": "E9-S3 AC2",
+      "features": [
+        "F179"
+      ],
+      "test_file": "backend/tests/api/test_advisor_api.py",
+      "assertion": "GET /api/advisor/customers/{id} returns 200 with holdings, goals, and allocation for that customer in a single response body."
+    },
+    {
+      "id": "ut-220",
+      "traces": "E9-S3 AC3",
+      "features": [
+        "F180"
+      ],
+      "test_file": "backend/tests/api/test_advisor_api.py",
+      "assertion": "POST .../override with a non-empty reason returns 201 with the new risk_band; the identical call with reason omitted returns 422 REASON_REQUIRED and writes neither an AdvisorOverride nor a RiskBandAssignment row."
+    },
+    {
+      "id": "ut-221",
+      "traces": "E9-S3 AC4",
+      "features": [
+        "F181"
+      ],
+      "test_file": "backend/tests/api/test_advisor_api.py",
+      "assertion": "POST .../manual-recommendation with a valid note returns 201 and writes exactly one AuditLogEntry with entity_type='ManualRecommendation'."
+    },
+    {
+      "id": "ut-222",
+      "traces": "E9-S3 AC5",
+      "features": [
+        "F182"
+      ],
+      "test_file": "backend/tests/api/test_advisor_api.py",
+      "assertion": "Each of the four advisor endpoints, called with a customer-role token and, separately, a compliance-role token (8 combinations, parametrized), returns 403 ROLE_NOT_PERMITTED."
+    },
+    {
+      "id": "ut-223",
+      "traces": "E10-S4 AC1",
+      "features": [
+        "F203"
+      ],
+      "test_file": "frontend/src/pages/admin/TemplateEditor.test.tsx",
+      "assertion": "Entering percentages summing to 90 displays a running total of 90.00 with a visual warning/error treatment, computed via the shared basis-point helper in lib/money.ts."
+    },
+    {
+      "id": "ut-224",
+      "traces": "E10-S4 AC2",
+      "features": [
+        "F204"
+      ],
+      "test_file": "frontend/src/pages/admin/TemplateEditor.test.tsx",
+      "assertion": "The Publish button is disabled while the running total is not exactly 100.00, and enabled once entered percentages sum to exactly 100.00."
+    },
+    {
+      "id": "ut-225",
+      "traces": "E10-S4 AC3",
+      "features": [
+        "F205"
+      ],
+      "test_file": "frontend/src/pages/admin/RuleEditor.test.tsx",
+      "assertion": "Adding/removing question rows updates the rendered count; Publish is disabled below 6 questions and enabled at 6 or more."
+    },
+    {
+      "id": "ut-226",
+      "traces": "E10-S4 AC4",
+      "features": [
+        "F206"
+      ],
+      "test_file": "frontend/src/pages/admin/AssetClasses.test.tsx",
+      "assertion": "Rendering AssetClasses.tsx with a mocked GET /api/admin/asset-classes response lists every asset class; submitting a duplicate code with a mocked 409 response shows an inline error containing the API's error message."
+    },
+    {
+      "id": "ut-227",
+      "traces": "E10-S4 AC5",
+      "features": [
+        "F207"
+      ],
+      "test_file": "frontend/src/pages/admin/TemplateEditor.test.tsx, frontend/src/pages/admin/RuleEditor.test.tsx",
+      "assertion": "Publishing a new template/rule version, with a mocked 201 response, appends the new version to the displayed history list via state update, without a route navigation/full-page reload event."
+    }
+  ],
+  "notes": [
+    "1. No feature-coverage gap found: all 30 features (F072-F076, F087-F091, F142-F146, F163-F167, F178-F182, F203-F207) already exist in features.json for this group's 6 stories, one per acceptance criterion. This contract's `features` list references them as-is; no new feature IDs were invented.",
+    "2. Both new API paths (/api/recommendation and the four /api/advisor/* paths) already exist in specs/design/api-contracts.schema.json's OpenAPI document — this group implements previously-specified paths, it does not add new ones. The schema_conformance architecture_check validates the live implementation's response shapes against those existing schema definitions rather than checking for new paths.",
+    "3. Group G is the first group where every story carries either a live api_check or a live playwright_check — there is no Service-layer story to fall back to a TestClient-only or unit-test-only scope this time, per this group's explicit runtime_expectations.",
+    "4. Per the team-lead's task instructions, api_checks in this contract are written for verification against the live backend process rather than FastAPI's TestClient. This is a deliberate divergence from every prior group's practice: Groups C-D (labeled local) and Groups E-F (labeled hybrid) all treated pytest exercising the real src.app.main.app object through FastAPI's TestClient as live-equivalent for api_checks, reserving genuinely live-process verification for playwright_checks only. Group G drops that TestClient equivalence for api_checks too, driven by this group having no Service-layer-only stories to shelter unit-test-only coverage behind — every AC in E5-S3 and E9-S3 is itself an HTTP-boundary behavior (status codes, role gates, response shape).",
+    "5. File contention within this group, for the generator's dependency handshake: backend/src/types/responses.py is modified by both E5-S3 (recommendation response shape) and E9-S3 (advisor list/drill-in/override/manual-rec response shapes) — coordinate as a single commit rather than two teammates racing on the same file. backend/src/types/requests.py is modified by E9-S3 only this group (override/manual-rec request bodies) — low contention. frontend/src/router.tsx, frontend/src/components/NavBar.tsx, and frontend/src/lib/money.ts are each modified by three or four of this group's four UI stories (E4-S4, E7-S5, E8-S4, E10-S4) for new route registration, nav links, and money/percent formatting respectively — same low-risk-but-coordinate pattern as prior groups. frontend/src/components/LabeledField.tsx and ErrorMessage.tsx are modified by E7-S5 only this group.",
+    "6. E10-S4's component-map row also creates frontend/src/pages/admin/ThresholdEditor.tsx and its test file — included in files_must_exist for completeness since the component map requires it, but no playwright_check or unit_test_check targets it specifically in this contract because none of E10-S4's 5 acceptance criteria mention the rebalancing-threshold editor by name; it is scaffolding alongside the three ACs' screens (rule editor, template editor, asset-class master), not itself a scored surface this group.",
+    "7. E9-S3 AC2 ('drill-in') and E9-S3 AC1/AC5 reuse the same GET /api/advisor/customers/{customer_id} and GET /api/advisor/customers paths that E9-S4 (Group H, Advisor UI) will consume — api-g-06 and ut-219 verify the API surface only; the drill-in UI itself is out of scope for this group per the dependency graph.",
+    "8. Genuine component-map.md dependency-order gap found and resolved: component-map.md note 4 attributes frontend/src/lib/money.ts's creation to E5-S4, which specs/stories/E5-S4.md assigns to Group H — a LATER group than this one. E6-S5 (Group F, already merged as commit 2b12a6d) was also listed as modifying money.ts but its actual delivered implementation (frontend/src/pages/customer/Holdings.tsx) never created the file — it renders every money/percent value verbatim from the API response string with no arithmetic, so no shared helper was needed yet, and the working tree confirms frontend/src/lib/money.ts does not exist today. E10-S4 AC1/AC2 cannot defer the same way: summing several entered percentage strings into a running total and gating Publish on an exact 100.00 match is genuine fixed-point arithmetic (AC-02, NFR-08, NFR-01), not passthrough display, so it needs a real basis-point helper now, one full group before its spec-designated creator runs. Resolution: frontend/src/lib/money.ts and frontend/src/lib/money.test.ts are added to files_must_exist for this group; E10-S4 creates the file (basis-point sum/format helpers), E7-S5 may extend it for percent_complete display, and E5-S4 (Group H) will extend it further for the allocation-view formatting rather than create it fresh. This is a spec/component-map inconsistency, not a contract error, and per CLAUDE.md's Spec-Is-Truth rule component-map.md's note 4 and its E5-S4/E6-S5/E7-S5/E10-S4 rows should be corrected upstream to reflect E10-S4 as money.ts's actual creator — flagged here for the team-lead to route to a spec-update task; it is not blocking this group's implementation."
+  ]
+}

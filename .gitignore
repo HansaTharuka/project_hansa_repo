@@ -1,6 +1,21 @@
+# Real environment values — never committed. The .env.example files ARE committed.
 .env
 .env.local
 .env.production
+backend/.env
+frontend/.env
+
+# Databases and build artefacts (folder-structure.md §5)
+backend/*.db
+backend/.venv/
+backend/.pytest_cache/
+backend/htmlcov/
+backend/.coverage
+frontend/node_modules/
+frontend/dist/
+frontend/coverage/
+
+# Language and tooling caches
 node_modules/
 __pycache__/
 *.pyc

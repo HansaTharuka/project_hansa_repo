@@ -12,3 +12,131 @@ coverage: 0%
 learned_rules: 0
 blocked_stories: none
 next_action: Begin autonomous build with /auto --mode full
+
+=== Session 1 ===
+date: 2026-09-04T00:00:00Z
+mode: full
+branch: feat/wealthwise-build
+groups_completed: [A]
+groups_remaining: [B, C, D, E, F, G, H]
+current_group: none
+current_stories: []
+sprint_contract: sprint-contracts/A.json
+last_commit: b9e1a4f "feat: implement group A (E1-S1 core types, E1-S2 config)"
+features_passing: 10 / 207
+coverage: 100%
+learned_rules: 0
+blocked_stories: none
+next_action: Negotiate sprint contract for Group B (E1-S3: database engine, migrations, seed-data repository) and spawn generator
+
+=== Session 2 ===
+date: 2026-09-04T00:00:00Z
+mode: full
+branch: feat/wealthwise-build
+groups_completed: [A, B]
+groups_remaining: [C, D, E, F, G, H]
+current_group: none
+current_stories: []
+sprint_contract: sprint-contracts/B.json
+last_commit: 19a53a6 "feat: implement group B (E1-S3 DB engine, migrations, seed repository)"
+features_passing: 15 / 207
+coverage: 100%
+learned_rules: 0
+blocked_stories: none
+next_action: Negotiate sprint contract for Group C (E1-S4 health/logging, E2-S1 auth service, E3-S1 audit repo, E4-S1 risk-profile repo, E5-S1 allocation-template repo, E6-S1 asset-class/NAV repo, E7-S1 goal repo, E8-S1 rebalancing-recommendation repo, E9-S1 advisor-override repo — 9 stories, all repository-layer, all depend only on E1-S3) and spawn generator team
+
+=== Session 3 ===
+date: 2026-09-04T00:00:00Z
+mode: full
+branch: feat/wealthwise-build
+groups_completed: [A, B, C]
+groups_remaining: [D, E, F, G, H]
+current_group: none
+current_stories: []
+sprint_contract: sprint-contracts/C.json
+last_commit: 9ac99c5 "feat: implement group C remainder (E3-S9 repository-layer stories)"
+features_passing: 60 / 207
+coverage: 100% (380/380 tests passing)
+learned_rules: 0
+blocked_stories: none
+next_action: Negotiate sprint contract for Group D (E2-S2 auth API/login endpoint, plus the pure-computation and remaining service-layer stories that build on Group C's repositories) and spawn generator team
+
+=== Session 4 ===
+date: 2026-09-04T00:00:00Z
+mode: full
+branch: feat/wealthwise-build
+groups_completed: [A, B, C, D]
+groups_remaining: [E, F, G, H]
+current_group: none
+current_stories: []
+sprint_contract: sprint-contracts/D.json
+last_commit: 239cd1e "feat: implement group D (E2-S2, E3-S2, E6-S2, E6-S3, E7-S2, E10-S1)"
+features_passing: 90 / 207
+coverage: 100% (463/463 tests passing)
+learned_rules: 0
+blocked_stories: none
+next_action: Negotiate sprint contract for Group E and spawn generator team
+
+=== Session 5 ===
+date: 2026-09-04T00:00:00Z
+mode: full
+branch: feat/wealthwise-build
+groups_completed: [A, B, C, D, E]
+groups_remaining: [F, G, H]
+current_group: none
+current_stories: []
+sprint_contract: sprint-contracts/E.json
+last_commit: pending "feat: implement group E (E2-S3, E3-S3, E4-S2, E6-S4, E7-S3, E8-S2, E10-S2)"
+features_passing: 127 / 207
+coverage: 100% (532 backend + 40 frontend = 572 tests passing)
+learned_rules: 0
+blocked_stories: none
+next_action: Negotiate sprint contract for Group F (E3-S4 compliance audit-log UI, E4-S3 risk-profile submission API, E5-S2 allocation recommendation service, E6-S5 holdings/drift UI, E7-S4 goals API, E8-S3 rebalancing API, E9-S2 advisor override/manual-recommendation service, E10-S3 admin API) and spawn generator team
+
+=== Session 6 ===
+date: 2026-09-08T00:00:00Z
+mode: full
+branch: feat/wealthwise-build
+groups_completed: [A, B, C, D, E, F]
+groups_remaining: [G, H]
+current_group: none
+current_stories: []
+sprint_contract: sprint-contracts/F.json
+last_commit: 2b12a6d "feat: implement group F (E3-S4, E4-S3, E5-S2, E6-S5, E7-S4, E8-S3, E9-S2, E10-S3)"
+features_passing: 167 / 207
+coverage: 100% (2238/2238 statements, backend) + 58/58 frontend tests
+learned_rules: 0
+blocked_stories: none
+next_action: Negotiate sprint contract for Group G and spawn generator team. Note for the next session: Group F required 4 evaluator passes to clear (self-heal fixed CORS + sum_bps key drift on pass 1->2; an infra env-var/process-lifecycle issue, not a code defect, blocked pass 2->3 and was resolved by restarting the backend without --reload; the audit `to`-date boundary bug plus a CSS breakpoint collision found on pass 3 were fixed and verified clean on pass 4). See specs/reviews/evaluator-report.md's Group F "Pass 4 (orchestrator-driven fix cycle)" section for the full sign-off. Two non-blocking follow-ups flagged for a future group: (1) instantiate real Playwright tooling in the repo (.claude/templates/playwright.config.template.ts has never been used) so evaluators stop reconstructing scratch browser-automation projects per pass; (2) minor CSS gap — #entity_type <select> doesn't get the branded focus-visible ring in global.css. Group E (commit 064a210) still has no evaluator sign-off record in evaluator-report.md — pre-existing gap, not caused by this session, still flagged for the lead.
+
+=== Session 7 ===
+date: 2026-09-09T06:30:00Z
+mode: full
+branch: feat/wealthwise-build
+groups_completed: [A, B, C, D, E, F, G]
+groups_remaining: [H]
+current_group: none
+current_stories: []
+sprint_contract: sprint-contracts/G.json
+last_commit: 3adf04c "feat: implement group G (E4-S4, E5-S3, E7-S5, E8-S4, E9-S3, E10-S4)"
+features_passing: 197 / 207
+coverage: 100% (2540/2540 statements backend, 664 tests) + 126/126 frontend tests
+learned_rules: 0
+blocked_stories: none
+next_action: Negotiate sprint contract for Group H (E5-S4 recommended-allocation UI view, E9-S4 advisor UI) and spawn generator team — the final group; all 10 remaining features (F092-F096, F183-F187) belong to it. Notes for the next session: (1) Group G required 4 evaluator passes — pass 1 found missing frontend route registration (generator commits never wired router.tsx/NavBar.tsx despite the contract anticipating it), pass 2 found 2 backend GET endpoints that were actually a Group F coverage gap (questionnaire + admin risk-band-rules/asset-classes reads never implemented in Group F), pass 3 found and fixed a CORS-adjacent AC1/AC3 tension on the questionnaire (resolved via a spec correction, not a code defect) plus one genuine app bug each in Questionnaire.tsx and TemplateEditor.tsx, and pass 4 live-reverified both fixes plus a same-file regression set — see evaluator-report.md's Group G section (Passes 1-4) for the full trail. (2) Backend test/coverage runs in this environment require exporting DATABASE_URL and JWT_SECRET as real environment variables, NOT a backend/.env file — tests/unit/test_config.py::TestGitignore::test_no_real_env_file_exists_on_disk asserts no such file exists on disk; a stray backend/.env was created and removed during this session's verification, do not recreate one. (3) Carried forward from Group F: real Playwright tooling (@playwright/test, playwright.config.ts, a committed e2e/ directory) still does not exist in the repo — four consecutive evaluation passes (Group F pass 4, Group G passes 1-4) have now hand-rolled equivalent scratch tooling; recommend instantiating .claude/templates/playwright.config.template.ts before or during Group H. (4) Group G's design_checks (visual_hierarchy/accessibility/responsiveness/interaction_feedback for its 7 pages) were never formally scored by a design-critic pass across any of the 4 evaluator passes — out of scope for those passes, still open; consider running one before/alongside Group H's own design_checks, or explicitly accept the gap. (5) Group E (commit 064a210) still has no evaluator sign-off record in evaluator-report.md — pre-existing gap, still flagged, still not blocking.
+
+=== Session 8 ===
+date: 2026-09-10T00:00:00Z
+mode: full
+branch: feat/wealthwise-build
+groups_completed: [A, B, C, D, E, F, G, H]
+groups_remaining: []
+current_group: none
+current_stories: []
+sprint_contract: sprint-contracts/H.json
+last_commit: 8821d1c "feat: implement group H (E5-S4, E9-S4) + fix read-after-write staleness race"
+features_passing: 207 / 207
+coverage: 100% (2540+ statements backend, 664 tests) + 144/144 frontend tests
+learned_rules: 0
+blocked_stories: none
+next_action: All 207 features pass; build complete. Open a PR from feat/wealthwise-build into main (PR-Only-Merge). Notes for the next session: (1) Group H's initial evaluator pass found 8/10 playwright_checks passing, 2 failing (pw-h-05, pw-h-09; see specs/reviews/eval-failures-007.json) — a reproducible backend read-after-write race where a mutating endpoint's 2xx response could reach the client before its own DB commit ran, so an immediately-following GET (customer allocation refetch, advisor drill-in refetch) could read stale pre-override data. Root cause: FastAPI's dependency solver closes a yield-dependency's teardown on its request-scoped AsyncExitStack by default, which closes only after the response is sent (fastapi/routing.py awaits response(...) before closing that stack); get_session's session.commit() sat on the wrong stack. Fix: Depends(get_session) -> Depends(get_session, scope="function") on all 26 call sites across 9 routers (backend/src/app/dependencies.py, backend/src/app/routers/*.py) — forces the commit to finish before the response goes out. A first attempt (forcing explicit SQLite BEGIN/pysqlite isolation control in db/engine.py) was tried and reverted — wrong theory, broke 2 tests and caused live "database is locked" errors under real uvicorn. (2) Re-evaluation (evaluator-report.md, Group H "Pass 2 (fix verification)") re-ran all 10 playwright_checks live against a real uvicorn server (no --reload): 10/10 pass, including pw-h-05/pw-h-09 reproduced passing 3/3 times each, matching the prior pass's 3/3 reproducible-failure count. features.json F096 and F186 flipped to passes: true. (3) Flagged non-blocking by that evaluation: the fix's no_backend_changes architecture-check violation (expected — the fix lives in the backend by nature) and 2 minor 375px-viewport .tablewrap horizontal-scroll UX observations. (4) Carried forward, still open, still non-blocking: no design-critic pass has ever run for Group H (or G) — flagged twice now; real Playwright tooling (@playwright/test, playwright.config.ts, a committed e2e/ directory) still does not exist in the repo despite being recommended since Group F; Group E (commit 064a210) still has no evaluator sign-off record in evaluator-report.md.

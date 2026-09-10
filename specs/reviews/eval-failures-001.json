@@ -1,0 +1,147 @@
+[
+  {
+    "check_id": "pw-f-01",
+    "category": "playwright_fail",
+    "error_type": "connection_refused",
+    "expected": "Logging in as the seeded compliance user (compliance.priya.chandra@wealthwise.test) navigates to /compliance/audit-log and renders a table with actor/entity_type/action/timestamp columns.",
+    "actual": "page.waitForURL timed out after 10000ms; the SPA stays on /login and shows the error banner 'Unable to sign in. Please try again.' Browser console: \"Access to fetch at 'http://localhost:8000/api/auth/login' from origin 'http://localhost:5173' has been blocked by CORS policy: Response to preflight request doesn't pass access control check: No 'Access-Control-Allow-Origin' header is present on the requested resource.\" Network: POST http://localhost:8000/api/auth/login -> net::ERR_FAILED (browser-blocked, never reaches the server).",
+    "stack_trace": "backend/src/app/main.py create_app(): only RequestLogMiddleware and RequestIDMiddleware are registered via app.add_middleware(); no fastapi.middleware.cors.CORSMiddleware is added anywhere in the codebase (rg 'CORSMiddleware|add_middleware' backend/src returns no CORS registration).",
+    "error_type_detail": "missing_cors_middleware",
+    "files_likely_involved": [
+      "backend/src/app/main.py"
+    ],
+    "prior_attempts": [],
+    "story": "E3-S4"
+  },
+  {
+    "check_id": "pw-f-02",
+    "category": "playwright_fail",
+    "error_type": "timeout",
+    "expected": "Selecting entity_type=RiskBandAssignment and clicking Apply re-queries GET /api/audit?entity_type=RiskBandAssignment and shows only matching rows.",
+    "actual": "page.waitForSelector('table') timed out after 30000ms because the user was never authenticated (blocked at pw-f-01's login step by the same CORS failure) and the SPA redirects to /login for any protected route.",
+    "stack_trace": "Same root cause as pw-f-01 (missing CORSMiddleware in backend/src/app/main.py).",
+    "files_likely_involved": [
+      "backend/src/app/main.py"
+    ],
+    "prior_attempts": [],
+    "story": "E3-S4"
+  },
+  {
+    "check_id": "pw-f-03",
+    "category": "playwright_fail",
+    "error_type": "timeout",
+    "expected": "Filling from=2026-09-07 and to=2026-09-07 and clicking Apply re-queries GET /api/audit?from=...&to=... and shows entries on the boundary date, inclusive.",
+    "actual": "page.waitForSelector('table') timed out after 30000ms; blocked upstream by the same CORS/login failure as pw-f-01.",
+    "stack_trace": "Same root cause as pw-f-01 (missing CORSMiddleware in backend/src/app/main.py).",
+    "files_likely_involved": [
+      "backend/src/app/main.py"
+    ],
+    "prior_attempts": [],
+    "story": "E3-S4"
+  },
+  {
+    "check_id": "pw-f-04",
+    "category": "playwright_fail",
+    "error_type": "timeout",
+    "expected": "The audit-log screen renders with only Apply/Clear/pagination buttons, no edit/delete/update/resolve control.",
+    "actual": "page.waitForSelector('table') timed out after 30000ms; blocked upstream by the same CORS/login failure as pw-f-01.",
+    "stack_trace": "Same root cause as pw-f-01 (missing CORSMiddleware in backend/src/app/main.py).",
+    "files_likely_involved": [
+      "backend/src/app/main.py"
+    ],
+    "prior_attempts": [],
+    "story": "E3-S4"
+  },
+  {
+    "check_id": "pw-f-05",
+    "category": "playwright_fail",
+    "error_type": "timeout",
+    "expected": "Every filter input has an associated label[for], is Tab-focusable in document order, and Enter inside a filter input submits the filter form.",
+    "actual": "page.waitForSelector('table') timed out after 30000ms; blocked upstream by the same CORS/login failure as pw-f-01.",
+    "stack_trace": "Same root cause as pw-f-01 (missing CORSMiddleware in backend/src/app/main.py).",
+    "files_likely_involved": [
+      "backend/src/app/main.py"
+    ],
+    "prior_attempts": [],
+    "story": "E3-S4"
+  },
+  {
+    "check_id": "pw-f-06",
+    "category": "playwright_fail",
+    "error_type": "timeout",
+    "expected": "The customer holdings view lists each held asset class with current_value, current_percent, target_percent, drift_percent.",
+    "actual": "page.waitForSelector('table tbody tr') timed out after 10000ms; customer login (alice.reyes@wealthwise.test) never completes because of the same CORS failure as pw-f-01.",
+    "stack_trace": "Same root cause as pw-f-01 (missing CORSMiddleware in backend/src/app/main.py).",
+    "files_likely_involved": [
+      "backend/src/app/main.py"
+    ],
+    "prior_attempts": [],
+    "story": "E6-S5"
+  },
+  {
+    "check_id": "pw-f-07",
+    "category": "playwright_fail",
+    "error_type": "timeout",
+    "expected": "A row with exceeds_threshold: true carries data-breach=\"true\" and is visually distinguished from data-breach=\"false\" rows.",
+    "actual": "page.waitForSelector('table tbody tr') timed out after 30000ms; blocked upstream by the same CORS/login failure as pw-f-01.",
+    "stack_trace": "Same root cause as pw-f-01 (missing CORSMiddleware in backend/src/app/main.py).",
+    "files_likely_involved": [
+      "backend/src/app/main.py"
+    ],
+    "prior_attempts": [],
+    "story": "E6-S5"
+  },
+  {
+    "check_id": "pw-f-08",
+    "category": "playwright_fail",
+    "error_type": "timeout",
+    "expected": "A customer with zero holdings sees the EmptyState component ([data-testid=empty-state]) rather than a blank/broken table.",
+    "actual": "page.waitForURL('**/customer/dashboard') timed out after 10000ms; login for bob.nakamura@wealthwise.test never completes because of the same CORS failure as pw-f-01.",
+    "stack_trace": "Same root cause as pw-f-01 (missing CORSMiddleware in backend/src/app/main.py).",
+    "files_likely_involved": [
+      "backend/src/app/main.py"
+    ],
+    "prior_attempts": [],
+    "story": "E6-S5"
+  },
+  {
+    "check_id": "pw-f-09",
+    "category": "playwright_fail",
+    "error_type": "timeout",
+    "expected": "current_value/current_percent/target_percent/drift_percent are each rendered with exactly 2 decimal places, verbatim from the API string.",
+    "actual": "page.waitForSelector('table tbody tr') timed out after 30000ms; blocked upstream by the same CORS/login failure as pw-f-01.",
+    "stack_trace": "Same root cause as pw-f-01 (missing CORSMiddleware in backend/src/app/main.py).",
+    "files_likely_involved": [
+      "backend/src/app/main.py"
+    ],
+    "prior_attempts": [],
+    "story": "E6-S5"
+  },
+  {
+    "check_id": "pw-f-10",
+    "category": "playwright_fail",
+    "error_type": "timeout",
+    "expected": "A persistent 'Holdings' nav link on the customer dashboard navigates to /customer/holdings.",
+    "actual": "page.waitForURL('**/customer/dashboard') timed out after 10000ms; login for alice.reyes@wealthwise.test never completes because of the same CORS failure as pw-f-01.",
+    "stack_trace": "Same root cause as pw-f-01 (missing CORSMiddleware in backend/src/app/main.py).",
+    "files_likely_involved": [
+      "backend/src/app/main.py"
+    ],
+    "prior_attempts": [],
+    "story": "E6-S5"
+  },
+  {
+    "check_id": "api-f-19",
+    "category": "api_check_fail",
+    "error_type": "validation_error",
+    "expected": "422 TEMPLATE_SUM_INVALID with details.sum_bps: 9900 (sum=99) and details.sum_bps: 10100 (sum=101), per specs/design/api-contracts.md lines 51 and 750 ('details.sum_bps returns the actual total').",
+    "actual": "422 TEMPLATE_SUM_INVALID returned correctly, but the details object uses the key total_bps instead of sum_bps: {\"error\":{\"code\":\"TEMPLATE_SUM_INVALID\",\"message\":\"Allocation percentages must sum to exactly 10000 bps, got 9900.\",\"details\":{\"total_bps\":9900}}} (verified live via POST /api/admin/allocation-templates against http://localhost:8000, both the 99 and 101 cases).",
+    "stack_trace": "backend/src/domain/admin/service.py:92-98 - `total_bps = sum(...)`; `if total_bps != ALLOCATION_TOTAL_BPS: raise ValidationError(..., code=\"TEMPLATE_SUM_INVALID\", details={\"total_bps\": total_bps})`. Not caught by backend/tests/api/test_admin_api.py::test_publishing_a_template_not_summing_to_100_returns_422_and_writes_nothing, which asserts only on response.json()['error']['code'], never on the details key name.",
+    "files_likely_involved": [
+      "backend/src/domain/admin/service.py:98",
+      "backend/tests/api/test_admin_api.py"
+    ],
+    "prior_attempts": [],
+    "story": "E10-S3"
+  }
+]

@@ -1,0 +1,710 @@
+/* WealthWise global styles — neutral, dense, data-first (specs/design/mockups/E2-S3.html
+   aesthetic direction): dark charcoal chrome, off-white surfaces, minimal color used
+   only for state (error/success), monospace for machine-readable values. */
+
+:root {
+  --color-bg: #f4f4f5;
+  --color-surface: #ffffff;
+  --color-border: #d6d6da;
+  --color-text: #1b1b1f;
+  --color-text-muted: #5c5c66;
+  --color-chrome: #26262b;
+  --color-chrome-text: #f4f4f5;
+  --color-error: #8a2b2b;
+  --color-error-bg: #fbeeee;
+  --color-error-border: #d9b3b3;
+  --color-focus: #2b5d8a;
+  --radius: 4px;
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  background: var(--color-bg);
+  color: var(--color-text);
+  line-height: 1.45;
+  font-size: 15px;
+}
+
+main {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 48px 20px 64px;
+}
+
+.panel {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 20px;
+}
+
+.field {
+  margin-bottom: 16px;
+}
+
+.field label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.field input {
+  font: inherit;
+  font-size: 14px;
+  padding: 9px 10px;
+  min-height: 40px;
+  border: 1px solid #b9b9c0;
+  border-radius: 3px;
+  background: var(--color-surface);
+  width: 100%;
+}
+
+.field input[aria-invalid='true'] {
+  border-color: var(--color-error-border);
+  background: var(--color-error-bg);
+}
+
+input:focus-visible,
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 1px;
+}
+
+button {
+  font: inherit;
+  font-size: 14px;
+  min-height: 40px;
+  padding: 8px 16px;
+  border: 1px solid var(--color-chrome);
+  background: var(--color-chrome);
+  color: #fff;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.panel form button[type='submit'] {
+  width: 100%;
+}
+
+button[disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.error-message {
+  background: var(--color-error-bg);
+  border: 1px solid var(--color-error-border);
+  color: var(--color-error);
+  border-radius: 3px;
+  padding: 10px 12px;
+  font-size: 13px;
+  margin-bottom: 14px;
+  font-weight: 600;
+}
+
+header.app-header {
+  background: var(--color-chrome);
+  color: var(--color-chrome-text);
+  padding: 12px 20px;
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+header.app-header h1 {
+  font-size: 16px;
+  margin: 0;
+  font-weight: 600;
+}
+
+header.app-header nav {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  font-size: 13px;
+}
+
+header.app-header nav a {
+  color: var(--color-chrome-text);
+  text-decoration: none;
+}
+
+header.app-header nav a:hover {
+  text-decoration: underline;
+}
+
+header.app-header button {
+  min-height: 32px;
+  padding: 4px 10px;
+  background: transparent;
+  border-color: #55555c;
+  color: var(--color-chrome-text);
+}
+
+h2 {
+  font-size: 20px;
+  margin: 0 0 4px;
+}
+
+.sub {
+  color: var(--color-text-muted);
+  font-size: 13px;
+  margin: 0 0 20px;
+}
+
+@media (max-width: 480px) {
+  main {
+    padding: 24px 16px 48px;
+  }
+}
+
+/* ---- Wide-screen pages (audit log, holdings — E3-S4, E6-S5) ---- */
+main:has(table),
+main:has(.filters) {
+  max-width: 1080px;
+}
+
+.filters {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+
+.filters .field {
+  min-width: 170px;
+  flex: 1 1 170px;
+  margin-bottom: 0;
+}
+
+/* Every table (audit log, holdings) scrolls horizontally within its own
+   wrapper rather than letting overflow escape to the page (E3-S4). */
+.tablewrap {
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+th,
+td {
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid #e4e4e7;
+  vertical-align: top;
+}
+
+th {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+  background: #fafafa;
+  white-space: nowrap;
+}
+
+td.num,
+th.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono);
+}
+
+tr[data-breach='true'] {
+  background: #fdf5f0;
+}
+
+tr[data-breach='true'] td.num.drift {
+  color: #8a4a1e;
+  font-weight: 700;
+}
+
+.summary {
+  display: flex;
+  gap: 26px;
+  flex-wrap: wrap;
+  margin: 0;
+}
+
+.summary div {
+  min-width: 140px;
+}
+
+.summary dt {
+  color: var(--color-text-muted);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 2px;
+}
+
+.summary dd {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 17px;
+}
+
+.empty {
+  padding: 34px 18px;
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: 14px;
+}
+
+.pager {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-top: 14px;
+  font-size: 13px;
+  color: var(--color-text-muted);
+  flex-wrap: wrap;
+}
+
+.count {
+  font-size: 13px;
+  color: var(--color-text-muted);
+  margin: 0 0 10px;
+}
+
+.cards {
+  display: none;
+}
+
+.card {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  margin-bottom: 12px;
+  background: var(--color-surface);
+}
+
+.card[data-breach='true'] {
+  border-color: #d1a97f;
+  background: #fdf5f0;
+}
+
+.card h4 {
+  margin: 0 0 2px;
+  font-size: 15px;
+}
+
+.card dl {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 12px;
+  margin: 10px 0 0;
+}
+
+.card dt {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+}
+
+.card dd {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 14px;
+}
+
+/* Responsive breakpoint required by BRD §5.3 for the holdings view (E6-S5).
+   Scoped to `.holdings-page` only — AuditLog.tsx shares `.tablewrap` (via
+   DataTable.tsx) but renders no `.cards` fallback, so a generic rule here
+   would hide its table with nothing to replace it (E3-S4). */
+@media (max-width: 768px) {
+  .holdings-page .tablewrap {
+    display: none;
+  }
+
+  .holdings-page .cards {
+    display: block;
+  }
+}
+
+/* ---- Risk-profile questionnaire & result (E4-S4) ---- */
+main:has(.questionnaire-page),
+main.questionnaire-page,
+main.risk-result-page {
+  max-width: 720px;
+}
+
+.questionnaire-page fieldset,
+.risk-result-page fieldset {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin: 0 0 16px;
+}
+
+.questionnaire-page fieldset[data-invalid='true'] {
+  border-color: var(--color-error-border);
+  background: var(--color-error-bg);
+}
+
+.questionnaire-page legend {
+  font-size: 14px;
+  font-weight: 600;
+  padding: 0 6px;
+}
+
+.questionnaire-page .opt {
+  display: flex;
+  gap: 9px;
+  align-items: flex-start;
+  padding: 5px 0;
+}
+
+.questionnaire-page .opt input {
+  margin-top: 3px;
+  width: auto;
+}
+
+.questionnaire-page .opt label {
+  font-weight: 400;
+  font-size: 14px;
+  margin: 0;
+}
+
+.questionnaire-page .err {
+  color: var(--color-error);
+  font-size: 13px;
+  margin: 6px 0 0;
+  font-weight: 600;
+}
+
+.infobox {
+  background: #eef1f5;
+  border: 1px solid #b8c4d4;
+  color: #2c3e52;
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+
+.risk-result-page .band {
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin: 6px 0 2px;
+}
+
+.risk-result-page .band-raw {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+
+.dashboard-page .quick-links {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+@media (max-width: 480px) {
+  main.questionnaire-page,
+  main.risk-result-page {
+    padding: 24px 16px 48px;
+  }
+}
+
+/* ---- Admin console (E10-S4) ---- */
+main:has(.admin-page),
+main.admin-page {
+  max-width: 1080px;
+}
+
+.admin-page .panel {
+  margin-bottom: 20px;
+}
+
+.admin-page .row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+
+.admin-page .row .field {
+  margin-bottom: 12px;
+}
+
+.admin-page .total {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  margin: 14px 0;
+  font-size: 15px;
+  border: 1px solid #b9b9c0;
+  background: var(--color-bg);
+  flex-wrap: wrap;
+}
+
+.admin-page .total b {
+  font-family: var(--font-mono);
+  font-size: 19px;
+}
+
+.admin-page .total.valid {
+  border-color: #a9c4ae;
+  background: #eef5ef;
+  color: #26562f;
+}
+
+.admin-page .total.invalid {
+  border-color: var(--color-error-border);
+  background: var(--color-error-bg);
+  color: var(--color-error);
+}
+
+.admin-page .question {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  margin-bottom: 12px;
+}
+
+.admin-page .question .qhead {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.admin-page .question .qid {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+
+.admin-page .question input[type='text'] {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.admin-page .count-note {
+  font-size: 13px;
+  margin: 0 0 14px;
+}
+
+.admin-page .count-note.bad {
+  color: var(--color-error);
+  font-weight: 600;
+}
+
+.admin-page .okbox {
+  background: #eef5ef;
+  border: 1px solid #b3ccb8;
+  color: #26562f;
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  font-size: 13px;
+  margin-bottom: 14px;
+}
+
+.admin-page button.secondary {
+  background: var(--color-surface);
+  color: var(--color-chrome);
+  border-color: #b9b9c0;
+}
+
+.admin-page button.small {
+  font-size: 13px;
+  padding: 5px 10px;
+  min-height: 32px;
+}
+
+.admin-page .sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ---- Recommended allocation (E5-S4) ---- */
+dl.meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px 24px;
+  margin: 0;
+}
+
+dl.meta dt {
+  color: var(--color-text-muted);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 2px;
+}
+
+dl.meta dd {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 14px;
+}
+
+.bar {
+  height: 10px;
+  background: #e4e4e7;
+  border-radius: 2px;
+  overflow: hidden;
+  min-width: 80px;
+  display: block;
+}
+
+.bar > i {
+  display: block;
+  height: 100%;
+  background: #4a5c73;
+}
+
+tfoot td {
+  font-weight: 700;
+  border-top: 2px solid var(--color-chrome);
+  border-bottom: none;
+  background: #fafafa;
+}
+
+.notice {
+  background: #eef1f5;
+  border: 1px solid #b8c4d4;
+  color: #2c3e52;
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+
+.btn-link {
+  display: inline-block;
+  font: inherit;
+  font-size: 14px;
+  padding: 8px 16px;
+  border: 1px solid var(--color-chrome);
+  background: var(--color-chrome);
+  color: #fff;
+  border-radius: 3px;
+  text-decoration: none;
+}
+
+.btn-link:hover {
+  opacity: 0.9;
+}
+
+/* ---- Advisor UI (E9-S4) ---- */
+.band-pill {
+  display: inline-block;
+  font-size: 11px;
+  border: 1px solid #b9b9c0;
+  border-radius: 10px;
+  padding: 1px 8px;
+  background: var(--color-bg);
+  color: #3d3d47;
+  font-family: var(--font-mono);
+}
+
+.cols {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.cols > section {
+  flex: 1 1 320px;
+}
+
+.field select,
+.field textarea {
+  font: inherit;
+  font-size: 14px;
+  padding: 9px 10px;
+  min-height: 40px;
+  border: 1px solid #b9b9c0;
+  border-radius: 3px;
+  background: var(--color-surface);
+  width: 100%;
+}
+
+.field textarea {
+  min-height: 74px;
+  resize: vertical;
+}
+
+.field select[aria-invalid='true'],
+.field textarea[aria-invalid='true'] {
+  border-color: var(--color-error-border);
+  background: var(--color-error-bg);
+}
+
+/* Modal (E9-S4 AC5) */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(27, 27, 31, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 20;
+}
+
+.modal {
+  background: var(--color-surface);
+  border: 1px solid #b9b9c0;
+  border-radius: var(--radius);
+  max-width: 580px;
+  width: 100%;
+  padding: 20px;
+  max-height: 90vh;
+  overflow: auto;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 17px;
+}
+
+.modal-header button {
+  min-height: auto;
+  padding: 2px 8px;
+  background: transparent;
+  color: var(--color-text);
+  border: none;
+  font-size: 18px;
+}

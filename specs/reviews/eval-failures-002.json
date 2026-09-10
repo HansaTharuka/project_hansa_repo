@@ -1,0 +1,76 @@
+[
+  {
+    "check_id": "infra-f-01",
+    "category": "infrastructure_fail",
+    "error_type": "connection_refused",
+    "error_type_detail": "backend_500_on_all_business_routes",
+    "expected": "With the running backend at http://localhost:8000 healthy (GET /health -> 200), every business-logic endpoint (POST /api/auth/login, GET /api/goals, etc.) should respond normally so live api_checks/playwright_checks can execute.",
+    "actual": "GET /health returns 200 {\"status\":\"ok\",\"database\":\"connected\"} consistently, but POST /api/auth/login (with valid seeded credentials, e.g. alice.reyes@wealthwise.test) and GET /api/goals (both with no Authorization header and with a garbage Bearer token) all return 500 {\"error\":{\"code\":\"INTERNAL_ERROR\",\"message\":\"An unexpected error occurred.\"}}, reproduced consistently across multiple retries over several minutes. A live CORS OPTIONS preflight against the same login path succeeded earlier in this same session (access-control-allow-origin present), so this is not the previously-reported CORS defect recurring - it is a new, distinct failure that appeared partway through this evaluation window.",
+    "stack_trace": "No direct server stdout/stderr was available to this evaluator (verification.mode=local; .claude/state/process-backend.log exists but its only content is 8 lines from an apparently stale/earlier run - timestamps in it do not align with this session's live requests, and it shows GET /health returning 503, which contradicts the currently-live 200 - so it was not used as evidence). Root cause inferred from code reading only: backend/src/app/dependencies.py:39-46 get_settings() deliberately constructs a fresh, UNCACHED Settings() on every request (\"Deliberately not cached\" per its own docstring); backend/src/core/config.py's Settings model_validator raises MissingEnvironmentVariableError if DATABASE_URL or JWT_SECRET is absent from the process's current environment. In contrast, backend/src/db/session.py:27-32 get_session_factory() calls Settings() (via db/engine.py:40-43 get_engine()) only ONCE per process and caches the result in a module-global - which is exactly why GET /health (health.py, which reuses that same cached factory) keeps succeeding while every route that depends on require_role()/get_settings() (i.e. every authenticated route in the app) now fails. This pattern is consistent with the live uvicorn --reload worker process having been restarted (e.g. by the reload watcher picking up the CORS/sum_bps source edits) without DATABASE_URL/JWT_SECRET still present in its environment - they were passed as real shell env vars per team instruction, not via backend/.env (which must not exist on disk), so a respawned worker missing them would only surface on the next uncached Settings() call, exactly as observed.",
+    "files_likely_involved": [
+      "backend/src/app/dependencies.py:39-46",
+      "backend/src/db/session.py:27-32",
+      "backend/src/db/engine.py:40-43",
+      "backend/src/core/config.py:81-89"
+    ],
+    "prior_attempts": [],
+    "story": "infrastructure (blocks E3-S4, E4-S3, E7-S4, E8-S3, E9-S2, E10-S3 live verification)"
+  },
+  {
+    "check_id": "pw-f-01",
+    "category": "playwright_fail",
+    "error_type": "server_error",
+    "expected": "Logging in as the seeded compliance user (compliance.priya.chandra@wealthwise.test) navigates to /compliance/audit-log and renders a table with actor/entity_type/action/timestamp columns.",
+    "actual": "Could not be executed with a real browser this pass (no Playwright/browser-automation tool is available in this evaluator session's toolset). Even a plain curl reproduction of the login the SPA would perform now returns 500 INTERNAL_ERROR (not a CORS error) - see infra-f-01. The prior CORS-blocking root cause is confirmed fixed; this check remains blocked by the new infra-f-01 defect.",
+    "stack_trace": "See infra-f-01.",
+    "files_likely_involved": [
+      "backend/src/app/dependencies.py"
+    ],
+    "prior_attempts": [
+      {
+        "date": "2026-09-07 (prior pass)",
+        "root_cause": "missing_cors_middleware",
+        "status": "fixed_and_verified"
+      }
+    ],
+    "story": "E3-S4"
+  },
+  {
+    "check_id": "pw-f-06",
+    "category": "playwright_fail",
+    "error_type": "server_error",
+    "expected": "The customer holdings view lists each held asset class with current_value, current_percent, target_percent, drift_percent.",
+    "actual": "Blocked upstream by infra-f-01 - customer login (alice.reyes@wealthwise.test) returns 500 via curl reproduction; could not be driven through a real browser this pass (no browser-automation tool available).",
+    "stack_trace": "See infra-f-01.",
+    "files_likely_involved": [
+      "backend/src/app/dependencies.py"
+    ],
+    "prior_attempts": [
+      {
+        "date": "2026-09-07 (prior pass)",
+        "root_cause": "missing_cors_middleware",
+        "status": "fixed_and_verified"
+      }
+    ],
+    "story": "E6-S5"
+  },
+  {
+    "check_id": "pw-f-02..pw-f-05,pw-f-07..pw-f-10",
+    "category": "playwright_fail",
+    "error_type": "server_error",
+    "expected": "See sprint-contracts/F.json playwright_checks for each individual check's assertion.",
+    "actual": "All remain unverifiable this pass for the same shared reason as pw-f-01/pw-f-06: no real login is currently possible against the live backend (500 INTERNAL_ERROR, infra-f-01), and no browser-automation tool was available to this evaluator session to attempt a live browser session regardless.",
+    "stack_trace": "See infra-f-01.",
+    "files_likely_involved": [
+      "backend/src/app/dependencies.py"
+    ],
+    "prior_attempts": [
+      {
+        "date": "2026-09-07 (prior pass)",
+        "root_cause": "missing_cors_middleware",
+        "status": "fixed_and_verified"
+      }
+    ],
+    "story": "E3-S4 / E6-S5"
+  }
+]

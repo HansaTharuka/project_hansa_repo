@@ -1,0 +1,503 @@
+{
+  "group": "H",
+  "stories": [
+    "E5-S4",
+    "E9-S4"
+  ],
+  "features": [
+    "F092",
+    "F093",
+    "F094",
+    "F095",
+    "F096",
+    "F183",
+    "F184",
+    "F185",
+    "F186",
+    "F187"
+  ],
+  "runtime_expectations": {
+    "verification_mode": "live",
+    "app_expected_running": true,
+    "health_check_required": true,
+    "reason": "Both of this group's stories are UI-layer (E5-S4, E9-S4) and consume 5 endpoints already implemented and live-verified in Group G's contract (GET /api/recommendation; GET /api/advisor/customers; GET /api/advisor/customers/{id}; POST .../override; POST .../manual-recommendation — see backend/src/app/routers/recommendation.py and backend/src/app/routers/advisor.py, both confirmed present and unchanged as of this contract's authoring). Per project-manifest.json's `verification.mode: local`, the backend runs via `cd backend && uv run uvicorn src.app.main:app --host 0.0.0.0 --port 8000` — no `--reload`, matching the fix for the env-var/process-lifecycle issue Group F hit (claude-progress.txt's Group G handoff note) and which Group G's own live evaluation carried forward and re-confirmed (evaluator-report.md: \"api_checks were run as real HTTP calls against the live backend (`http://localhost:8000`, uvicorn, no `--reload`)\") — with `DATABASE_URL` and `JWT_SECRET` exported as real environment variables, not a `backend/.env` file (`backend/tests/unit/test_config.py::TestGitignore` asserts no such file exists on disk). The frontend runs via `cd frontend && npm run dev -- --port 5173` against that same live backend. Demo accounts share password `WealthWise-Demo-Synthetic-2026!` (see `backend/seed/demo_accounts.json` for emails/roles); the evaluator authenticates a `customer`-role account for E5-S4 checks and an `advisor`-role account for E9-S4 checks via the real login UI (`/login`), not a minted JWT injected into localStorage, so that role-based NavBar/routing is exercised honestly. The evaluator MUST start both processes and pass the `/health` probe before running playwright_checks. This group has no api_checks (see note 2) — unit_test_checks (vitest) remain a separate, additional signal and do not substitute for the live playwright_checks."
+  },
+  "api_checks": [],
+  "playwright_checks": [
+    {
+      "id": "pw-h-01",
+      "description": "E5-S4 AC1. The allocation view renders each asset class with its recommended percentage, and the displayed percentages sum to 100 as shown on screen.",
+      "url": "/customer/allocation",
+      "steps": [
+        {
+          "action": "wait_for",
+          "assertion": "GET /api/recommendation resolves 200 and the allocation list renders, for a customer fixture with an active RiskBandAssignment"
+        },
+        {
+          "action": "snapshot",
+          "assertion": "One row is rendered per entry in the response's `allocations` array, each showing its asset_class_name/code and `percent`"
+        },
+        {
+          "action": "assert_visible",
+          "selector": "[data-testid=allocation-total]",
+          "assertion": "A displayed running/grand total is visible and reads exactly '100.00', computed by summing the rendered percentages, not merely echoing the API's `total_percent` field verbatim"
+        }
+      ]
+    },
+    {
+      "id": "pw-h-02",
+      "description": "E5-S4 AC2. If the customer has no risk-band assignment, the view prompts them to complete the risk-profile questionnaire instead of showing an empty/broken chart.",
+      "url": "/customer/allocation",
+      "steps": [
+        {
+          "action": "wait_for",
+          "assertion": "GET /api/recommendation resolves 404 NO_RISK_BAND_ASSIGNMENT, for a customer fixture with no RiskBandAssignment"
+        },
+        {
+          "action": "assert_visible",
+          "selector": "[data-testid=no-risk-band-prompt]",
+          "assertion": "A prompt is visible directing the customer to complete the risk-profile questionnaire; no empty table, zeroed chart, or unhandled-error state is rendered"
+        },
+        {
+          "action": "click",
+          "selector": "[data-testid=no-risk-band-prompt] a, [data-testid=no-risk-band-prompt] button"
+        },
+        {
+          "action": "wait_for",
+          "assertion": "the app navigates to /customer/questionnaire"
+        }
+      ]
+    },
+    {
+      "id": "pw-h-03",
+      "description": "E5-S4 AC3. The view is reachable via a persistent navigation link from the customer dashboard.",
+      "url": "/customer/dashboard",
+      "steps": [
+        {
+          "action": "snapshot",
+          "assertion": "A link to /customer/allocation is visible in the persistent NavBar (rendered on every customer-role page via Layout, per the pattern established for Holdings/Goals/Rebalancing in prior groups), not only as a one-off Dashboard quick-link"
+        },
+        {
+          "action": "click",
+          "selector": "nav[aria-label=Primary] a[href='/customer/allocation']"
+        },
+        {
+          "action": "wait_for",
+          "assertion": "the app navigates to /customer/allocation and the allocation view renders"
+        }
+      ]
+    },
+    {
+      "id": "pw-h-04",
+      "description": "E5-S4 AC4. Percentage values are rendered with a consistent, fixed number of decimal places, with no floating-point rounding artifacts.",
+      "url": "/customer/allocation",
+      "steps": [
+        {
+          "action": "wait_for",
+          "assertion": "the allocation list renders for a template whose lines do not divide evenly (e.g. three asset classes at 33.34/33.33/33.33)"
+        },
+        {
+          "action": "snapshot",
+          "assertion": "Every rendered percentage string matches ^\\d+\\.\\d{2}$ (exactly two decimal places); none renders a raw JS float artifact such as '33.330000000000005' or a value with a differing decimal count from its siblings"
+        }
+      ]
+    },
+    {
+      "id": "pw-h-05",
+      "description": "E5-S4 AC5. The view refetches and re-renders if the customer's risk band changes (e.g., after an advisor override) without requiring a full page reload.",
+      "url": "/customer/allocation",
+      "steps": [
+        {
+          "action": "wait_for",
+          "assertion": "the allocation view renders the customer's current risk_band/allocations for a customer fixture with an active RiskBandAssignment"
+        },
+        {
+          "action": "tabs",
+          "assertion": "open a second tab, log in as an advisor, drill into the same customer, and submit a valid override to a different risk band (exercises E9-S4 AC4 as the trigger)"
+        },
+        {
+          "action": "wait_for",
+          "assertion": "back in the first tab, without any manual reload/navigation, a refetch (e.g. on window focus/visibility-change, a poll interval, or an app-level event) is observed and GET /api/recommendation is re-issued"
+        },
+        {
+          "action": "snapshot",
+          "assertion": "The allocation view now shows the overridden risk band's allocations, and no full-page navigation/reload event fired during the update"
+        }
+      ]
+    },
+    {
+      "id": "pw-h-06",
+      "description": "E9-S4 AC1. The advisor customer list screen displays every customer with their current risk band and links to a drill-in view.",
+      "url": "/advisor/customers",
+      "steps": [
+        {
+          "action": "wait_for",
+          "assertion": "GET /api/advisor/customers resolves 200 and the customer list renders"
+        },
+        {
+          "action": "snapshot",
+          "assertion": "The number of rendered rows equals the number of items in the response; every row shows its risk_band (or an explicit 'not assessed' treatment when null) and a link/control into that customer's drill-in view"
+        },
+        {
+          "action": "click",
+          "selector": "[data-testid=customer-drill-in-link]"
+        },
+        {
+          "action": "wait_for",
+          "assertion": "the app navigates to that customer's drill-in route (e.g. /advisor/customers/{id}) and GET /api/advisor/customers/{id} resolves 200"
+        }
+      ]
+    },
+    {
+      "id": "pw-h-07",
+      "description": "E9-S4 AC2. The drill-in view shows the customer's holdings, goals, and current allocation on a single screen.",
+      "url": "/advisor/customers/3",
+      "steps": [
+        {
+          "action": "wait_for",
+          "assertion": "GET /api/advisor/customers/3 resolves 200 for a customer fixture with holdings, goals, and an active allocation"
+        },
+        {
+          "action": "snapshot",
+          "assertion": "Holdings, goals, and current allocation sections are all visible in the same rendered page without any additional navigation/route change or tab-click to a different URL"
+        }
+      ]
+    },
+    {
+      "id": "pw-h-08",
+      "description": "E9-S4 AC3. Submitting the override form without entering a reason shows an inline validation error and does not call the override API.",
+      "url": "/advisor/customers/3",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#new_band",
+          "value": "CONSERVATIVE"
+        },
+        {
+          "action": "click",
+          "selector": "[data-testid=override-submit]"
+        },
+        {
+          "action": "assert_network_request",
+          "assertion": "no POST /api/advisor/customers/3/override request is issued"
+        },
+        {
+          "action": "snapshot",
+          "assertion": "An inline validation error is visible next to the reason field (e.g. #reason), and the risk band shown on the drill-in view is unchanged"
+        }
+      ]
+    },
+    {
+      "id": "pw-h-09",
+      "description": "E9-S4 AC4. Submitting a valid override updates the displayed risk band on the drill-in view without a full page reload.",
+      "url": "/advisor/customers/3",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#new_band",
+          "value": "CONSERVATIVE"
+        },
+        {
+          "action": "fill",
+          "selector": "#reason",
+          "value": "Client reported imminent liquidity need"
+        },
+        {
+          "action": "click",
+          "selector": "[data-testid=override-submit]"
+        },
+        {
+          "action": "wait_for",
+          "assertion": "POST /api/advisor/customers/3/override resolves 201"
+        },
+        {
+          "action": "snapshot",
+          "assertion": "The drill-in view's displayed risk band is now CONSERVATIVE, updated via state (no navigation/full-page reload event fired), and the override_history list includes the new entry"
+        }
+      ]
+    },
+    {
+      "id": "pw-h-10",
+      "description": "E9-S4 AC5. The manual-recommendation log control is a modal/panel launched from the drill-in view, not a separate route/screen.",
+      "url": "/advisor/customers/3",
+      "steps": [
+        {
+          "action": "snapshot",
+          "assertion": "The URL is /advisor/customers/3 before opening the control"
+        },
+        {
+          "action": "click",
+          "selector": "[data-testid=manual-rec-open]"
+        },
+        {
+          "action": "snapshot",
+          "assertion": "A modal/panel (role=dialog or equivalent) is visible layered over the drill-in view, and the URL is still /advisor/customers/3 — no route change occurred"
+        },
+        {
+          "action": "fill",
+          "selector": "[data-testid=manual-rec-note]",
+          "value": "Recommended increasing cash weighting ahead of the client's Q4 liquidity need."
+        },
+        {
+          "action": "click",
+          "selector": "[data-testid=manual-rec-submit]"
+        },
+        {
+          "action": "wait_for",
+          "assertion": "POST /api/advisor/customers/3/manual-recommendation resolves 201"
+        },
+        {
+          "action": "snapshot",
+          "assertion": "The modal closes and the underlying drill-in view remains at /advisor/customers/3 with no new route ever having been entered"
+        }
+      ]
+    }
+  ],
+  "design_checks": {
+    "visual_hierarchy": {
+      "required": true,
+      "min_score": 6
+    },
+    "accessibility": {
+      "required": true,
+      "min_score": 6
+    },
+    "responsiveness": {
+      "required": true,
+      "min_score": 6
+    },
+    "interaction_feedback": {
+      "required": true,
+      "min_score": 7
+    },
+    "viewports": [
+      1280,
+      375
+    ],
+    "mockup_reference": [
+      "specs/design/mockups/E5-S4.html",
+      "specs/design/mockups/E9-S4.html"
+    ],
+    "pages": [
+      "/customer/allocation",
+      "/advisor/customers",
+      "/advisor/customers/3"
+    ],
+    "notes": "Two UI surfaces this group, scored against their own mockups (E5-S4.html, E9-S4.html) per design intent, not literal markup reuse — same convention as Group G. accessibility is kept at the standard bar (6) rather than raised, because unlike Group G's stories, neither E5-S4 nor E9-S4 carries an explicit labeling/keyboard-operability acceptance criterion this time — ordinary WCAG hygiene (label/for association, focus-visible, dialog role on the modal) still applies but is not independently AC-gated. interaction_feedback is raised to 7 (not the usual 6) because this group is dense with state-driven behavior that is fundamentally about visible feedback rather than static layout: E5-S4 AC5's live refetch-without-reload, E9-S4 AC3's inline validation, and E9-S4 AC4's in-place risk-band update. The drill-in page is listed at a concrete fixture id (/advisor/customers/3) matching the customer_id used throughout api-contracts.md §11's examples, so the evaluator has a stable, seeded target rather than needing to discover an id first."
+  },
+  "performance_checks": [],
+  "architecture_checks": {
+    "files_must_exist": [
+      "frontend/src/pages/customer/Allocation.tsx",
+      "frontend/src/pages/customer/Allocation.test.tsx",
+      "frontend/src/api/recommendation.ts",
+      "frontend/src/lib/money.ts",
+      "frontend/src/lib/money.test.ts",
+      "frontend/src/router.tsx",
+      "frontend/src/components/NavBar.tsx",
+      "frontend/src/pages/customer/Dashboard.tsx",
+      "frontend/src/pages/advisor/CustomerList.tsx",
+      "frontend/src/pages/advisor/CustomerList.test.tsx",
+      "frontend/src/pages/advisor/CustomerDetail.tsx",
+      "frontend/src/pages/advisor/CustomerDetail.test.tsx",
+      "frontend/src/pages/advisor/OverrideForm.tsx",
+      "frontend/src/pages/advisor/OverrideForm.test.tsx",
+      "frontend/src/pages/advisor/ManualRecommendationModal.tsx",
+      "frontend/src/pages/advisor/ManualRecommendationModal.test.tsx",
+      "frontend/src/api/advisor.ts",
+      "frontend/src/components/Modal.tsx"
+    ],
+    "route_registration": {
+      "required": true,
+      "traces": [
+        "E5-S4 AC3",
+        "E9-S4 AC1",
+        "E9-S4 AC5",
+        "component-map.md E5-S4/E9-S4 rows"
+      ],
+      "features": [
+        "F094",
+        "F183",
+        "F187"
+      ],
+      "command": "rg -n \"path=./customer/allocation.\" frontend/src/router.tsx ; rg -n \"path=./advisor/customers/:.*.\" frontend/src/router.tsx ; rg -n \"to=./customer/allocation.\" frontend/src/components/NavBar.tsx ; rg -n \"AdvisorCustomerListStub\" frontend/src/router.tsx",
+      "description": "Explicit, non-optional deliverable flagged by the team-lead per Group G's self-heal history: frontend/src/router.tsx must register both /customer/allocation and a real dynamic /advisor/customers/:customerId drill-in route (replacing the E2-S3-era `AdvisorCustomerListStub` placeholder entirely — the last rg pattern above must return no match once this group lands), and frontend/src/components/NavBar.tsx must link to /customer/allocation from the persistent customer nav. The manual-recommendation modal must NOT register a route of its own (E9-S4 AC5) — router.tsx must show no path containing 'manual-recommendation'."
+    },
+    "frontend_typing": {
+      "required": true,
+      "traces": [
+        "E5-S4 AC1-AC5",
+        "E9-S4 AC1-AC5"
+      ],
+      "features": [
+        "F092",
+        "F183"
+      ],
+      "command": "cd frontend && npm run typecheck",
+      "description": "tsc --noEmit exits 0 with zero `any` per CLAUDE.md's static-typing rule across all new/modified frontend files this group adds (Allocation.tsx, api/recommendation.ts, lib/money.ts, router.tsx, components/NavBar.tsx, pages/advisor/*.tsx, api/advisor.ts, components/Modal.tsx)."
+    },
+    "frontend_lint": {
+      "required": true,
+      "traces": [
+        "E5-S4 AC1-AC5",
+        "E9-S4 AC1-AC5"
+      ],
+      "features": [
+        "F092",
+        "F183"
+      ],
+      "command": "cd frontend && npm run lint",
+      "description": "ESLint clean on all new or modified frontend/src files this group adds."
+    },
+    "money_ts_reuse": {
+      "required": true,
+      "traces": [
+        "E5-S4 AC4",
+        "NFR-01",
+        "component-map.md note 4/8"
+      ],
+      "features": [
+        "F095"
+      ],
+      "command": "rg -n \"parseFloat|toFixed\\(\" frontend/src/pages/customer/Allocation.tsx frontend/src/pages/advisor/CustomerDetail.tsx",
+      "description": "Must return no match. Allocation.tsx and CustomerDetail.tsx format every percent/money value through frontend/src/lib/money.ts's existing basis-point helpers (created by Group H's predecessor per component-map.md note 8's resolved provenance), not ad hoc `parseFloat`/`toFixed` string math — the source of the 'floating-point rounding artifacts' AC-4 explicitly forbids."
+    },
+    "no_backend_changes": {
+      "required": true,
+      "traces": [
+        "component-map.md E5-S4/E9-S4 rows (UI-layer only)",
+        "NFR-05"
+      ],
+      "features": [
+        "F090"
+      ],
+      "command": "git diff --stat <last-group-G-tip-commit>..HEAD -- backend/",
+      "description": "Must produce empty output (or, if the generator finds a genuine backend defect while wiring the UI, any change here is itself a contract deviation to flag, not a silent fix). Both of this group's stories are UI-layer per their story-file headers and consume 5 endpoints already implemented and merged in Group G; this group should touch frontend/ and specs/ only."
+    },
+    "no_float": {
+      "required": true,
+      "traces": [
+        "NFR-01",
+        "data-models.md §2 rule 2"
+      ],
+      "features": [
+        "F095"
+      ],
+      "command": "cd backend && uv run pytest tests/architecture/test_no_float_in_domain.py",
+      "description": "Extended scan continues to pass unchanged — this group adds no backend/domain modules; included for regression parity with every prior group's contract."
+    },
+    "env_vars": {
+      "required": true,
+      "traces": [
+        "Synthetic-Data rule (CLAUDE.md)"
+      ],
+      "features": [
+        "F090"
+      ],
+      "command": "cd frontend && npx detect-secrets scan src",
+      "description": "No new, unallowlisted finding across frontend/src. Backend is out of scope for this group's scan since no backend/ files are expected to change (see no_backend_changes)."
+    }
+  },
+  "unit_test_checks": [
+    {
+      "id": "ut-228",
+      "traces": "E5-S4 AC1",
+      "features": [
+        "F092"
+      ],
+      "test_file": "frontend/src/pages/customer/Allocation.test.tsx",
+      "assertion": "Rendering Allocation.tsx with a mocked GET /api/recommendation response shows one row per allocation line, and a computed total of '100.00'."
+    },
+    {
+      "id": "ut-229",
+      "traces": "E5-S4 AC2",
+      "features": [
+        "F093"
+      ],
+      "test_file": "frontend/src/pages/customer/Allocation.test.tsx",
+      "assertion": "With a mocked 404 NO_RISK_BAND_ASSIGNMENT response, Allocation.tsx renders a prompt linking to the questionnaire route instead of an empty/broken table."
+    },
+    {
+      "id": "ut-230",
+      "traces": "E5-S4 AC3",
+      "features": [
+        "F094"
+      ],
+      "test_file": "frontend/src/components/NavBar.test.tsx",
+      "assertion": "NavBar renders a link to /customer/allocation for a customer-role user."
+    },
+    {
+      "id": "ut-231",
+      "traces": "E5-S4 AC4",
+      "features": [
+        "F095"
+      ],
+      "test_file": "frontend/src/pages/customer/Allocation.test.tsx",
+      "assertion": "A mocked response with a non-evenly-divisible allocation set (e.g. thirds) renders every percentage with exactly two decimal places via lib/money.ts, with no raw floating-point string in the DOM."
+    },
+    {
+      "id": "ut-232",
+      "traces": "E5-S4 AC5",
+      "features": [
+        "F096"
+      ],
+      "test_file": "frontend/src/pages/customer/Allocation.test.tsx",
+      "assertion": "Simulating the app's refetch trigger (e.g. a window focus/visibility event or poll tick) with a second mocked GET /api/recommendation response showing a different risk_band updates the rendered allocations via state, without unmounting/remounting the page component."
+    },
+    {
+      "id": "ut-233",
+      "traces": "E9-S4 AC1",
+      "features": [
+        "F183"
+      ],
+      "test_file": "frontend/src/pages/advisor/CustomerList.test.tsx",
+      "assertion": "Rendering CustomerList.tsx with a mocked GET /api/advisor/customers response shows every customer's risk_band and a link/control to its drill-in route."
+    },
+    {
+      "id": "ut-234",
+      "traces": "E9-S4 AC2",
+      "features": [
+        "F184"
+      ],
+      "test_file": "frontend/src/pages/advisor/CustomerDetail.test.tsx",
+      "assertion": "Rendering CustomerDetail.tsx with a mocked GET /api/advisor/customers/{id} response renders holdings, goals, and allocation sections all within the same component tree."
+    },
+    {
+      "id": "ut-235",
+      "traces": "E9-S4 AC3",
+      "features": [
+        "F185"
+      ],
+      "test_file": "frontend/src/pages/advisor/OverrideForm.test.tsx",
+      "assertion": "Submitting OverrideForm.tsx with reason left blank shows an inline validation error on the reason field and does not call the mocked override API."
+    },
+    {
+      "id": "ut-236",
+      "traces": "E9-S4 AC4",
+      "features": [
+        "F186"
+      ],
+      "test_file": "frontend/src/pages/advisor/CustomerDetail.test.tsx",
+      "assertion": "Submitting OverrideForm with a mocked 201 response updates CustomerDetail's displayed risk_band via state, without a route navigation/full-page reload."
+    },
+    {
+      "id": "ut-237",
+      "traces": "E9-S4 AC5",
+      "features": [
+        "F187"
+      ],
+      "test_file": "frontend/src/pages/advisor/ManualRecommendationModal.test.tsx",
+      "assertion": "ManualRecommendationModal.tsx renders as a dialog opened from CustomerDetail.tsx's own tree (not via a router Route), and CustomerDetail.test.tsx confirms no navigation call fires when it opens or closes."
+    }
+  ],
+  "notes": [
+    "1. No feature-coverage gap found: all 10 features (F092-F096, F183-F187) already exist in features.json for this group's 2 stories, one per acceptance criterion. This contract's `features` list references them as-is; no new feature IDs were invented.",
+    "2. api_checks is intentionally empty. Both endpoint families this group's UI consumes (GET /api/recommendation; GET/POST /api/advisor/*) were already implemented in Group G and are already verified at the HTTP layer by Group G's api-g-01..api-g-10 (confirmed live in this reading of backend/src/app/routers/recommendation.py and backend/src/app/routers/advisor.py — both routers exist, call their domain services exclusively, and implement all 5 paths this group needs). Re-running the same HTTP-layer assertions here would duplicate signal without adding coverage; this group's playwright_checks instead verify the UI-layer behaviors specific to E5-S4/E9-S4 (rendering, validation, refetch-without-reload, modal-not-route) that Group G's contract explicitly deferred to this group (see sprint-contracts/G.json note 7).",
+    "3. Route-registration and nav-wiring are called out as their own architecture_check (`route_registration`), not left implicit, directly per the team-lead's instruction to avoid repeating Group G's 2-pass self-heal on this exact failure mode. It also asserts the E2-S3-era `AdvisorCustomerListStub` placeholder in router.tsx is fully replaced, since that stub is the concrete artifact this group must remove.",
+    "4. Judgment call on E5-S4 AC3 ('persistent navigation link from the customer dashboard'): read as 'reachable via the persistent NavBar that appears on every customer-role page (which is itself rendered starting from the dashboard/login redirect)', consistent with how E6-S5/E7-S5/E8-S4 each added their link to NavBar.tsx rather than only to Dashboard.tsx's one-off quick-links list (component-map.md rows for those stories all modify NavBar.tsx, not Dashboard.tsx). pw-h-03 and ut-230 test the NavBar link specifically; Dashboard.tsx is left off files_must_exist as a required edit target since AC3 does not require a Dashboard-page change, only a reachable persistent link — if the generator also updates Dashboard.tsx's quick-links for consistency with existing links there, that's a reasonable extension but not separately scored.",
+    "5. Judgment call on E5-S4 AC5's refetch trigger mechanism: the story does not mandate a specific mechanism (polling vs. window-focus vs. an app-level event bus), only the observable outcome ('refetches and re-renders ... without requiring a full page reload'). pw-h-05 tests the outcome via a two-tab scenario (real advisor override in tab 2, observed update in tab 1) rather than prescribing an implementation; ut-232 tests the same outcome at the unit level by simulating whatever trigger the generator chooses. If the generator's chosen mechanism has no observable trigger a Playwright test can drive within a reasonable wait (e.g., a very long poll interval with no focus-based fallback), that is a design choice worth flagging to the evaluator as a UX gap even if the AC is technically satisfied by a page-refresh-free background poll.",
+    "6. money.ts provenance: per sprint-contracts/G.json note 8, frontend/src/lib/money.ts was already created by Group G's E10-S4 (confirmed present on disk as frontend/src/lib/money.ts and money.test.ts). E5-S4's component-map.md row listing money.ts under 'Creates' is the same pre-existing spec/component-map inconsistency Group G already flagged for upstream correction — this contract treats it as 'Modifies/reuses' for E5-S4, consistent with Group G's resolution, and money_ts_reuse enforces that Allocation.tsx/CustomerDetail.tsx actually go through the shared helper rather than reintroducing ad hoc formatting.",
+    "7. Design-checks scope: only the two screens with a direct AC (Allocation view; advisor customer list + drill-in) are listed under `pages`. The override form and manual-recommendation modal are sub-components of the drill-in page, not separate routes (E9-S4 AC5 explicitly forbids the latter being a route), so they are exercised via playwright_checks/unit_test_checks interaction rather than as independent design_checks page entries.",
+    "8. No performance_checks: neither story introduces a new endpoint or a latency-sensitive interaction beyond what Group G's api_checks already cover; consistent with Group G's own empty performance_checks array."
+  ]
+}
