@@ -57,7 +57,7 @@ router = APIRouter(prefix="/api/advisor", tags=["advisor"])
 @router.get("/customers", status_code=200)
 def get_customers(
     user: CurrentUser = Depends(require_role("advisor")),
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_session, scope="function"),
 ) -> list[AdvisorCustomerSummaryResponse]:
     """Every customer with their current risk band (AC1)."""
     del user
@@ -68,7 +68,7 @@ def get_customers(
 def get_customer_drill_in(
     customer_id: int,
     user: CurrentUser = Depends(require_role("advisor")),
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_session, scope="function"),
     settings: Settings = Depends(get_settings),
 ) -> AdvisorCustomerDetailResponse:
     """Full portfolio detail for one customer in a single call (AC2). An
@@ -87,7 +87,7 @@ def post_override(
     customer_id: int,
     body: AdvisorOverrideRequest,
     user: CurrentUser = Depends(require_role("advisor")),
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_session, scope="function"),
 ) -> AdvisorOverrideResponse:
     """Override `customer_id`'s risk band with a mandatory reason (AC3). A
     missing/blank `reason` raises `ValidationError` (`REASON_REQUIRED`)
@@ -111,7 +111,7 @@ def post_manual_recommendation(
     customer_id: int,
     body: ManualRecommendationRequest,
     user: CurrentUser = Depends(require_role("advisor")),
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_session, scope="function"),
 ) -> ManualRecommendationResponse:
     """Log a manual recommendation as an audit-only event (AC4) — no new
     table is written, only one `AuditLogEntry`.

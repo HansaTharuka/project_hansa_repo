@@ -3,7 +3,7 @@
  * links by every later UI story (component-map.md) — E6-S5 adds the
  * customer's persistent "Holdings" link (AC5), rendered on every
  * customer-role page since `NavBar` lives inside `Layout`, wrapping every
- * protected route.
+ * protected route. E5-S4 adds the persistent "Allocation" link (AC3).
  */
 import { Link } from 'react-router-dom';
 
@@ -20,6 +20,7 @@ export function NavBar() {
           {user.role === 'customer' && (
             <>
               <Link to="/customer/holdings">Holdings</Link>
+              <Link to="/customer/allocation">Allocation</Link>
               <Link to="/customer/goals">Goals</Link>
               <Link to="/customer/rebalancing">Rebalancing</Link>
             </>

@@ -16,6 +16,9 @@ import { AssetClasses } from './pages/admin/AssetClasses';
 import { RuleEditor } from './pages/admin/RuleEditor';
 import { TemplateEditor } from './pages/admin/TemplateEditor';
 import { ThresholdEditor } from './pages/admin/ThresholdEditor';
+import { CustomerDetail } from './pages/advisor/CustomerDetail';
+import { CustomerList } from './pages/advisor/CustomerList';
+import { Allocation } from './pages/customer/Allocation';
 import { Dashboard } from './pages/customer/Dashboard';
 import { Goals } from './pages/customer/Goals';
 import { Holdings } from './pages/customer/Holdings';
@@ -29,10 +32,6 @@ function RootRedirect() {
     return <p>Loading…</p>;
   }
   return <Navigate to={user === null ? '/login' : roleRedirect(user.role)} replace />;
-}
-
-function AdvisorCustomerListStub() {
-  return <p>Advisor customer list — built by a later story.</p>;
 }
 
 export function AppRouter() {
@@ -101,11 +100,31 @@ export function AppRouter() {
         }
       />
       <Route
+        path="/customer/allocation"
+        element={
+          <ProtectedRoute allowedRoles={['customer']}>
+            <Layout>
+              <Allocation />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/advisor/customers"
         element={
           <ProtectedRoute allowedRoles={['advisor']}>
             <Layout>
-              <AdvisorCustomerListStub />
+              <CustomerList />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/advisor/customers/:customerId"
+        element={
+          <ProtectedRoute allowedRoles={['advisor']}>
+            <Layout>
+              <CustomerDetail />
             </Layout>
           </ProtectedRoute>
         }

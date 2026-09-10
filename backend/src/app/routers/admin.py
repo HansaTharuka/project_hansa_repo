@@ -122,7 +122,7 @@ class AssetClassResponse(BaseModel):
 @router.post("/advance-day", status_code=200)
 def post_advance_day(
     user: CurrentUser = Depends(require_role("admin")),
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_session, scope="function"),
 ) -> AdvanceDayResponse:
     """Advance the simulated price feed by exactly one day (AC2, AC3).
 
@@ -144,7 +144,7 @@ def post_advance_day(
 def post_risk_band_rule(
     body: RiskBandRulePublishRequest,
     user: CurrentUser = Depends(require_role("admin")),
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_session, scope="function"),
 ) -> RiskBandRulePublishResponse:
     """Publish the next `RiskBandRule` version (E10-S3 AC1). Fewer than 6
     questions raises `ValidationError` (`QUESTIONNAIRE_TOO_SHORT`, 422)."""
@@ -163,7 +163,7 @@ def post_risk_band_rule(
 @router.get("/risk-band-rules", status_code=200)
 def get_risk_band_rules(
     user: CurrentUser = Depends(require_role("admin")),
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_session, scope="function"),
 ) -> list[RiskBandRuleListEntryResponse]:
     """Every version — active and superseded — ordered by `version` ascending
     (api-contracts.md §12.2)."""
@@ -176,7 +176,7 @@ def get_risk_band_rules(
 def post_allocation_template(
     body: AllocationTemplatePublishRequest,
     user: CurrentUser = Depends(require_role("admin")),
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_session, scope="function"),
 ) -> AllocationTemplatePublishResponse:
     """Publish the next `AllocationTemplate` version for `body.risk_band`
     (E10-S3 AC2). Percentages not summing to exactly 100 raise
@@ -212,7 +212,7 @@ def post_allocation_template(
 def get_allocation_templates(
     risk_band: str | None = Query(default=None),
     user: CurrentUser = Depends(require_role("admin")),
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_session, scope="function"),
 ) -> list[AllocationTemplateListEntryResponse]:
     """Every version — active and superseded — optionally scoped to one
     `risk_band` (E10-S3 AC5)."""
@@ -224,7 +224,7 @@ def get_allocation_templates(
 def post_asset_class(
     body: AssetClassCreateRequest,
     user: CurrentUser = Depends(require_role("admin")),
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_session, scope="function"),
 ) -> AssetClassResponse:
     """Create one `AssetClass` (E10-S3 AC3). A duplicate `code` raises
     `ConflictError` (`DUPLICATE_ASSET_CLASS_CODE`, 409)."""
@@ -237,7 +237,7 @@ def post_asset_class(
 @router.get("/asset-classes", status_code=200)
 def get_asset_classes(
     user: CurrentUser = Depends(require_role("admin")),
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_session, scope="function"),
 ) -> list[AssetClassResponse]:
     """Every `AssetClass`, ordered by `code` ascending (api-contracts.md §12.6)."""
     del user

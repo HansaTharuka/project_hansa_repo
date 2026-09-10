@@ -46,7 +46,7 @@ class HoldingsResponse(BaseModel):
 @router.get("", status_code=200)
 def get_holdings(
     user: CurrentUser = Depends(require_role("customer")),
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_session, scope="function"),
     settings: Settings = Depends(get_settings),
 ) -> HoldingsResponse:
     """A customer with zero `Holding` rows gets 200 with an empty list, never

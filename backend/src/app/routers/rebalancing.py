@@ -65,7 +65,7 @@ class ResolveResponse(BaseModel):
 @router.get("", status_code=200)
 def list_recommendations(
     user: CurrentUser = Depends(require_role("customer")),
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_session, scope="function"),
 ) -> list[RecommendationResponse]:
     """The caller's pending recommendations, default (no `status` param) view (AC1)."""
     recommendations = list_customer_pending_recommendations(session, user.customer_id or 0)
@@ -76,7 +76,7 @@ def list_recommendations(
 def accept_recommendation(
     recommendation_id: str,
     user: CurrentUser = Depends(require_role("customer")),
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_session, scope="function"),
 ) -> ResolveResponse:
     """Transition `recommendation_id` to `accepted` (AC2)."""
     recommendation = resolve_customer_recommendation(
@@ -94,7 +94,7 @@ def accept_recommendation(
 def dismiss_recommendation(
     recommendation_id: str,
     user: CurrentUser = Depends(require_role("customer")),
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_session, scope="function"),
 ) -> ResolveResponse:
     """Transition `recommendation_id` to `dismissed` (AC3)."""
     recommendation = resolve_customer_recommendation(

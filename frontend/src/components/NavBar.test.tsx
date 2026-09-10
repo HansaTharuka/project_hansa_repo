@@ -42,6 +42,20 @@ describe('NavBar', () => {
     expect(link).toHaveAttribute('href', '/customer/holdings');
   });
 
+  it('renders a persistent Allocation link for a customer-role user', async () => {
+    window.localStorage.setItem('wealthwise.access_token', 'tok-1');
+    vi.spyOn(authApi, 'getCurrentUser').mockResolvedValue({
+      user_id: 3,
+      email: 'customer03@wealthwise.test',
+      role: 'customer',
+      customer_id: 3,
+    });
+    renderNavBar();
+
+    const link = await screen.findByRole('link', { name: 'Allocation' });
+    expect(link).toHaveAttribute('href', '/customer/allocation');
+  });
+
   it('renders no Holdings link for a non-customer-role user', async () => {
     window.localStorage.setItem('wealthwise.access_token', 'tok-1');
     vi.spyOn(authApi, 'getCurrentUser').mockResolvedValue({

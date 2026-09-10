@@ -1374,8 +1374,8 @@
       "Arrange/execute: The allocation view.",
       "Assert: renders each asset class with its recommended percentage, and the displayed percentages sum to 100 as shown on screen."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-09T08:26:40.012Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -1389,8 +1389,8 @@
       "Arrange/execute: If the customer has no risk-band assignment.",
       "Assert: the view prompts them to complete the risk-profile questionnaire instead of showing an empty/broken chart."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-09T08:26:40.012Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -1404,8 +1404,8 @@
       "Execute the scenario described: The view is reachable via a persistent navigation link from the customer dashboard.",
       "Assert the described outcome is observed."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-09T08:26:40.012Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -1419,8 +1419,8 @@
       "Arrange/execute: Percentage values are rendered with a consistent.",
       "Assert: fixed number of decimal places, with no floating-point rounding artifacts."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-09T08:26:40.012Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -1434,8 +1434,8 @@
       "Arrange/execute: The view refetches and re-renders if the customer's risk band changes (e.g..",
       "Assert: after an advisor override) without requiring a full page reload."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-10T04:56:41.964Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -2739,8 +2739,8 @@
       "Arrange/execute: The advisor customer list screen.",
       "Assert: displays every customer with their current risk band and links to a drill-in view."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-09T08:26:40.012Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -2754,8 +2754,8 @@
       "Arrange/execute: The drill-in view.",
       "Assert: shows the customer's holdings, goals, and current allocation on a single screen."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-09T08:26:40.012Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -2769,8 +2769,8 @@
       "Arrange/execute: Submitting the override form without entering a reason.",
       "Assert: shows an inline validation error and does not call the override API."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-09T08:26:40.012Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -2784,8 +2784,8 @@
       "Arrange/execute: Submitting a valid override.",
       "Assert: updates the displayed risk band on the drill-in view without a full page reload."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-10T04:56:41.964Z",
     "failure_reason": null,
     "failure_layer": null
   },
@@ -2799,8 +2799,8 @@
       "Arrange/execute: The manual-recommendation log control is a modal/panel launched from the drill-in view.",
       "Assert: not a separate route/screen, matching BRD section 5.1's explicit constraint."
     ],
-    "passes": false,
-    "last_evaluated": null,
+    "passes": true,
+    "last_evaluated": "2026-09-09T08:26:40.012Z",
     "failure_reason": null,
     "failure_layer": null
   },

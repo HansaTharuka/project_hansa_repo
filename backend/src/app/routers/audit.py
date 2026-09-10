@@ -55,7 +55,7 @@ def get_audit_entries(
     limit: int = Query(default=DEFAULT_LIMIT, ge=1, le=MAX_LIMIT),
     offset: int = Query(default=0, ge=0),
     user: CurrentUser = Depends(require_role("compliance")),
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_session, scope="function"),
 ) -> AuditPageResponse:
     """Compliance-only paginated read of the audit trail (AC1, AC4)."""
     del user

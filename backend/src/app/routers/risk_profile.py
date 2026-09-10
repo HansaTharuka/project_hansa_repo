@@ -82,7 +82,7 @@ class QuestionnaireResponse(BaseModel):
 def submit(
     body: RiskProfileSubmitRequest,
     user: CurrentUser = Depends(require_role("customer")),
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_session, scope="function"),
 ) -> RiskProfileSubmitResponse:
     """Score `body.answers` against the active questionnaire and persist the
     resulting assignment (AC1). An incomplete or malformed answer set raises
@@ -106,7 +106,7 @@ def submit(
 @router.get("/latest", status_code=200)
 def get_latest(
     user: CurrentUser = Depends(require_role("customer")),
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_session, scope="function"),
 ) -> RiskProfileLatestResponse:
     """The caller's most recent `RiskBandAssignment` (AC4)."""
     assignment = get_latest_risk_band_assignment(session, user.customer_id or 0)
@@ -127,7 +127,7 @@ def get_latest(
 @router.get("/questionnaire", status_code=200)
 def get_questionnaire(
     user: CurrentUser = Depends(require_role("customer")),
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_session, scope="function"),
 ) -> QuestionnaireResponse:
     """The active `RiskBandRule`'s questionnaire, with every option's `points`
     stripped so the client can never reverse-engineer the scoring (api-contracts.md

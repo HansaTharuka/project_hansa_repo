@@ -82,7 +82,7 @@ class GoalProgressResponse(BaseModel):
 def create_goal(
     body: GoalCreateRequest,
     user: CurrentUser = Depends(require_role("customer")),
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_session, scope="function"),
 ) -> GoalResponse:
     """Create one `Goal` for the authenticated customer (AC1). A non-positive
     `target_amount` raises `ValidationError` before any row is written (AC2)."""
@@ -99,7 +99,7 @@ def create_goal(
 @router.get("", status_code=200)
 def list_goals(
     user: CurrentUser = Depends(require_role("customer")),
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_session, scope="function"),
 ) -> list[GoalResponse]:
     """Only the authenticated customer's own goals — there is no query
     parameter capable of widening the scope (AC3)."""
@@ -112,7 +112,7 @@ def update_goal(
     goal_id: int,
     body: GoalUpdateRequest,
     user: CurrentUser = Depends(require_role("customer")),
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_session, scope="function"),
 ) -> GoalResponse:
     """Edit `target_amount`/`target_date`/`priority` in place (AC5), enforcing
     ownership — an unknown or another customer's `goal_id` raises `NotFoundError`."""
@@ -134,7 +134,7 @@ def update_goal(
 def get_progress(
     goal_id: int,
     user: CurrentUser = Depends(require_role("customer")),
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_session, scope="function"),
 ) -> GoalProgressResponse:
     """The ordered snapshot history for one goal, oldest first (AC4)."""
     goal, snapshots = get_goal_progress(

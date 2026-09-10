@@ -48,7 +48,20 @@ def get_settings() -> Settings:
 
 def get_session() -> Generator[Session, None, None]:
     """One `Session` per request: commits on success, rolls back on any
-    exception raised while handling the request (mirrors `db.session_scope`)."""
+    exception raised while handling the request (mirrors `db.session_scope`).
+
+    Every router declares this as `Depends(get_session, scope="function")` —
+    without `scope="function"`, FastAPI tears down yield-dependencies on its
+    outer, request-scoped `AsyncExitStack`, which closes only *after* the
+    response has already been sent to the client (fastapi/routing.py's `app()`
+    awaits `response(scope, receive, send)` before closing `request_astack`,
+    while `function_astack` closes right after the endpoint returns, before
+    that send). That ordering was the root cause of a reproducible read-after-
+    write race (pw-h-05/pw-h-09): a client could receive a mutating endpoint's
+    2xx response and immediately issue a following GET before this dependency's
+    `session.commit()` had actually run. `scope="function"` puts the commit on
+    the inner stack, so it is guaranteed to finish before the response goes out.
+    """
     with session_scope(get_session_factory()) as session:
         yield session
 

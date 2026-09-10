@@ -34,7 +34,7 @@ router = APIRouter(prefix="/api/recommendation", tags=["recommendation"])
 def get_recommendation_endpoint(
     goal_id: int | None = Query(default=None),
     user: CurrentUser = Depends(require_role("customer")),
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_session, scope="function"),
 ) -> RecommendationResponse:
     """The caller's current recommended allocation (AC1). Raises
     `NotFoundError` (`NO_RISK_BAND_ASSIGNMENT`) if the customer has never

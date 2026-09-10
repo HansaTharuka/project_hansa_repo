@@ -649,3 +649,153 @@ No new structured failure file was written for this pass (`specs/reviews/eval-fa
 1. Carried forward: real Playwright tooling (`@playwright/test`, `playwright.config.ts`, committed `e2e/` spec directory) still does not exist in the repo — this pass again used a scratch npx-cached Playwright install (`playwright@1.63.0`) rather than a project devDependency. Recommend formalizing this before the next group, since four consecutive evaluation passes have now hand-rolled equivalent tooling.
 2. Group E still has no evaluator sign-off record in this file (carried forward from Passes 1-3).
 3. `design_checks` for Group G's 7 pages (`visual_hierarchy`, `accessibility`, `responsiveness`, `interaction_feedback`) were still not formally scored as of Pass 3 and remain out of scope for this pass (this pass's assignment was limited to re-verifying pw-g-03/pw-g-20 and their regression set) — recommend scheduling a design-critic pass now that all 7 pages render real content and both interaction-feedback-relevant defects (A and B) are resolved.
+
+## Group H
+
+**Date:** 2026-09-09
+**Stories:** E5-S4 (customer recommended-allocation view), E9-S4 (advisor customer list + drill-in: holdings/goals/allocation, override, manual-recommendation modal)
+**Features:** F092-F096, F183-F187
+**Contract:** `sprint-contracts/H.json`
+
+**Overall Verdict: FAIL** (8/10 playwright_checks pass; 2 fail on a shared, genuine backend defect)
+
+### Runtime
+
+Per the contract's `runtime_expectations` (verification_mode: live), the backend (`http://localhost:8000`, uvicorn, no `--reload`) and frontend (`http://localhost:5173`, Vite dev server) were already running and were not restarted; `/health` confirmed `{"status":"ok","database":"connected"}` before testing. All `api_checks` for this group are intentionally empty (contract note 2 - the 5 endpoints this group's UI consumes were already live-verified in Group G). All 10 `playwright_checks` were run as real browser automation (Chromium 1.63.0, real clicks/fills, no `force`, no TestClient) - same scratch `playwright` npm install pattern as Groups F/G (still no `@playwright/test` devDependency in the repo; carried-forward recommendation below).
+
+### Fixture setup (documented per the "never fabricate, always confirm live" rule)
+
+- **pw-h-04 (uneven-split template):** no existing `AllocationTemplate` had a non-evenly-divisible split. Published a new MODERATE version as admin (`POST /api/admin/allocation-templates`, EQ_DM 33.34 / FI_GOV 33.33 / CASH 33.33 / rest 0.00, resulting `id=24, version=20`) to create the fixture the check requires. This is now MODERATE's active template going forward (append-only/immutable per NFR-05, not reverted - flagged below for the lead's awareness).
+- **pw-h-02 (no-`RiskBandAssignment` fixture):** confirmed via `backend/src/db/seed.py` that every one of the 9 seeded customers gets a `RiskBandAssignment` row at seed time - none lacks one, and there is no API path to remove one. Deleted `heidi.okafor@wealthwise.test`'s (customer_id 3) row directly in `backend/wealthwise.db` (same precedent as Group G's evaluator for the identical gap), ran pw-h-02, then restored the exact original row (`id=3, customer_id=3, risk_band='CONSERVATIVE', rule_version=1, assigned_at='2026-09-04T09:50:04Z'`) afterward.
+- **Customer substitution for pw-h-07/08/09/10:** the contract's illustrative `/advisor/customers/3` does not have holdings/goals/an active allocation live (`heidi.okafor`, customer_id 3, has 0 holdings/0 goals per a live `GET /api/advisor/customers` check) - the contract's own notes anticipated this ("treat the contract's literal '3' as illustrative"). Substituted `customer_id=1` (`alice.reyes@wealthwise.test`, CONSERVATIVE, 4 holdings, 2 goals, an active allocation) for all four drill-in checks.
+- **pw-h-05's two-tab target:** used `bob.nakamura@wealthwise.test` (customer_id 2, CONSERVATIVE, has an active assignment) as the customer overridden by the advisor in tab 2.
+
+None of these are silent - every mutation is called out here and in `specs/reviews/eval-failures-007.json`. Post-testing customer state (informational, not reverted - overrides are audit-only/append-only by design): alice to MODERATE, bob to MODERATE, dave to MODERATE (template only, band unchanged), grace to CONSERVATIVE, ivan to CONSERVATIVE (the latter two toggled once each during an isolated backend-only repro script for the defect below, unrelated to any contracted check).
+
+### playwright_checks (8/10 PASS)
+
+| Check | Result | Evidence |
+|---|---|---|
+| pw-h-01 | **PASS** | Logged in as `alice.reyes`, `/customer/allocation`: `GET /api/recommendation` -> 200; 4 table rows rendered (one per `allocations[]` entry, matching count exactly); `[data-testid=allocation-total]` reads exactly `"100.00"`, computed client-side via `lib/money.ts`'s `sumBps`/`formatBpsAsPercent` over the rendered rows (confirmed by reading `Allocation.tsx`'s `computeTotal` - never echoes `total_percent` verbatim) |
+| pw-h-02 | **PASS** | Logged in as `heidi.okafor` (engineered no-assignment fixture, see above): `GET /api/recommendation` -> 404 `NO_RISK_BAND_ASSIGNMENT`; `[data-testid=no-risk-band-prompt]` visible, no empty table/chart; clicking its link navigated to `/customer/questionnaire` |
+| pw-h-03 | **PASS** | Logged in as `alice.reyes`, `/customer/dashboard`: `nav[aria-label=Primary] a[href='/customer/allocation']` visible; clicking it navigated to `/customer/allocation`, which rendered |
+| pw-h-04 | **PASS** | Logged in as `dave.kowalski` against the engineered 33.34/33.33/33.33/0.00x4 MODERATE template (see above): every rendered percentage cell (and the total) matched `^\d+\.\d{2}$` exactly, including `"33.34"`/`"33.33"`x2 rendered verbatim with no float artifact (e.g. no `"33.330000000000005"`), and the `0.00` lines rendered with the same 2-dp format as the non-zero ones |
+| **pw-h-05** | **FAIL** | See Defect below |
+| pw-h-06 | **PASS** | Logged in as advisor, `/advisor/customers`: `GET /api/advisor/customers` -> 200, 9 rows rendered (matches array length exactly); clicking the first row's `[data-testid=customer-drill-in-link]` (href `/advisor/customers/1`) navigated to the drill-in route and `GET /api/advisor/customers/1` -> 200 |
+| pw-h-07 | **PASS** | `/advisor/customers/1` (alice, substituted fixture, see above): `GET /api/advisor/customers/1` -> 200 with `holdings.holdings.length=4`, `goals.length=2`, `allocation !== null`; "Holdings", "Goals", and "Current allocation" headings all visible in the same rendered page, no additional navigation |
+| pw-h-08 | **PASS** | On `/advisor/customers/1`: selected `new_band=CONSERVATIVE`, left `#reason` blank, clicked `[data-testid=override-submit]` - no `POST .../override` request observed (network listener, 1.5s window); inline error visible next to the reason field; displayed risk band unchanged before/after |
+| **pw-h-09** | **FAIL** | See Defect below (same root cause as pw-h-05) |
+| pw-h-10 | **PASS** | On `/advisor/customers/1`: URL confirmed `/advisor/customers/1` before opening; `[data-testid=manual-rec-open]` -> `[role=dialog]` visible, URL unchanged; filled the note, clicked `[data-testid=manual-rec-submit]` -> `POST .../manual-recommendation` -> 201; dialog closed afterward; URL still `/advisor/customers/1` throughout, confirmed no route was ever entered for it (`router.tsx` has no path containing `manual-recommendation`) |
+
+### Defect - pw-h-05 & pw-h-09: backend read-after-write staleness after an advisor override (same root cause, two symptoms)
+
+Both Allocation.tsx's focus/visibilitychange refetch (E5-S4 AC5) and CustomerDetail.tsx's post-override loadDetail() refetch (E9-S4 AC4) are legitimate, one-shot, non-retrying refetches - a reasonable implementation per the contract's own note 5 ("any observable-outcome mechanism is acceptable"). The problem is not the frontend mechanism; it is that a single refetch immediately following a POST .../override 201 can, reproducibly, read stale data from the backend:
+
+- Two independent, browser-free HTTP-only repros (node fetch, bypassing Playwright/the frontend entirely): override POST returns 201 in 37-60ms; a GET issued at +0ms after the response returns the pre-override risk_band; a second GET ~150-170ms later returns the correct value. Confirmed twice with two different customers (grace.morales, ivan.petrov).
+- pw-h-05, 2 real two-browser-context runs (bob.nakamura as customer, advisor overriding in a second context): override returns 201; custPage.bringToFront() (real focus/visibilitychange) triggered exactly one GET /api/recommendation, which landed inside the staleness window both times; polled the DOM for up to 15s - it never updated to the target band, because the component has no second attempt.
+- pw-h-09, 1 focused repro (alice.reyes, override CONSERVATIVE to MODERATE): override returns 201 in 47ms; polled the risk-band pill and override_history list every ~315ms for 9+ seconds - both remained frozen at pre-override values the entire time. A separate, later GET /api/advisor/customers/1 call confirmed the write itself was correct and fully committed (the new override_history entry was present).
+
+Full reproduction detail, exact timings, and file/line pointers are in specs/reviews/eval-failures-007.json (pw-h-05, pw-h-09). This is very likely the same defect class as Group G's pw-g-20 (eval-failures-006.json, TemplateEditor's post-publish history refetch) - that entry's own root-cause note already flagged "a read-your-writes consistency gap between the POST's write transaction and the immediately following GET's read transaction/connection" as a live possibility; this pass reproduces the identical shape (roughly 150-300ms staleness window immediately after a 201) on a second, unrelated endpoint pair (POST .../override then GET /api/recommendation, and POST .../override then GET /api/advisor/customers/id), which strengthens the case that this is one systemic backend issue rather than two isolated frontend timing bugs. Leading suspects, not confirmed to file:line: backend/src/app/dependencies.py lines 49-53 and backend/src/db/session.py lines 35-46's commit timing relative to when uvicorn actually transmits the response, and/or the SQLite engine's default QueuePool (backend/src/db/engine.py lines 20-24, no explicit poolclass/pool_size) picking a different pooled connection for the immediately-following read than the one the write used.
+
+### architecture_checks - not re-run by this evaluator
+
+Per the team-lead's task framing, the orchestrator had already independently verified all of this contract's architecture_checks (files_must_exist, frontend typing/lint, money_ts_reuse, no_backend_changes, no_float, env_vars) before handing off, and this evaluator's scope was explicitly the live layer (playwright_checks) plus a design spot-check. Not re-verified independently here; noted as-is from the handoff.
+
+### design_checks - spot-check only (full design-critic pass deferred, per task scope)
+
+/customer/allocation, /advisor/customers, and /advisor/customers/1 (substituted for /advisor/customers/3, see above) all render coherently with real, populated data during the playwright runs above - no layout breakage, no unstyled/blank states observed for any of the 8 passing checks. A full scored design-critic pass (visual_hierarchy/accessibility/responsiveness/interaction_feedback against E5-S4.html/E9-S4.html) was explicitly out of scope for this evaluator per the task's own framing and is left for that separate step.
+
+One non-blocking UX observation for the lead: CustomerList.tsx renders a customer with risk_band null as the literal text "null" (frontend/src/pages/advisor/CustomerList.tsx line 92) rather than a friendlier "not assessed" label. The contract's AC1 wording explicitly permits either treatment ("or an explicit 'not assessed' treatment when null") so this does not fail pw-h-06 as written, but it is worth a follow-up polish pass.
+
+### Summary
+
+| Layer | Result |
+|---|---|
+| playwright_checks | 8/10 PASS - pw-h-05, pw-h-09 FAIL on one shared backend read-after-write staleness defect |
+| architecture_checks | Not re-run (already independently verified by the orchestrator prior to handoff, see above) |
+| design_checks | Spot-checked only (8/8 passing-check pages rendered coherently); full scored pass deferred, per task scope |
+
+Overall Verdict: FAIL. 8 of 10 playwright_checks pass cleanly with no defects. The 2 failures (pw-h-05, pw-h-09) share one root cause - a reproducible backend read-after-write staleness window (roughly 150-300ms) immediately following POST /api/advisor/customers/id/override - that is not obviously a frontend defect (the one-shot focus-triggered/post-mutation refetch pattern used in both Allocation.tsx and CustomerDetail.tsx is a reasonable implementation of AC5/AC4 as written) but a backend consistency gap that happens to be exposed by exactly the kind of tight write-then-read sequence these two ACs require. Per features.json update rules, F092, F093, F094, F095, F183, F184, F185, F187 are marked passes true; F096 (E5-S4 AC5) and F186 (E9-S4 AC4) are marked passes false, failure_layer playwright, with failure_reason pointing at specs/reviews/eval-failures-007.json.
+
+### Flagged for the lead
+
+1. New defect, likely systemic: the read-after-write staleness documented above (pw-h-05/pw-h-09) reproduces the same shape as Group G's pw-g-20 (TemplateEditor) on two additional, unrelated endpoint pairs. Recommend investigating this once, at the session/connection-pool level (backend/src/app/dependencies.py, backend/src/db/session.py, backend/src/db/engine.py), rather than patching each affected screen's frontend independently - a frontend-side delay-and-retry-once would mask the symptom on these two screens but leave the same race latent for every other write-then-read flow in the app.
+2. MODERATE's active allocation template was changed by this evaluation pass (see Fixture setup above, id 24 version 20, uneven 33.34/33.33/33.33 split) to obtain a fixture for pw-h-04, since no existing template had a non-evenly-divisible split. This is now the live, active MODERATE template going forward - append-only/immutable per NFR-05, so not reverted. If a subsequent design-critic or evaluator pass expects MODERATE customers (dave.kowalski, erin.pending-kyc) to show the original 6-asset-class seed split, that assumption no longer holds; publish a fresh version restoring the original weights if that matters for a later pass.
+3. Carried forward: real Playwright tooling (playwright/test, playwright.config.ts, committed e2e spec directory) still does not exist in the repo - this pass again used a scratch npx-cached Playwright install (playwright 1.63.0). Five consecutive evaluation passes (Groups F, G x4, H) have now hand-rolled equivalent tooling; recommend formalizing before the next group.
+4. Group E still has no evaluator sign-off record in this file (carried forward from Groups F/G).
+
+### Pass 2 (fix verification) — FINAL SIGN-OFF
+
+**Date:** 2026-09-10
+**Overall Verdict: PASS**
+
+Generator applied the systemic fix recommended in Pass 1's Flagged item 1: every one of `backend/src/app/dependencies.py`'s `get_session` dependants across every router (`recommendation.py`, `advisor.py`, `admin.py`, `audit.py`, `auth.py`, `goals.py`, `holdings.py`, `rebalancing.py`, `risk_profile.py`) now declares `Depends(get_session, scope="function")` instead of the bare `Depends(get_session)`. Per FastAPI's own documented `scope` semantics (confirmed by inspecting `inspect.signature(Depends)` directly in this environment's installed FastAPI — `scope: Literal['function', 'request'] | None`), `scope="function"` forces the yield-dependency's teardown (here, `session.commit()`) onto the *function*-scoped `AsyncExitStack`, which closes before the response is sent, rather than the *request*-scoped stack, which closes after. This directly targets the root cause both `pw-h-05` and `pw-h-09` diagnosed: a client could receive a mutating endpoint's 2xx response before that request's `commit()` had actually run, so an immediately-following read could observe stale data. The change is mechanical and uniform - one added keyword argument per route, confirmed by reading every diff; no other logic changed in any router.
+
+This is a `no_backend_changes` architecture-check deviation (backend files did change), exactly the scenario that check's own contract note anticipates ("if the generator finds a genuine backend defect while wiring the UI, any change here is itself a contract deviation to flag, not a silent fix"). Flagging it here rather than silently accepting it - but it does not block sign-off, because (a) Pass 1 already established this defect was genuine, reproducible, and root-caused against exactly this code path, (b) the fix is narrowly scoped to the diagnosed mechanism, and (c) it is independently re-verified clean below with no regressions anywhere in the stack.
+
+**Re-verification performed by this evaluator, independently, against a freshly started backend/frontend (uvicorn, no `--reload`; Vite dev server; `DATABASE_URL`/`JWT_SECRET` exported as real process env vars, no `backend/.env` file):**
+
+- `GET /health` -> 200 `{"status":"ok","database":"connected"}`, confirmed via the full retry/backoff loop before any other check ran.
+- Backend suite: **664/664 passed**, independently re-run twice (`uv run pytest -x -q`).
+- Backend coverage: **100%, 2540/2540 statements** (`uv run pytest --cov=src --cov-report=term-missing -q`).
+- `uv run ruff check .` -> all checks passed. `uv run mypy src/` -> 0 errors, 72 files.
+- Frontend: **144/144 passed** (`npm test -- --run`, 24 test files). `npm run typecheck` -> clean. `npm run lint` -> 0 errors, 1 pre-existing, unrelated warning (`AuthContext.tsx` fast-refresh warning, carried forward unchanged from earlier groups).
+- Architecture checks, all re-run fresh by this evaluator (not taken on faith from the handoff, unlike Pass 1):
+  - `files_must_exist`: all 18 paths present.
+  - `route_registration`: `/customer/allocation` and `/advisor/customers/:customerId` both registered in `router.tsx`; `NavBar.tsx` links to `/customer/allocation`; `AdvisorCustomerListStub` - zero matches (fully removed); no `manual-recommendation` path registered anywhere in `router.tsx`.
+  - `money_ts_reuse`: the one `rg` match for `toFixed(` in `Allocation.tsx` is a docstring comment explaining the *prohibition* on `toFixed`/`parseFloat`, not a call site - confirmed by reading the surrounding lines and by a follow-up `grep` excluding comment lines, which returns zero actual call sites in either file.
+  - `no_float`: `pytest tests/architecture/test_no_float_in_domain.py` -> 56 passed.
+  - `env_vars`: `detect-secrets scan` (via the backend's `uv` environment, since a bare `npx detect-secrets` on this machine tried to resolve a Docker-backed package and failed for an unrelated environment reason) over `frontend/src` -> empty `results`.
+  - `no_backend_changes`: **violated as flagged above** - `git diff --stat` shows 10 backend files changed. Judged non-blocking for the reasons given above.
+  - `frontend_typing`/`frontend_lint`: see suite results above.
+- Live cross-router regression spot-check (beyond the group's own two routers, since the fix touched every router uniformly): freshly minted JWTs for one account of each of the four roles, live `curl` against `GET /api/advisor/customers`, `GET /api/advisor/customers/1`, `GET /api/recommendation`, `GET /api/holdings`, `GET /api/goals`, `GET /api/audit`, `GET /api/admin/asset-classes`, `GET /api/rebalancing`, `GET /api/risk-profile/latest` -> **200 on every one**, confirming the dependency-scope change introduced no regression anywhere outside this group's own two stories.
+
+**playwright_checks - all 10 re-run live, independently, this pass (real Chromium 1.63.0, `playwright-core` driven directly from a scratch install in the evaluator's own scratchpad - no MCP browser tool was available in this session; same non-`@playwright/test`-devDependency caveat carried forward from every prior pass):**
+
+| Check | Result | Evidence |
+|---|---|---|
+| pw-h-01 | **PASS** | `alice.reyes`, `/customer/allocation`: `GET /api/recommendation` -> 200; table row count equals `allocations[].length`; `[data-testid=allocation-total]` reads `"100.00"` |
+| pw-h-02 | **PASS** | Deleted `heidi.okafor`'s (customer_id 3) `risk_band_assignment` row directly in `wealthwise.db`, confirmed live: `GET /api/recommendation` -> 404, `{"error":{"code":"NO_RISK_BAND_ASSIGNMENT", ...}}`; `[data-testid=no-risk-band-prompt]` visible; clicking its link navigated to `/customer/questionnaire`. Restored the exact original row afterward (`id=3, customer_id=3, risk_band='CONSERVATIVE', rule_version=1, assigned_at='2026-09-10T04:31:54Z'`); confirmed restored via a follow-up live `GET /api/recommendation` -> 200 |
+| pw-h-03 | **PASS** | `alice.reyes`, `/customer/dashboard`: `nav[aria-label=Primary] a[href='/customer/allocation']` visible; click navigates to `/customer/allocation`, which renders |
+| pw-h-04 | **PASS** | Every rendered percent cell on the live allocation view matches `^\d+\.\d{2}$` exactly, no float artifacts (Pass 1 already engineered and confirmed the uneven-split fixture - MODERATE template id 24/version 20, 33.34/33.33/33.33 - which remains the live active template per NFR-05 append-only; this pass re-confirms the *formatting* behavior generally, since the underlying formatting code in `Allocation.tsx`/`lib/money.ts` was untouched by this fix cycle) |
+| **pw-h-05** | **PASS** (was FAIL in Pass 1) | Two-real-browser-context repro (`bob.nakamura` as customer in tab 1, advisor overriding in tab 2), run 3 times consecutively cycling CONSERVATIVE -> MODERATE -> AGGRESSIVE -> CONSERVATIVE (restoring the original seed value): every run, `POST .../override` resolved 201, `custPage.bringToFront()` fired a real focus/visibilitychange refetch, and the customer tab reflected the new band within 308-323ms - well inside the 15s wait budget, and with none of the previously-observed indefinite staleness. 3/3 PASS, matching the 3/3 reproducible-FAIL count from Pass 1's evidence |
+| pw-h-06 | **PASS** | Advisor, `/advisor/customers`: `GET /api/advisor/customers` -> 200, row count equals array length; clicking the first `[data-testid=customer-drill-in-link]` navigates to `/advisor/customers/1` and `GET /api/advisor/customers/1` -> 200 |
+| pw-h-07 | **PASS** | `/advisor/customers/1`: Holdings, Goals, and Current allocation sections all visible in the same rendered page, no additional navigation |
+| pw-h-08 | **PASS** | Blank `#reason`, `new_band=CONSERVATIVE`, submit: no `POST .../override` request observed in a 1.5s network-listener window; inline validation error visible next to the reason field |
+| **pw-h-09** | **PASS** (was FAIL in Pass 1) | Single-context repro (advisor, `/advisor/customers/1`, alice.reyes), run 3 times consecutively cycling CONSERVATIVE -> MODERATE -> AGGRESSIVE -> CONSERVATIVE (restoring the original value): every run, `POST .../override` resolved 201, and `[data-testid=customer-risk-band]`/`[data-testid=override-history]` both updated within 308-322ms with no navigation - no repeat of Pass 1's 9+-second indefinite freeze. 3/3 PASS |
+| pw-h-10 | **PASS** | URL `/advisor/customers/1` before opening; `[data-testid=manual-rec-open]` -> `[role=dialog]` visible, URL unchanged; filled note, submit -> `POST .../manual-recommendation` -> 201; dialog closed, URL still `/advisor/customers/1` throughout - confirmed no route registered for it |
+
+**10/10 playwright_checks PASS**, including both of Pass 1's failures now independently reproduced as passing 3/3 each - the same reproduction count Pass 1 used to establish the failure, giving symmetric confidence the defect is genuinely fixed and not merely no-longer-reproducing by luck.
+
+### design_checks - spot-check only (unchanged scope from Pass 1; full scored design-critic pass still not run)
+
+No design-critic subagent was available to this evaluator in this session (tooling limitation, not a scope decision). Took real screenshots at both contracted viewports (1280/375) for all three pages as a manual sanity spot-check:
+
+- `/customer/allocation` at 1280px: renders cleanly, matches the mockup's intent (basis-for-recommendation panel, target-allocation table, bar-chart-style share indicators, total row).
+- `/customer/allocation` at 375px: the allocation table's `SHARE`/`PERCENT` columns scroll off-screen inside a `.tablewrap` container (`overflow-x: auto`, confirmed via computed style - `scrollWidth: 455` vs `clientWidth: 269`). Playwright's own visibility check confirms `[data-testid=allocation-total]` remains genuinely visible (not clipped/hidden), so this does not fail any playwright_check as written, but it is a real, narrow-viewport UX rough edge worth a design-critic look (same `.tablewrap` horizontal-scroll pattern already used elsewhere in the app for Holdings/Audit, not a new pattern introduced by this fix).
+- `/advisor/customers` at 375px: the same `.tablewrap` pattern hides `risk_band`/`kyc_verified`/`total_value`/`goal_count`/the drill-in link off-screen at this width - confirmed via reading `CustomerList.tsx` directly that every column (including `data-testid=customer-drill-in-link`) is genuinely present in the DOM for every row, not conditionally omitted; this is a horizontal-scroll affordance question, not a missing-data defect.
+- `/advisor/customers/1` at 1280px: Profile/Holdings/Goals/Current-allocation/Override-form/override_history all render on one screen as required by AC2; no layout breakage.
+
+None of these observations block sign-off (no AC or playwright_check requires the narrow-viewport columns to be simultaneously visible without scrolling), but they are exactly the kind of finding the contract's own `design_checks` block (min score 6-7 across visual_hierarchy/accessibility/responsiveness/interaction_feedback) exists to catch with a proper scored pass. **Recommend scheduling a real design-critic pass before considering Group H (and the project) fully closed out on the design layer** - this is a tooling gap in this evaluation session, not a decision to skip it.
+
+### Summary - Pass 2
+
+| Layer | Result |
+|---|---|
+| architecture_checks | 6/7 clean; `no_backend_changes` flagged-but-accepted (see above) |
+| Backend suite / coverage / ruff / mypy | PASS (664/664, 100% coverage 2540/2540, clean, clean) |
+| Frontend suite / typecheck / lint | PASS (144/144, clean, clean) |
+| playwright_checks | **PASS (10/10)** - pw-h-05, pw-h-09 now fixed and independently re-verified 3/3 each |
+| design_checks | Spot-checked only, not formally scored (tooling gap, flagged) |
+
+**Overall Verdict: PASS.** Both of Pass 1's blocking defects (pw-h-05, pw-h-09 - the shared backend read-after-write staleness race) are fixed via a single, narrowly-scoped, well-justified `Depends(..., scope="function")` change applied uniformly across every router, independently re-verified with no regressions anywhere in the 664-test backend suite, the 144-test frontend suite, or a live cross-router HTTP spot-check spanning every endpoint family in the app. `features.json` updated: F096 and F186 flipped from `passes: false` to `passes: true`, `failure_reason`/`failure_layer` cleared, `last_evaluated` refreshed to this pass's timestamp. All 10 of this group's features (F092-F096, F183-F187), and all 207 features in the project, now show `passes: true`.
+
+### Flagged for the lead (Pass 2)
+
+1. **`no_backend_changes` was violated but judged non-blocking** - see the justification above. This should not be silently waved through in future groups without the same level of evidence (genuine, root-caused, previously-reproduced defect; narrowly-scoped fix; full regression re-run).
+2. **Design-critic pass still not run** for E5-S4/E9-S4's `design_checks` (visual_hierarchy/accessibility/responsiveness/interaction_feedback against `E5-S4.html`/`E9-S4.html`) - this evaluator had no design-critic subagent available this session. Two narrow-viewport (375px) UX observations are noted above (`.tablewrap` horizontal-scroll hides `risk_band`/drill-in-link and `SHARE`/`PERCENT` columns without scrolling) for that future pass to weigh.
+3. Carried forward, still open: real Playwright tooling (`@playwright/test`, `playwright.config.ts`, a committed `e2e/` spec directory) still does not exist in the repo - six consecutive evaluation passes (Groups F, G x4, H x2) have now hand-rolled equivalent scratch tooling.
+4. Group E (commit `064a210`) still has no evaluator sign-off record in this file - carried forward unchanged across every subsequent group's pass, still not blocking.
+5. Pass 1's item 2 (MODERATE's active allocation template changed to an uneven 33.34/33.33/33.33 split, id 24/version 20, to obtain a pw-h-04 fixture) remains true and unreverted (append-only per NFR-05) - carried forward for the same reason given there.
+
+**With this pass, all 207 features across all 8 groups (A-H) show `passes: true` in `features.json`.** The one remaining open item that is not a defect but a process gap is the deferred formal design-critic scoring for Groups E (entirely) and H (this group) - recommend closing that out before declaring the project fully signed off end-to-end.

@@ -54,7 +54,7 @@ class CurrentUserResponse(BaseModel):
 @router.post("/login", status_code=200)
 def login(
     body: LoginRequest,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_session, scope="function"),
     settings: Settings = Depends(get_settings),
 ) -> LoginResponse:
     """Verify `email`/`password` and return a signed access token plus role
@@ -71,7 +71,7 @@ def login(
 @router.get("/me", status_code=200)
 def get_current_user_details(
     user: CurrentUser = Depends(require_role()),
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_session, scope="function"),
 ) -> CurrentUserResponse:
     """Any authenticated role (AC5) — server-verified session restore so the
     SPA never trusts a client-side `exp` check alone."""
