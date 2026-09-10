@@ -14,6 +14,7 @@ Status: **207/207 features passing**, merged to `main`.
 - [Who uses it](#who-uses-it)
 - [Architecture](#architecture)
 - [Data flow](#data-flow)
+- [User flows](#user-flows)
 - [Data model](#data-model)
 - [API surface](#api-surface)
 - [Tech stack](#tech-stack)
@@ -121,6 +122,74 @@ sequenceDiagram
     API->>REB: resolve
     REB->>AUD: log resolution
 ```
+
+## User flows
+
+Each persona lands on a different screen straight out of login (`roleRedirect.ts` maps `role → landing route`), and each has its own navigation shape — the customer gets a persistent nav bar across four screens, the advisor drills from a list into one customer at a time, the admin works from a hub of four independent editors, and compliance gets a single filtered screen with no further nav.
+
+### Customer
+
+```mermaid
+flowchart TD
+    Login([Login]) --> Dash[Dashboard]
+    Dash --> Q[Risk-profile questionnaire]
+    Q --> Result[Risk-band result]
+    Result -.persistent nav.-> Dash
+
+    Dash -- persistent nav --> Holdings[Holdings & drift]
+    Dash -- persistent nav --> Alloc[Recommended allocation]
+    Dash -- persistent nav --> Goals[Goals: create / edit]
+    Dash -- persistent nav --> Rebal[Rebalancing recommendations]
+
+    Alloc -. no risk band yet .-> Q
+    Rebal --> Accept[Accept]
+    Rebal --> Dismiss[Dismiss]
+    Accept -.audited.-> Audit[(Audit log)]
+    Dismiss -.audited.-> Audit
+```
+
+### Advisor
+
+```mermaid
+flowchart TD
+    Login([Login]) --> List[Customer list]
+    List -- drill in --> Detail[Customer detail:<br/>risk band, holdings, override history]
+    Detail --> Override[Override risk band<br/>+ reason + note]
+    Detail --> Manual[Log manual recommendation<br/>modal, not a standalone screen]
+    Override -.audited.-> Audit[(Audit log)]
+    Manual -.audited.-> Audit
+```
+
+### Admin
+
+```mermaid
+flowchart TD
+    Login([Login]) --> Home[Admin home]
+    Home --> Rules[Risk-band rule editor:<br/>questionnaire + scoring]
+    Home --> Templates[Allocation template editor:<br/>live sum-to-100 check]
+    Home --> Assets[Asset-class master]
+    Home --> Threshold[Rebalancing threshold]
+
+    Rules -- publish --> RulesV[New immutable version]
+    Templates -- publish --> TemplatesV[New immutable version]
+    RulesV -.audited, in-flight customers stay pinned.-> Audit[(Audit log)]
+    TemplatesV -.audited, in-flight customers stay pinned.-> Audit
+```
+
+### Compliance / Auditor
+
+```mermaid
+flowchart TD
+    Login([Login]) --> AuditLog[Audit-log screen<br/>read-only]
+    AuditLog -- filter --> ByActor[by actor]
+    AuditLog -- filter --> ByEntity[by entity type]
+    AuditLog -- filter --> ByDate[by date range]
+    ByActor --> AuditLog
+    ByEntity --> AuditLog
+    ByDate --> AuditLog
+```
+
+No write controls exist on this screen at all — every other persona's action lands here as a row, never the reverse.
 
 ## Data model
 
